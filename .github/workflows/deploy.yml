@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npx next build --no-turbopack 2>&1 || npx next build 2>&1
       - name: Add .nojekyll
         run: touch out/.nojekyll

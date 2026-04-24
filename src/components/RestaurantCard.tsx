@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, Wifi, Accessibility, Trees, Baby, ExternalLink } from 'lucide-react';
+import { Heart, Wifi, Accessibility, Trees, Baby } from 'lucide-react';
 import { Restaurant } from '@/types';
 import { isOpenNow } from '@/lib/time';
 import UpvoteButton from './UpvoteButton';

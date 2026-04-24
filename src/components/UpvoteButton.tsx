@@ -14,11 +14,12 @@ export default function UpvoteButton({ restaurantId, initialUpvotes }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const stored = localStorage.getItem(`upvoted:${restaurantId}`);
     if (stored === 'true') {
       setVoted(true);
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
   }, [restaurantId]);
 
   const toggle = () => {
