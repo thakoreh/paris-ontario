@@ -46,10 +46,10 @@ export default function Footer() {
               Just 20 minutes from Brantford, 30 minutes from Kitchener-Waterloo.
             </p>
             <div className="flex gap-3 mt-4">
-              <a href="#" className="w-9 h-9 rounded-full bg-gray-800 hover:bg-[var(--primary)] flex items-center justify-center transition-colors">
+              <a href="#" className="w-11 h-11 rounded-full bg-gray-800 hover:bg-[var(--primary)] flex items-center justify-center transition-colors" aria-label="Follow on social">
                 <Camera className="w-4 h-4" />
               </a>
-              <a href="#" className="w-9 h-9 rounded-full bg-gray-800 hover:bg-[var(--primary)] flex items-center justify-center transition-colors">
+              <a href="#" className="w-11 h-11 rounded-full bg-gray-800 hover:bg-[var(--primary)] flex items-center justify-center transition-colors" aria-label="Visit our website">
                 <Globe className="w-4 h-4" />
               </a>
             </div>

@@ -51,7 +51,7 @@ export default function Navbar() {
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden p-2 rounded-lg hover:bg-[var(--border)] transition-colors"
+          className="md:hidden p-3 min-w-[44px] min-h-[44px] rounded-lg hover:bg-[var(--border)] transition-colors flex items-center justify-center -mr-1"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
@@ -61,12 +61,12 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden glass border-t border-[var(--border)] px-4 py-4 flex flex-col gap-3">
+        <div className="md:hidden glass border-t border-[var(--border)] px-4 py-4 flex flex-col gap-1">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className="py-2 px-3 rounded-lg hover:bg-[var(--primary-light)] text-[var(--text)] font-medium transition-colors"
+              className="py-3 px-4 rounded-lg hover:bg-[var(--primary-light)] text-[var(--text)] font-medium text-base transition-colors"
               onClick={() => setMobileOpen(false)}
             >
               {l.label}
@@ -74,7 +74,7 @@ export default function Navbar() {
           ))}
           <Link
             href="/restaurants"
-            className="btn-primary justify-center"
+            className="btn-primary justify-center mt-2"
             onClick={() => setMobileOpen(false)}
           >
             <Utensils className="w-4 h-4" />
