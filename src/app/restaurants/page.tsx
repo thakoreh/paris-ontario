@@ -82,7 +82,7 @@ export default function RestaurantsPage() {
                 {filtered.length} result{filtered.length !== 1 ? 's' : ''}
               </span>
               <button
-                className={`filter-chip !px-3 ${showMap ? 'active' : ''}`}
+                className={`filter-chip !px-3 !py-2 ${showMap ? 'active' : ''}`}
                 onClick={() => setShowMap((v) => !v)}
                 aria-pressed={showMap}
               >
