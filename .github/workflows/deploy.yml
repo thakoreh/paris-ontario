@@ -24,7 +24,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx next build --no-turbopack
+      - run: npx next build --no-turbopack 2>&1 || npx next build 2>&1
       - name: Add .nojekyll
         run: touch out/.nojekyll
       - name: Upload artifact
