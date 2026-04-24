@@ -1,55 +1,48 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Heart } from 'lucide-react';
 
 interface Props {
   restaurantId: string;
   initialUpvotes: number;
+  compact?: boolean;
 }
 
-export default function UpvoteButton({ restaurantId, initialUpvotes }: Props) {
-  const [voted, setVoted] = useState(false);
+export default function UpvoteButton({ restaurantId: _id, initialUpvotes, compact }: Props) {
   const [upvotes, setUpvotes] = useState(initialUpvotes);
-  const [mounted, setMounted] = useState(false);
+  const [voted, setVoted] = useState(false);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(`upvoted:${restaurantId}`);
-    if (stored === 'true') {
+  const handleVote = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (voted) {
+      setUpvotes((n) => n - 1);
+      setVoted(false);
+    } else {
+      setUpvotes((n) => n + 1);
       setVoted(true);
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, [restaurantId]);
-
-  const toggle = () => {
-    const newVoted = !voted;
-    setVoted(newVoted);
-    setUpvotes((prev) => (newVoted ? prev + 1 : prev - 1));
-    if (newVoted) {
-      localStorage.setItem(`upvoted:${restaurantId}`, 'true');
-    } else {
-      localStorage.removeItem(`upvoted:${restaurantId}`);
-    }
   };
-
-  if (!mounted) {
-    return (
-      <button className="upvote-btn">
-        <Heart className="w-4 h-4" />
-        <span>{initialUpvotes}</span>
-      </button>
-    );
-  }
 
   return (
     <button
       className={`upvote-btn ${voted ? 'voted' : ''}`}
-      onClick={toggle}
+      onClick={handleVote}
       aria-label={voted ? 'Remove upvote' : 'Upvote this restaurant'}
+      style={compact ? { padding: '5px 10px', fontSize: '0.75rem', gap: '4px' } : {}}
     >
-      <Heart className={`w-4 h-4 ${voted ? 'fill-current' : ''}`} />
-      <span>{upvotes}</span>
+      <Heart
+        className={voted ? 'fill-current' : ''}
+        style={{
+          width: compact ? '12px' : '14px',
+          height: compact ? '12px' : '14px',
+          transition: 'transform 0.15s ease',
+          transform: voted ? 'scale(1.15)' : 'scale(1)',
+        }}
+      />
+      <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+        {upvotes.toLocaleString()}
+      </span>
     </button>
   );
 }

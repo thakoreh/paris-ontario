@@ -4,27 +4,64 @@ import { Search, X } from 'lucide-react';
 
 interface Props {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (val: string) => void;
 }
 
 export default function SearchBar({ value, onChange }: Props) {
   return (
-    <div className="relative">
-      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <Search
+        style={{
+          position: 'absolute',
+          left: '14px',
+          width: '16px',
+          height: '16px',
+          color: 'var(--text-light)',
+          pointerEvents: 'none',
+        }}
+      />
       <input
         type="text"
+        placeholder="Search restaurants or cuisine…"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search restaurants or cuisine..."
-        className="w-full pl-12 pr-10 py-3.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] transition-all text-sm"
+        style={{
+          width: '100%',
+          padding: '10px 40px 10px 40px',
+          borderRadius: '12px',
+          border: '1.5px solid var(--warm-border)',
+          background: 'var(--warm-surface)',
+          color: 'var(--text)',
+          fontSize: '0.9375rem',
+          fontFamily: 'inherit',
+          outline: 'none',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+        }}
+        onFocus={(e) => {
+          e.target.style.borderColor = 'var(--primary)';
+          e.target.style.boxShadow = '0 0 0 3px rgba(13,148,136,0.1)';
+        }}
+        onBlur={(e) => {
+          e.target.style.borderColor = 'var(--warm-border)';
+          e.target.style.boxShadow = 'none';
+        }}
       />
       {value && (
         <button
           onClick={() => onChange('')}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-[var(--border)] transition-colors"
+          style={{
+            position: 'absolute',
+            right: '12px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            padding: '2px',
+          }}
           aria-label="Clear search"
         >
-          <X className="w-4 h-4 text-[var(--text-muted)]" />
+          <X style={{ width: '14px', height: '14px' }} />
         </button>
       )}
     </div>
