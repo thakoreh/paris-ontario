@@ -27,20 +27,30 @@ jobs:
       - run: npx next build --no-turbopack 2>&1 || npx next build 2>&1
       - name: Add .nojekyll
         run: touch out/.nojekyll
-      # Next.js static export creates /blog.html but GitHub Pages needs /blog/index.html
-      # for trailing-slash routes. Fix: copy .html files to directory/index.html
+      # Next.js static export creates:
+      #   /blog.html          -> needs /blog/index.html
+      #   /blog/slug.html     -> needs /blog/slug/index.html
+      #   /photo-challenge.html -> needs /photo-challenge/index.html
+      # GitHub Pages needs index.html inside directories for trailing-slash URLs
       - name: Fix trailing slash routes for GitHub Pages
         run: |
-          # For each route that has a .html but no directory/index.html, create the directory structure
+          # Top-level routes: blog.html -> blog/index.html
           for file in out/*.html; do
             name=$(basename "$file" .html)
             if [ "$name" != "index" ] && [ "$name" != "404" ]; then
               mkdir -p "out/$name"
               cp "$file" "out/$name/index.html"
-              echo "Created out/$name/index.html from $file"
             fi
           done
-          echo "=== Final out/ directory structure ==="
+          # Blog subdirectory pages: blog/slug.html -> blog/slug/index.html
+          if [ -d "out/blog" ]; then
+            for file in out/blog/*.html; do
+              slug=$(basename "$file" .html)
+              mkdir -p "out/blog/$slug"
+              cp "$file" "out/blog/$slug/index.html"
+            done
+          fi
+          echo "=== Directory structure ==="
           find out -type d | head -30
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
