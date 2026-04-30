@@ -16,8 +16,9 @@ import {
   Landmark,
   UtensilsCrossed,
 } from 'lucide-react';
-import Hero from '@/components/Hero';
-import RestaurantCard from '@/components/RestaurantCard';
+import Hero from "@/components/Hero";
+import RestaurantCard from "@/components/RestaurantCard";
+import { ParisTrivia } from "@/components/ParisTrivia";
 import { restaurants } from '@/data/restaurants';
 
 export default function HomePage() {
@@ -559,6 +560,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      <ParisTrivia />
     </>
   );
 }

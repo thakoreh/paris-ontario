@@ -26,5 +26,6 @@
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "description": "Discover Paris, Ontario \u2014 a charming town known as the 'Paris of Canada.' Restaurants, attractions, and local events."
 }
