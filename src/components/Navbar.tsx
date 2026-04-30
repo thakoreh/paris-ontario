@@ -18,6 +18,7 @@ export default function Navbar() {
     { href: '/', label: 'Home' },
 { href: "/restaurants", label: "Restaurants" },
     { href: "/blog", label: "Blog" },
+    { href: "/photo-challenge", label: "📸 Photo Challenge" },
   ];
 
   return (
