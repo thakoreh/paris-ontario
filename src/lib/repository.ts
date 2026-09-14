@@ -1,9 +1,17 @@
 import { serverClient } from "./supabase/server";
-import { createSeed } from "@/data/seed";
 import type { Notice, Deadline, Source } from "@/types";
+
+const unavailable = {
+  notices: [] as Notice[],
+  deadlines: [] as Deadline[],
+  sources: [] as Source[],
+  demo: false,
+  error: "Local updates are temporarily unavailable.",
+};
+
 export async function publicData() {
   const db = await serverClient();
-  if (!db) return { ...createSeed(), demo: true, error: null };
+  if (!db) return unavailable;
   const now = new Date().toISOString();
   const [n, d, s] = await Promise.all([
     db
@@ -32,7 +40,7 @@ export async function publicData() {
 }
 export async function noticeBySlug(slug: string) {
   const db = await serverClient();
-  if (!db) return createSeed().notices.find((n) => n.slug === slug) || null;
+  if (!db) return null;
   const { data } = await db
     .from("notices")
     .select("*")
@@ -42,7 +50,7 @@ export async function noticeBySlug(slug: string) {
 }
 export async function deadlineById(id: string) {
   const db = await serverClient();
-  if (!db) return createSeed().deadlines.find((d) => d.id === id) || null;
+  if (!db) return null;
   const { data } = await db.from("deadlines").select("*").eq("id", id).single();
   return data as Deadline | null;
 }
