@@ -1,38 +1,44 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import { Provider } from "@/components/provider";
+import { Shell } from "@/components/shell";
 export const metadata: Metadata = {
-  title: 'Paris, Ontario — Discover the Riverside Gem',
-  description:
-    'Your guide to Paris, Ontario — a charming heritage town on the Grand River. Discover local restaurants, cafés, pubs, and hidden gems with real-time open status, filters, and community upvotes.',
-  keywords:
-    'Paris Ontario, Grand River, restaurants Paris Ontario, Paris Ontario dining, things to do Paris Ontario, heritage town Ontario, Paris Ontario café',
-  openGraph: {
-    title: 'Paris, Ontario — Discover the Riverside Gem',
-    description:
-      'A charming heritage town on the Grand River. Discover local restaurants, cafés, and hidden gems.',
-    type: 'website',
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  ),
+  title: {
+    default: "Paris Pulse — Know what changed around you",
+    template: "%s | Paris Pulse",
   },
+  description:
+    "Roads, construction, planning, recreation and important local updates for Paris, Ontario. Trusted sources, nearby notices and upcoming deadlines.",
+  openGraph: {
+    title: "Paris Pulse",
+    description: "A little more in the know. Local changes for Paris, Ontario.",
+    type: "website",
+  },
+  applicationName: "Paris Pulse",
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#214f43",
+};
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Mono:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230D9488'/><text x='50%25' y='56%25' text-anchor='middle' dominant-baseline='middle' font-family='Georgia,serif' font-size='18' font-weight='bold' fill='white'>P</text></svg>" />
-      </head>
-      <body className="min-h-screen flex flex-col antialiased">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
+      <body>
+        <Provider>
+          <Shell>{children}</Shell>
+        </Provider>
       </body>
     </html>
   );
