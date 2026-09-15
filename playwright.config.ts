@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "tests/e2e",
+  workers: 1,
+  timeout: 90_000,
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3017",
     trace: "retain-on-failure",
@@ -15,7 +17,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "npm run dev -- --port 3017",
+        command: "NEXT_PUBLIC_PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_TEST_MODE=1 npm run dev -- --port 3017",
         url: "http://localhost:3017",
         reuseExistingServer: true,
         timeout: 120000,

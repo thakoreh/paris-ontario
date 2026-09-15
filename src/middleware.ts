@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { verifiedPreview } from "@/data/verified-preview";
 
 const staticRoutes = new Set([
   "/",
@@ -11,6 +12,10 @@ const staticRoutes = new Set([
   "/sources",
   "/about",
   "/disclaimer",
+  "/editorial-policy",
+  "/privacy",
+  "/terms",
+  "/contact",
   "/login",
   "/signup",
   "/forgot-password",
@@ -33,6 +38,7 @@ const staticRoutes = new Set([
   "/admin/ingestion",
   "/robots.txt",
   "/sitemap.xml",
+  "/llms.txt",
   "/_not-found",
 ]);
 
@@ -44,6 +50,13 @@ function notFoundResponse(request: NextRequest) {
 
 function isSystemPath(pathname: string) {
   return pathname.startsWith("/_next/") || pathname.startsWith("/api/");
+}
+
+function previewMode() {
+  return (
+    process.env.PARIS_PULSE_TEST_MODE === "1" &&
+    process.env.NODE_ENV !== "production"
+  );
 }
 
 export async function middleware(request: NextRequest) {
@@ -84,6 +97,13 @@ export async function middleware(request: NextRequest) {
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ) {
+    if (previewMode()) {
+      const exists =
+        type === "notice"
+          ? verifiedPreview.notices.some((notice) => notice.slug === value)
+          : verifiedPreview.deadlines.some((deadline) => deadline.id === value);
+      return exists ? NextResponse.next({ request }) : notFoundResponse(request);
+    }
     return notFoundResponse(request);
   }
 

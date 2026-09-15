@@ -249,8 +249,9 @@ export function Provider({ children }: { children: ReactNode }) {
       notify("Reminder saved. Email scheduling is not enabled yet.");
     },
     signOut: async () => {
-      if (!demo) await browserClient()!.auth.signOut();
-      if (demo || !state.profile) {
+      const db = browserClient();
+      if (db && !demo) await db.auth.signOut();
+      if (!db || demo || !state.profile) {
         localStorage.removeItem("paris-pulse-demo");
         localStorage.removeItem("paris-pulse-guest");
       }

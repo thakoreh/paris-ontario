@@ -1,4 +1,4 @@
--- Initial verified Paris Pulse content. Sources were checked on 2026-09-14.
+-- Initial verified Paris Pulse content. Sources checked on 2026-09-15.
 -- This file deliberately contains only official County of Brant notices; it contains no sample rows.
 begin;
 
@@ -40,8 +40,8 @@ insert into public.official_sources (
   'manual',
   false,
   60,
-  now(),
-  now(),
+  '2026-09-15T14:24:00-04:00',
+  '2026-09-15T14:24:00-04:00',
   true
 )
 on conflict (id) do update set
@@ -78,8 +78,8 @@ insert into public.notices (
   'https://www.brant.ca/news/posts/street-lighting-installation-on-powerline-road-in-paris/',
   '2026-09-09T12:00:00-04:00',
   '2026-09-09T12:00:00-04:00',
-  now(),
-  now(),
+  '2026-09-15T14:24:00-04:00',
+  '2026-09-15T14:24:00-04:00',
   '2026-09-14T00:00:00-04:00',
   '2026-10-12T23:59:59-04:00',
   '2026-10-13T00:00:00-04:00',
@@ -105,8 +105,8 @@ insert into public.notices (
   'https://www.brant.ca/news/posts/upcoming-storm-sewer-system-maintenance-on-willow-street-in-paris/',
   '2026-09-11T12:00:00-04:00',
   '2026-09-11T12:00:00-04:00',
-  now(),
-  now(),
+  '2026-09-15T14:24:00-04:00',
+  '2026-09-15T14:24:00-04:00',
   '2026-09-15T07:00:00-04:00',
   '2026-09-16T17:00:00-04:00',
   '2026-09-16T17:00:00-04:00',
@@ -132,8 +132,8 @@ insert into public.notices (
   'https://www.brant.ca/news/posts/registration-for-fall-programs-opens-monday-september-14-2026-at-600-pm',
   '2026-09-10T12:00:00-04:00',
   '2026-09-10T12:00:00-04:00',
-  now(),
-  now(),
+  '2026-09-15T14:24:00-04:00',
+  '2026-09-15T14:24:00-04:00',
   '2026-09-14T18:00:00-04:00',
   null,
   '2026-10-15T00:00:00-04:00',
@@ -152,15 +152,15 @@ insert into public.notices (
   'downtown-paris-promenade-update',
   'Downtown Paris Promenade removal begins',
   'downtown-paris-promenade-removal-begins',
-  'The Downtown Paris Promenade remains in place until September 14, when removal begins so the construction team can complete the final elements of Phase 1 of the Downtown Dig.',
-  'Official County of Brant update. Residents and downtown visitors should expect changing curbside and work-area conditions as removal starts.',
+  'Downtown Paris Promenade removal began September 14 so the construction team can complete the final elements of Phase 1 of the Downtown Dig.',
+  'Official County of Brant update. Residents and downtown visitors should expect changing curbside and work-area conditions while removal proceeds.',
   'downtown',
   'important',
   'https://www.brant.ca/news/posts/downtown-paris-promenade-update',
   '2026-08-31T12:00:00-04:00',
   '2026-08-31T12:00:00-04:00',
-  now(),
-  now(),
+  '2026-09-15T14:24:00-04:00',
+  '2026-09-15T14:24:00-04:00',
   '2026-09-14T00:00:00-04:00',
   null,
   '2026-09-21T00:00:00-04:00',

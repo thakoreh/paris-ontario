@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { publicData, noticeBySlug, deadlineById } from "@/lib/repository";
 import { Feed } from "@/components/feed";
 import { StormPage, SourcesPage, AboutPage } from "@/components/public-pages";
+import { TrustPage } from "@/components/trust-pages";
 import { NoticeDetail, DeadlinesPage } from "@/components/detail";
 import {
   AuthForm,
@@ -27,6 +28,13 @@ function isKnownContentRoute(path: string[]) {
       "map",
       "events",
       "sources",
+      "about",
+      "editorial-policy",
+      "privacy",
+      "terms",
+      "contact",
+      "disclaimer",
+      "_not-found",
       "app",
       "app/feed",
       "app/map",
@@ -42,6 +50,13 @@ export async function generateMetadata({
   params: Promise<{ path?: string[] }>;
 }): Promise<Metadata> {
   const { path = [] } = await params;
+  const route = path.join("/");
+  if (route === "_not-found") {
+    return {
+      title: "Update not found",
+      robots: { index: false, follow: false },
+    };
+  }
   const title =
     path[0] === "notice"
       ? (await noticeBySlug(path[1]))?.title
@@ -55,14 +70,34 @@ export async function generateMetadata({
               events: "Paris Ontario events",
               map: "Local notice map",
               sources: "Our sources",
+              about: "About Paris Pulse",
+              "editorial-policy": "Editorial policy",
+              privacy: "Privacy",
+              terms: "Terms of use",
+              contact: "Contact and corrections",
             } as Record<string, string>
           )[path[0]];
+  const privateRoute = [
+    "app",
+    "admin",
+    "login",
+    "signup",
+    "forgot-password",
+    "reset-password",
+    "onboarding",
+  ].includes(path[0]);
+  const canonical =
+    route === "disclaimer" ? "/privacy" : route ? `/${route}` : "/";
   return {
     title: title || "Know what changed around you",
-    robots:
-      path[0] === "app" || path[0] === "admin"
-        ? { index: false, follow: false }
-        : undefined,
+    description:
+      route === "editorial-policy"
+        ? "How Paris Pulse verifies, corrects and expires local information for Paris, Ontario."
+        : route === "sources"
+          ? "Named sources, review status and source transparency for Paris Pulse."
+          : undefined,
+    alternates: privateRoute ? undefined : { canonical },
+    robots: privateRoute ? { index: false, follow: false } : undefined,
   };
 }
 export default async function Page({
@@ -75,8 +110,17 @@ export default async function Page({
   if (["login", "signup", "forgot-password", "reset-password"].includes(route))
     return <AuthForm mode={route} />;
   if (route === "onboarding") return <Onboarding />;
+  if (route === "_not-found")
+    return (
+      <div className="page-wrap">
+        <h1>This update isn’t here.</h1>
+        <p>It may have moved or may not be published yet.</p>
+      </div>
+    );
   if (route === "about" || route === "disclaimer")
     return <AboutPage privacy={route === "disclaimer"} />;
+  if (["editorial-policy", "privacy", "terms", "contact"].includes(route))
+    return <TrustPage kind={route as "editorial-policy" | "privacy" | "terms" | "contact"} />;
   if (
     path[0] === "admin" &&
     path.length <= 2 &&

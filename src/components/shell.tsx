@@ -125,7 +125,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <ArrowUpRight size={15} />
           </Link>
         </header>
-        {p.demo && (
+        {p.demo && process.env.NEXT_PUBLIC_PARIS_PULSE_TEST_MODE !== "1" && (
           <div className="demo-banner">
             <span>
               <strong>Sample data</strong> You’re exploring a demo. Notices and
@@ -145,7 +145,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div>
             <Link href="/about">About</Link>
             <Link href="/sources">Sources</Link>
-            <Link href="/disclaimer">Privacy & disclaimer</Link>
+            <Link href="/editorial-policy">Editorial policy</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+            <Link href="/contact">Contact</Link>
           </div>
           <p>
             Information can change. Verify important details with the original

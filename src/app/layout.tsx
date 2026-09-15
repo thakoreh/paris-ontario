@@ -5,37 +5,47 @@ import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { Provider } from "@/components/provider";
 import { Shell } from "@/components/shell";
+import { StructuredData } from "@/components/structured-data";
+import { normalizePublicUrl, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+
+const siteUrl = normalizePublicUrl();
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  ),
+  metadataBase: siteUrl || undefined,
   title: {
-    default: "Paris Pulse — Know what changed around you",
+    default: "Paris Pulse | Local updates for Paris, Ontario",
     template: "%s | Paris Pulse",
   },
-  description:
-    "Roads, construction, planning, recreation and important local updates for Paris, Ontario. Trusted sources, nearby notices and upcoming deadlines.",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: siteUrl ? { canonical: "/" } : undefined,
   openGraph: {
-    title: "Paris Pulse",
-    description: "A little more in the know. Local changes for Paris, Ontario.",
+    title: "Paris Pulse | Local updates for Paris, Ontario",
+    description: SITE_DESCRIPTION,
     type: "website",
+    locale: "en_CA",
+    url: siteUrl ? "/" : undefined,
+    siteName: SITE_NAME,
   },
-  applicationName: "Paris Pulse",
+  twitter: {
+    card: "summary",
+    title: "Paris Pulse | Local updates for Paris, Ontario",
+    description: SITE_DESCRIPTION,
+  },
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#214f43",
 };
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en-CA">
       <body>
+        <StructuredData base={siteUrl} />
         <Provider>
           <Shell>{children}</Shell>
         </Provider>

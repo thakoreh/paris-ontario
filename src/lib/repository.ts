@@ -1,5 +1,10 @@
 import { serverClient } from "./supabase/server";
 import type { Notice, Deadline, Source } from "@/types";
+import { verifiedPreview } from "@/data/verified-preview";
+
+const previewMode = () =>
+  process.env.PARIS_PULSE_TEST_MODE === "1" &&
+  process.env.NODE_ENV !== "production";
 
 const unavailable = {
   notices: [] as Notice[],
@@ -10,6 +15,7 @@ const unavailable = {
 };
 
 export async function publicData() {
+  if (previewMode()) return verifiedPreview;
   const db = await serverClient();
   if (!db) return unavailable;
   const now = new Date().toISOString();
@@ -39,6 +45,8 @@ export async function publicData() {
   };
 }
 export async function noticeBySlug(slug: string) {
+  if (previewMode())
+    return verifiedPreview.notices.find((notice) => notice.slug === slug) || null;
   const db = await serverClient();
   if (!db) return null;
   const { data } = await db
@@ -49,6 +57,8 @@ export async function noticeBySlug(slug: string) {
   return data as Notice | null;
 }
 export async function deadlineById(id: string) {
+  if (previewMode())
+    return verifiedPreview.deadlines.find((deadline) => deadline.id === id) || null;
   const db = await serverClient();
   if (!db) return null;
   const { data } = await db.from("deadlines").select("*").eq("id", id).single();

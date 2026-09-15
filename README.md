@@ -85,6 +85,19 @@ Alternatively export the variables in your shell and run `npm run db:seed`.
 
 The seed is idempotent by stable IDs. It contains no real user accounts or private home addresses. Four local sample locations are created by the explicit demo action only. Production residents create their own locations.
 
+### Resident launch baseline
+
+`npm run db:seed` creates fictional demo content for local product review. **Do not use `npm run db:seed` for production.**
+
+For the first resident-facing launch, apply the reviewed, source-linked baseline after the migrations. It is deliberately separate from demo fixtures:
+
+```sh
+supabase db execute --file supabase/seed/2026-09-14-initial-verified-paris-notices.sql
+supabase db execute --file supabase/seed/2026-09-14-verified-paris-data-expansion.sql
+```
+
+Before publishing, re-check every record whose source date, event date, end date or expiry has passed. The baseline is an initial editorial queue, not an evergreen feed. See [`docs/launch-runbook.md`](docs/launch-runbook.md) for the required source-review cadence, deployment checks and launch hold points.
+
 ### Editor/admin setup
 
 Sign up normally and confirm the email. Through the Supabase SQL editor, promote only the intended account:
@@ -111,6 +124,7 @@ RLS is enabled for every table. Locations, interests, matches, preferences and r
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production core | Public client key; access constrained by RLS |
 | `SUPABASE_SERVICE_ROLE_KEY` | Seed/operator commands | Privileged seed access, never exposed to browsers |
 | `NEXT_PUBLIC_APP_URL` | Production deployment | Canonical public origin for metadata/sitemap |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | Production launch | Visible corrections/contact address |
 | `RESEND_API_KEY` | Optional | Enables the email provider abstraction |
 | `EMAIL_FROM` | With Resend | Verified sender address |
 | `OPENAI_API_KEY` | Optional/future | Reserved; no AI network call is enabled by default |
@@ -160,6 +174,7 @@ npm test
 npm run build
 npx playwright install chromium
 npm run test:e2e
+SEO_AUDIT_URL=https://parispulse.ca npm run verify:seo
 npm audit
 ```
 

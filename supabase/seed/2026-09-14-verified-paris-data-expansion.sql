@@ -1,4 +1,4 @@
--- Verified Paris Pulse expansion. Sources checked on 2026-09-14.
+-- Verified Paris Pulse expansion. Sources checked on 2026-09-15.
 -- Every notice and date below has a direct, public source URL; no sample rows are inserted.
 begin;
 
@@ -15,7 +15,7 @@ insert into public.official_sources (
   'website',
   'https://www.brant.ca/visit-and-discover-brant/arts-culture-and-heritage/culture-days/',
   'Official County of Brant Culture Days hub and Paris-area event listings.',
-  'official', 'manual', false, 60, now(), now(), true
+  'official', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
 (
   'cb333333-3333-4333-8333-333333333333',
@@ -25,7 +25,7 @@ insert into public.official_sources (
   'website',
   'https://www.brant.ca/council-and-county-administration/elections/',
   'Official 2026 County of Brant municipal and school board election information.',
-  'official', 'manual', false, 60, now(), now(), true
+  'official', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
 (
   'cb444444-4444-4444-8444-444444444444',
@@ -35,7 +35,7 @@ insert into public.official_sources (
   'website',
   'https://www.brantlibrary.ca/en/your-library/hours-and-locations.aspx',
   'Official Paris Branch hours, location, and 2026 holiday-closure schedule.',
-  'official_agency', 'manual', false, 60, now(), now(), true
+  'official_agency', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
 (
   'cb555555-5555-4555-8555-555555555555',
@@ -45,7 +45,7 @@ insert into public.official_sources (
   'website',
   'https://www.parisfairgrounds.com/events/paris-night-market---day-2',
   'Official Paris Fairgrounds events, including community market listings.',
-  'trusted_local_org', 'manual', false, 60, now(), now(), true
+  'trusted_local_org', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
 (
   'cb666666-6666-4666-8666-666666666666',
@@ -55,7 +55,7 @@ insert into public.official_sources (
   'website',
   'https://www.grandriver.ca/news/flood-messages/',
   'Official Grand River watershed flood-message feed.',
-  'official_agency', 'manual', false, 60, now(), now(), true
+  'official_agency', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
 (
   'cb777777-7777-4777-8777-777777777777',
@@ -65,7 +65,7 @@ insert into public.official_sources (
   'website',
   'https://www.municipal511.ca/',
   'Official municipal road-closure and construction map.',
-  'official_agency', 'manual', false, 60, now(), now(), true
+  'official_agency', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
 (
   'cb888888-8888-4888-8888-888888888888',
@@ -75,7 +75,7 @@ insert into public.official_sources (
   'website',
   'https://grandbridgeenergy.com/outages/',
   'Official GrandBridge Energy outage information.',
-  'official_agency', 'manual', false, 60, now(), now(), true
+  'official_agency', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
 (
   'cb999999-9999-4999-8999-999999999999',
@@ -85,7 +85,7 @@ insert into public.official_sources (
   'website',
   'https://www.brant.ca/roads-parking-and-public-transit/brant-transit/',
   'Official County of Brant transit service information.',
-  'official', 'manual', false, 60, now(), now(), true
+  'official', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 )
 on conflict (id) do update set
   name = excluded.name,
@@ -119,7 +119,7 @@ insert into public.notices (
   'Official County of Brant election information. Residents can check their voter-registration status through the official voter-registration service.',
   'public_notice', 'important',
   'https://www.brant.ca/council-and-county-administration/elections/',
-  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', now(), now(),
+  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   null, '2026-09-15T23:59:59-04:00', '2026-09-15T23:59:59-04:00',
   'County of Brant', null, null, 'County of Brant', 'Paris',
   '["election", "voter-registration", "deadline"]'::jsonb, 'verified', 1, false
@@ -135,7 +135,7 @@ insert into public.notices (
   'Official County of Brant notice. The open house recognizes the 2022–2026 committee’s work and introduces the committee to residents, caregivers, and people living with ability challenges.',
   'event', 'useful',
   'https://www.brant.ca/news/posts/join-the-accessibility-advisory-committee-for-an-open-house/',
-  '2026-08-14T12:00:00-04:00', '2026-08-14T12:00:00-04:00', now(), now(),
+  '2026-08-14T12:00:00-04:00', '2026-08-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   '2026-09-22T12:00:00-04:00', '2026-09-22T14:00:00-04:00', '2026-09-22T14:00:00-04:00',
   'County of Brant Council Chambers, 7 Broadway Street West', 43.192664, -80.3849894,
   'Council Chambers, downtown Paris', 'Paris',
@@ -152,7 +152,7 @@ insert into public.notices (
   'Official County of Brant Culture Days hub. The schedule includes Paris-area workshops, exhibitions, and walking tours; each listing should be checked for its specific time and location.',
   'event', 'useful',
   'https://www.brant.ca/visit-and-discover-brant/arts-culture-and-heritage/culture-days/',
-  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', now(), now(),
+  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   '2026-09-18T00:00:00-04:00', '2026-10-04T23:59:59-04:00', '2026-10-05T00:00:00-04:00',
   'Multiple venues', null, null, 'Paris and County of Brant', 'Paris',
   '["culture-days", "arts", "heritage"]'::jsonb, 'verified', 1, false
@@ -168,7 +168,7 @@ insert into public.notices (
   'Official Paris Agricultural Society event listing. The event includes artisans, food trucks, entertainment, an outdoor movie on Saturday, and gate admission paid in cash.',
   'event', 'useful',
   'https://www.parisfairgrounds.com/events/paris-night-market---day-2',
-  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', now(), now(),
+  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   '2026-09-18T17:00:00-04:00', '2026-09-19T22:00:00-04:00', '2026-09-19T22:00:00-04:00',
   'Paris Fairgrounds, 139 Silver Street', 43.2045471, -80.407974,
   'Paris Fairgrounds', 'Paris',
@@ -185,7 +185,7 @@ insert into public.notices (
   'Official County of Brant Public Library 2026 holiday-closure schedule. The Paris Branch is at 12 William Street; its return bin remains available outside regular hours.',
   'facility', 'important',
   'https://www.brantlibrary.ca/en/your-library/hours-and-locations.aspx',
-  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', now(), now(),
+  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   '2026-09-30T00:00:00-04:00', '2026-09-30T23:59:59-04:00', '2026-10-01T00:00:00-04:00',
   'County of Brant Public Library - Paris Branch, 12 William Street', 43.1937317, -80.3860678,
   'Paris Branch Library', 'Paris',
@@ -202,7 +202,7 @@ insert into public.notices (
   'Culture Days listing connected to the County of Brant Culture Days Hub. Confirm participation details with the original event listing before attending.',
   'event', 'useful',
   'https://culturedays.ca/en/events/b43a2522-d9dc-491d-a48a-9dee66fc9b47',
-  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', now(), now(),
+  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   '2026-09-19T15:00:00-04:00', '2026-09-19T17:00:00-04:00', '2026-09-19T17:00:00-04:00',
   'Islamic Centre of Brant, 143 King Edward Street', null, null,
   'Islamic Centre of Brant', 'Paris',
@@ -219,7 +219,7 @@ insert into public.notices (
   'Culture Days listing connected to the County of Brant Culture Days Hub. Confirm participation details with the original event listing before attending.',
   'event', 'useful',
   'https://culturedays.ca/en/events/403a6f1e-201e-475a-8004-41fd1e8b9ac0',
-  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', now(), now(),
+  '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   '2026-09-22T18:30:00-04:00', '2026-09-22T21:00:00-04:00', '2026-09-22T21:00:00-04:00',
   'Rebel & Royal, 119 Grand River Street', null, null,
   'Rebel & Royal', 'Paris',
@@ -264,7 +264,7 @@ insert into public.deadlines (
   'Register by September 15 to receive a Voter Notification Letter in the mail for the October 26 County of Brant election.',
   'public_notice', null, '2026-09-15T23:59:59-04:00',
   'https://www.brant.ca/council-and-county-administration/elections/',
-  null, null, 'cb333333-3333-4333-8333-333333333333', now(), false
+  null, null, 'cb333333-3333-4333-8333-333333333333', '2026-09-15T14:24:00-04:00', false
 ),
 (
   'da222222-2222-4222-8222-222222222222',
@@ -274,7 +274,7 @@ insert into public.deadlines (
   'The County of Brant Culture Days program begins September 18 and continues through October 4.',
   'event', '2026-09-18T00:00:00-04:00', '2026-09-18T00:00:00-04:00',
   'https://www.brant.ca/visit-and-discover-brant/arts-culture-and-heritage/culture-days/',
-  null, null, 'cb222222-2222-4222-8222-222222222222', now(), false
+  null, null, 'cb222222-2222-4222-8222-222222222222', '2026-09-15T14:24:00-04:00', false
 ),
 (
   'da333333-3333-4333-8333-333333333333',
@@ -284,7 +284,7 @@ insert into public.deadlines (
   'The Paris Night Market & Fall Fest opens at 5 p.m. on September 18 at the Paris Fairgrounds.',
   'event', '2026-09-18T17:00:00-04:00', '2026-09-18T17:00:00-04:00',
   'https://www.parisfairgrounds.com/events/paris-night-market---day-2',
-  43.2045471, -80.407974, 'cb555555-5555-4555-8555-555555555555', now(), false
+  43.2045471, -80.407974, 'cb555555-5555-4555-8555-555555555555', '2026-09-15T14:24:00-04:00', false
 )
 on conflict (id) do update set
   notice_id = excluded.notice_id,

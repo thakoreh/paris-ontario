@@ -9,6 +9,7 @@ import type { Notice, Source } from "@/types";
 import { NoticeCard, SectionHeading } from "./cards";
 import { isExpired } from "@/lib/relevance";
 import { formatDate } from "@/lib/utils";
+import { contentFreshness } from "@/lib/site";
 export function StormPage({
   notices,
   sources,
@@ -106,6 +107,7 @@ export function StormPage({
   );
 }
 export function SourcesPage({ sources }: { sources: Source[] }) {
+  const freshness = contentFreshness(sources);
   return (
     <div className="page-wrap">
       <span className="eyebrow">TRUST STARTS WITH TRANSPARENCY</span>
@@ -121,6 +123,18 @@ export function SourcesPage({ sources }: { sources: Source[] }) {
           community signals. Unverified community signals cannot trigger
           authoritative alerts.
         </p>
+      </div>
+      <div className="message-box" role="status">
+        <strong>
+          {freshness.state === "current"
+            ? "Source review is current."
+            : freshness.state === "attention"
+              ? "Some source reviews need attention."
+              : "Source review history is not available yet."}
+        </strong>{" "}
+        {freshness.state === "unknown"
+          ? "No active source has a recorded review time."
+          : `${freshness.checkedSources} of ${sources.filter((s) => s.active).length} active sources have a recorded check; ${freshness.staleSources} need review.`}
       </div>
       <div className="two-grid">
         {sources.map((s) => (

@@ -67,10 +67,13 @@ export async function POST(request: Request) {
       .enum(["notices", "deadlines", "official_sources"])
       .parse(body.table);
     const id = body.id ? z.string().uuid().parse(body.id) : undefined;
+    const now = new Date().toISOString();
+    let verifiedSourceId: string | null = null;
     let row: Record<string, unknown>;
     if (table === "notices") {
       const input = noticeSchema.parse(body.data);
-      const now = new Date().toISOString();
+      if (input.verification_status === "verified" && !input.is_sample)
+        verifiedSourceId = input.source_id;
       row = {
         ...input,
         community_id: community.id,
@@ -133,6 +136,13 @@ export async function POST(request: Request) {
     }
     const { data, error } = await db.from(table).upsert(row).select().single();
     if (error) throw error;
+    if (verifiedSourceId) {
+      const { error: sourceError } = await db
+        .from("official_sources")
+        .update({ last_checked_at: now, last_success_at: now })
+        .eq("id", verifiedSourceId);
+      if (sourceError) throw sourceError;
+    }
     return Response.json({ data });
   } catch (e) {
     return Response.json(
