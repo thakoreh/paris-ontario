@@ -574,7 +574,7 @@ export function Feed({
             ))}
           </div>
           <Link href="/signup" className="text-link">
-            Get your daily email updates <ArrowRight size={16} />
+            Create your local Pulse <ArrowRight size={16} />
           </Link>
         </section>
       )}

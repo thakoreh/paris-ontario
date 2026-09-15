@@ -182,7 +182,7 @@ export function DeadlinesPage({
   return (
     <div className="page-wrap detail-wrap">
       <span className="eyebrow">A LITTLE HEADS-UP</span>
-      <h1>{detail ? "Make time for what matters." : "Deadlines coming up."}</h1>
+      <h1>{detail ? "Make time for what matters." : "Dates worth keeping."}</h1>
       <p className="page-intro">
         Registration windows, public consultations, and dates worth keeping.
       </p>
@@ -226,7 +226,8 @@ export function DeadlinesPage({
       )}
       <p className="disclaimer">
         Calendar downloads work locally. Reminders are saved, but scheduled
-        email delivery is not enabled yet. Sample dates are fictional.
+        email delivery is not enabled yet. Verify important dates with the
+        original source.
       </p>
     </div>
   );

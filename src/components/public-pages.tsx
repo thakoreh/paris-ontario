@@ -91,7 +91,7 @@ export function StormPage({
       </p>
       <SectionHeading
         title="Disruption notices"
-        note="Sample examples are clearly labelled and do not indicate an active emergency."
+        note="Only verified notices appear here. For a live outage or flood warning, open the official tool above."
       />
       <div className="notice-list">
         {active.map((n) => (
@@ -184,18 +184,18 @@ export function AboutPage({ privacy = false }: { privacy?: boolean }) {
             Paris Pulse is not an emergency service, outage monitor, or
             replacement for official warnings.
           </p>
-          <h2>Sample data</h2>
+          <h2>How updates are verified</h2>
           <p>
-            Every fictional notice and deadline is marked “Sample data”. Sample
-            urgency, dates and locations demonstrate the product; they are not
-            current public information.
+            Paris Pulse publishes only verified records with an original source
+            link. Check important details with that source, because public
+            information can change after it is published here.
           </p>
           <h2>Your locations stay private</h2>
           <p>
             Saved addresses are used to calculate relevance. Public maps show
             notice locations only. We do not sell precise location data.
-            Production private records are protected with row-level security;
-            demo preferences stay in your browser.
+            Private records are protected with row-level security; guest
+            preferences stay in your browser.
           </p>
           <h2>External services</h2>
           <p>
@@ -207,7 +207,7 @@ export function AboutPage({ privacy = false }: { privacy?: boolean }) {
           <h2>Data control</h2>
           <p>
             You can remove saved locations and update preferences in Settings.
-            Signing out of the demo clears its stored data. Production account
+            Signing out of a guest session clears its stored data. Account
             deletion is currently an operator-assisted action through Supabase;
             establish a monitored support contact before public launch.
           </p>
@@ -241,11 +241,11 @@ export function AboutPage({ privacy = false }: { privacy?: boolean }) {
             no comments, likes or anonymous claims. We curate information and
             keep its source visible.
           </p>
-          <h2>A transparent preview</h2>
+          <h2>How updates are published</h2>
           <p>
-            This MVP includes fictional, clearly labelled sample content. Source
-            adapters are manual by default. No source is presented as live
-            unless a reliable integration is explicitly enabled.
+            Every update is reviewed against its original source before it is
+            published. Sources are checked manually until a reliable,
+            reviewable integration is in place.
           </p>
           <Link href="/onboarding" className="button primary">
             Find your local Pulse <ArrowUpRight size={16} />

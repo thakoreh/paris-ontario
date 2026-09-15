@@ -31,8 +31,14 @@ export function Admin({ section }: { section: string }) {
     }
   }
   useEffect(() => {
+    if (!p.ready) return;
+    if (!p.profile || !["editor", "admin"].includes(p.profile.role)) {
+      setError("Sign in with an editor or admin account to access this workspace.");
+      return;
+    }
+    setError("");
     void load();
-  }, []);
+  }, [p.ready, p.profile]);
   if (error)
     return (
       <div className="page-wrap">
@@ -41,7 +47,7 @@ export function Admin({ section }: { section: string }) {
           <h1>Editor access required</h1>
           <p>{error}</p>
           <p>
-            Admin access is never granted by the local demo. Configure Supabase,
+            Admin access is never granted by a guest session. Configure Supabase,
             create an account, and assign its editor or admin role through the
             database.
           </p>
@@ -398,7 +404,7 @@ function AdminEditor({
             f.forEach((v, k) => (row[k] = String(v)));
             try {
               if (table !== "official_sources") {
-                row.is_sample = f.get("is_sample") === "on";
+                row.is_sample = false;
                 row.latitude = f.get("latitude")
                   ? Number(f.get("latitude"))
                   : null;
@@ -665,16 +671,8 @@ function AdminEditor({
                   </label>
                 </>
               )}
-              <label className="check-row">
-                <input
-                  name="is_sample"
-                  type="checkbox"
-                  defaultChecked={initial.is_sample !== false}
-                />
-                Sample data (fictional demonstration)
-              </label>
-            </>
-          )}
+              </>
+              )}
           {error && (
             <p className="error" role="alert">
               {error}

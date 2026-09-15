@@ -15,6 +15,27 @@ import {
 } from "@/components/account";
 import { Admin } from "@/components/admin";
 export const dynamic = "force-dynamic";
+
+function isKnownContentRoute(path: string[]) {
+  const route = path.join("/");
+  return (
+    [
+      "",
+      "today",
+      "storm",
+      "deadlines",
+      "map",
+      "events",
+      "sources",
+      "app",
+      "app/feed",
+      "app/map",
+      "app/saved",
+      "app/deadlines",
+    ].includes(route) ||
+    ((path[0] === "notice" || path[0] === "deadline") && path.length === 2)
+  );
+}
 export async function generateMetadata({
   params,
 }: {
@@ -99,20 +120,11 @@ export default async function Page({
         <SettingsPage />
       </AccountGate>
     );
-  const data = await publicData();
-  if (data.error)
-    return (
-      <div className="page-wrap">
-        <h1>We couldn’t load local updates.</h1>
-        <p>
-          Please try again shortly. Original source links remain available at
-          the County of Brant website.
-        </p>
-      </div>
-    );
+  if (!isKnownContentRoute(path)) notFound();
   if (path[0] === "notice" && path.length === 2) {
     const notice = await noticeBySlug(path[1]);
     if (!notice) notFound();
+    const data = await publicData();
     return (
       <NoticeDetail
         notice={notice}
@@ -125,6 +137,17 @@ export default async function Page({
     if (!deadline) notFound();
     return <DeadlinesPage deadlines={[deadline]} detail />;
   }
+  const data = await publicData();
+  if (data.error)
+    return (
+      <div className="page-wrap">
+        <h1>We couldn’t load local updates.</h1>
+        <p>
+          Please try again shortly. Original source links remain available at
+          the County of Brant website.
+        </p>
+      </div>
+    );
   if (route === "storm") return <StormPage {...data} />;
   if (route === "sources") return <SourcesPage sources={data.sources} />;
   if (route === "deadlines" || route === "app/deadlines") {
@@ -150,7 +173,6 @@ export default async function Page({
     "app/map": "personal-map",
     "app/saved": "saved",
   };
-  if (!(route in modes)) notFound();
   const feed = <Feed {...data} mode={modes[route]} />;
   return path[0] === "app" ? <AccountGate>{feed}</AccountGate> : feed;
 }
