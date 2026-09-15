@@ -26,6 +26,7 @@ import {
 import { usePersonal } from "./provider";
 import { NoticeCard, DeadlineCard, SectionHeading, EmptyState } from "./cards";
 import { MapPanel } from "./map-panel";
+import "./resident-guide.css";
 export function Feed({
   notices,
   deadlines,
@@ -192,6 +193,12 @@ export function Feed({
             explore.
           </span>
         </div>
+      )}
+      {dashboard && (
+        <nav className="resident-shortcuts" aria-label="Resident essentials">
+          <Link href="/services"><ShieldCheck size={20} />Find everyday services <ArrowUpRight size={16} /></Link>
+          <Link href="/new-to-paris"><MapPin size={20} />New to Paris? Start here <ArrowUpRight size={16} /></Link>
+        </nav>
       )}
       {dashboard && (
         <div className="overview-strip">

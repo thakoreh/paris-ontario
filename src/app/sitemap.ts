@@ -9,6 +9,8 @@ const routes: Array<[string, MetadataRoute.Sitemap[number]["changeFrequency"], n
   ["/events", "daily", 0.8],
   ["/map", "daily", 0.7],
   ["/sources", "weekly", 0.8],
+  ["/services", "monthly", 0.9],
+  ["/new-to-paris", "monthly", 0.8],
   ["/editorial-policy", "monthly", 0.7],
   ["/privacy", "monthly", 0.5],
   ["/terms", "monthly", 0.5],

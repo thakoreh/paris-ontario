@@ -68,6 +68,20 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
             storage use Supabase when configured. Email is used only when you
             opt in and a production delivery provider is enabled.
           </p>
+          <h2>Browser notifications</h2>
+          <p>
+            If you enable browser notifications, we store your push endpoint and
+            encryption keys with your account in Supabase. Your browser’s push
+            provider delivers encrypted notification payloads. Editors may send
+            verified community-wide notices; these are not emergency alerts or
+            personalized location matches. Delivery records help prevent duplicate
+            sends. Disabling a subscription removes its endpoint, keys and linked
+            delivery records. You can also revoke browser permission.
+          </p>
+          <p><Link className="text-link" href="/notifications">Manage browser notifications</Link></p>
+          <h2>Newcomer checklist</h2>
+          <p>Checklist progress is saved only in this browser. Use Reset checklist
+            on the newcomer page or clear browser data to remove it.</p>
           <h2>Your choices</h2>
           <p>
             You can update or clear browser-stored guest data in Settings. Use

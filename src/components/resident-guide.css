@@ -1,0 +1,114 @@
+.resident-guide {
+  max-width: 1260px;
+}
+.guide-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 24px 0 16px;
+}
+.guide-controls label {
+  flex: 1 1 220px;
+  margin: 0;
+}
+.guide-controls .button {
+  min-height: 44px;
+}
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+.guide-grid .panel {
+  margin: 0;
+}
+.service-card {
+  display: flex;
+  flex-direction: column;
+  scroll-margin-top: 90px;
+}
+.resident-guide h2 {
+  font-size: 21px;
+  line-height: 1.4;
+}
+.resident-guide p {
+  font-size: 15px;
+  line-height: 1.8;
+}
+.service-card > .text-link {
+  margin-top: auto;
+}
+.resident-guide .text-link {
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.guide-provenance {
+  display: block;
+  font-size: 12px;
+  line-height: 1.7;
+  margin-top: 20px;
+  color: #59684f;
+}
+.newcomer-steps .check-row {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  align-items: flex-start;
+}
+.newcomer-steps input[type="checkbox"] {
+  margin-top: 5px;
+}
+.checklist-progress progress {
+  width: 100%;
+  height: 12px;
+  accent-color: #55794b;
+}
+.resident-guide button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.resident-guide :focus-visible {
+  outline: 3px solid #254d3e;
+  outline-offset: 3px;
+}
+.resident-shortcuts {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 26px;
+}
+.resident-shortcuts a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 230px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  font-size: 14px;
+}
+@media (max-width: 760px) {
+  .guide-grid {
+    grid-template-columns: 1fr;
+  }
+  .resident-guide .panel {
+    padding: 20px;
+  }
+  .resident-guide h1 {
+    overflow-wrap: anywhere;
+  }
+  .resident-guide input:not([type="checkbox"]),
+  .resident-guide select {
+    font-size: 16px;
+  }
+  .resident-guide .text-link {
+    overflow-wrap: anywhere;
+  }
+  footer > div {
+    flex-wrap: wrap;
+  }
+}

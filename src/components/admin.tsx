@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/utils";
 import { noticeSchema, duplicateScore } from "@/lib/validation";
 import { usePersonal } from "./provider";
 import { EmptyState } from "./cards";
+import { SendPushButton } from "./send-push-button";
 export function Admin({ section }: { section: string }) {
   const p = usePersonal();
   const [data, setData] = useState<{
@@ -209,6 +210,7 @@ export function Admin({ section }: { section: string }) {
                     <Pencil size={14} />
                     Edit
                   </button>
+                  {table === "notices" && (row as Notice).verification_status === "verified" && !(row as Notice).is_sample && <SendPushButton noticeId={row.id} />}
                   {table === "notices" && (
                     <>
                       <button

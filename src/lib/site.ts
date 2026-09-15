@@ -23,14 +23,37 @@ export function sitePath(base: URL | null, path = "/"): string | null {
   return new URL(path.replace(/^\//, ""), base).toString();
 }
 
+function validatedHostname(hostHeader: string | null): string | null {
+  if (!hostHeader || hostHeader.trim() !== hostHeader || /[\s,]/.test(hostHeader))
+    return null;
+  try {
+    const parsed = new URL(`https://${hostHeader}`);
+    if (
+      parsed.username ||
+      parsed.password ||
+      parsed.pathname !== "/" ||
+      parsed.search ||
+      parsed.hash
+    )
+      return null;
+    return parsed.hostname;
+  } catch {
+    return null;
+  }
+}
+
 export function canonicalWwwRedirect(
   configuredUrl: string | undefined,
   requestUrl: URL,
+  hostHeader: string | null,
 ): URL | null {
   const canonical = normalizePublicUrl(configuredUrl);
-  if (!canonical || requestUrl.hostname !== `www.${canonical.hostname}`)
-    return null;
-  return new URL(`${requestUrl.pathname}${requestUrl.search}`, canonical);
+  const requestHostname = validatedHostname(hostHeader);
+  if (!canonical || requestHostname !== `www.${canonical.hostname}`) return null;
+  const redirect = new URL(canonical);
+  redirect.pathname = requestUrl.pathname;
+  redirect.search = requestUrl.search;
+  return redirect;
 }
 
 export type ContentFreshness = {

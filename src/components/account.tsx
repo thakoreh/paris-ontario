@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -15,6 +15,7 @@ import {
   Mail,
 } from "lucide-react";
 import { browserClient } from "@/lib/supabase/client";
+import { authErrorMessage } from "@/lib/auth-feedback";
 import { usePersonal } from "./provider";
 import { community } from "@/config/community";
 import {
@@ -35,6 +36,12 @@ export function AuthForm({ mode }: { mode: string }) {
   const p = usePersonal();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("error") === "confirmation")
+      setMessage(
+        "That confirmation link is invalid or expired. Request a new confirmation email and try again.",
+      );
+  }, []);
   const {
     register,
     handleSubmit,
@@ -85,7 +92,7 @@ export function AuthForm({ mode }: { mode: string }) {
             : "If that account exists, a reset link is on its way.",
         );
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Please try again.");
+      setMessage(authErrorMessage(mode, e));
     } finally {
       setBusy(false);
     }

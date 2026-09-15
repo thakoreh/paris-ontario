@@ -10,6 +10,10 @@ const staticRoutes = new Set([
   "/deadlines",
   "/map",
   "/events",
+  "/services",
+  "/new-to-paris",
+  "/notifications",
+  "/push-sw.js",
   "/sources",
   "/about",
   "/disclaimer",
@@ -17,6 +21,7 @@ const staticRoutes = new Set([
   "/privacy",
   "/terms",
   "/contact",
+  "/auth/callback",
   "/login",
   "/signup",
   "/forgot-password",
@@ -64,6 +69,7 @@ export async function middleware(request: NextRequest) {
   const canonicalRedirect = canonicalWwwRedirect(
     process.env.NEXT_PUBLIC_APP_URL,
     request.nextUrl,
+    request.headers.get("host"),
   );
   if (canonicalRedirect) return NextResponse.redirect(canonicalRedirect, 308);
 

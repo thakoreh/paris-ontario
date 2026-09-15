@@ -38,19 +38,31 @@ describe("public-site configuration", () => {
     expect(sitePath(url, "/sources")).toBe("https://parispulse.ca/sources");
   });
 
-  it("redirects only the www hostname to the HTTPS apex while preserving path and query", () => {
+  it("redirects based on the validated host header when the request URL is internal", () => {
     expect(
       canonicalWwwRedirect(
         "https://parispulse.ca",
-        new URL("https://www.parispulse.ca/sources?source=county"),
+        new URL("http://localhost/sources?source=county"),
+        "www.parispulse.ca",
       )?.toString(),
     ).toBe("https://parispulse.ca/sources?source=county");
     expect(
       canonicalWwwRedirect(
         "https://parispulse.ca",
-        new URL("https://parispulse.ca/sources?source=county"),
+        new URL("http://localhost/sources?source=county"),
+        "parispulse.ca",
       ),
     ).toBeNull();
+  });
+
+  it("keeps protocol-relative request paths on the canonical host", () => {
+    expect(
+      canonicalWwwRedirect(
+        "https://parispulse.ca",
+        new URL("https://www.parispulse.ca//evil.example/path?x=1"),
+        "www.parispulse.ca",
+      )?.toString(),
+    ).toBe("https://parispulse.ca//evil.example/path?x=1");
   });
 });
 

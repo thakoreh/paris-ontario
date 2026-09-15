@@ -25,6 +25,8 @@ const main = [
   ["/deadlines", "Upcoming deadlines", CalendarDays],
   ["/storm", "Storm & disruption", CloudLightning],
   ["/events", "Events & activities", Compass],
+  ["/services", "Everyday services", ShieldCheck],
+  ["/new-to-paris", "New to Paris", Home],
 ] as const;
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -71,6 +73,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             ["/app/saved", "Saved notices", Bookmark],
             ["/app/locations", "My locations", MapPin],
             ["/app/alerts", "Alert preferences", Bell],
+            ["/notifications", "Browser notifications", Bell],
           ].map(([href, label, Icon]) => {
             const I = Icon as typeof Home;
             return (
@@ -143,6 +146,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
             here.
           </span>
           <div>
+            <Link href="/services">Services</Link>
+            <Link href="/new-to-paris">New to Paris</Link>
+            <Link href="/notifications">Notifications</Link>
             <Link href="/about">About</Link>
             <Link href="/sources">Sources</Link>
             <Link href="/editorial-policy">Editorial policy</Link>
@@ -160,7 +166,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {[
           ["/app", "Home", Home],
           ["/today", "Feed", Newspaper],
-          ["/map", "Map", Map],
+          ["/services", "Services", Compass],
           ["/app/saved", "Saved", Bookmark],
           ["/app/settings", "Settings", Settings],
         ].map(([href, label, Icon]) => {
