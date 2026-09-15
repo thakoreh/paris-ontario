@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { verifiedPreview } from "@/data/verified-preview";
+import { canonicalWwwRedirect } from "@/lib/site";
 
 const staticRoutes = new Set([
   "/",
@@ -60,6 +61,12 @@ function previewMode() {
 }
 
 export async function middleware(request: NextRequest) {
+  const canonicalRedirect = canonicalWwwRedirect(
+    process.env.NEXT_PUBLIC_APP_URL,
+    request.nextUrl,
+  );
+  if (canonicalRedirect) return NextResponse.redirect(canonicalRedirect, 308);
+
   const { pathname } = request.nextUrl;
   if (isSystemPath(pathname) || staticRoutes.has(pathname)) {
     let response = NextResponse.next({ request });

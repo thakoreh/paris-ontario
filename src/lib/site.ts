@@ -23,6 +23,16 @@ export function sitePath(base: URL | null, path = "/"): string | null {
   return new URL(path.replace(/^\//, ""), base).toString();
 }
 
+export function canonicalWwwRedirect(
+  configuredUrl: string | undefined,
+  requestUrl: URL,
+): URL | null {
+  const canonical = normalizePublicUrl(configuredUrl);
+  if (!canonical || requestUrl.hostname !== `www.${canonical.hostname}`)
+    return null;
+  return new URL(`${requestUrl.pathname}${requestUrl.search}`, canonical);
+}
+
 export type ContentFreshness = {
   state: "current" | "attention" | "unknown";
   checkedSources: number;

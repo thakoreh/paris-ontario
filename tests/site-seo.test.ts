@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Source } from "@/types";
 import {
+  canonicalWwwRedirect,
   contentFreshness,
   normalizePublicUrl,
   sitePath,
@@ -35,6 +36,21 @@ describe("public-site configuration", () => {
   it("creates root-relative canonical paths from a configured public URL", () => {
     const url = normalizePublicUrl("https://parispulse.ca/");
     expect(sitePath(url, "/sources")).toBe("https://parispulse.ca/sources");
+  });
+
+  it("redirects only the www hostname to the HTTPS apex while preserving path and query", () => {
+    expect(
+      canonicalWwwRedirect(
+        "https://parispulse.ca",
+        new URL("https://www.parispulse.ca/sources?source=county"),
+      )?.toString(),
+    ).toBe("https://parispulse.ca/sources?source=county");
+    expect(
+      canonicalWwwRedirect(
+        "https://parispulse.ca",
+        new URL("https://parispulse.ca/sources?source=county"),
+      ),
+    ).toBeNull();
   });
 });
 
