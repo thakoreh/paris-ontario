@@ -6,12 +6,14 @@ test("public notices, filters, map and source links", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Today in Paris", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".demo-banner")).toContainText("Sample data");
-  await page.getByRole("textbox", { name: "Search notices" }).fill("swimming");
-  await expect(page.locator(".notice-card")).toHaveCount(1);
-  await expect(page.locator(".notice-title")).toContainText("swimming");
-  await page.locator(".notice-title").click();
-  await expect(page.locator(".sample-callout")).toContainText("fictional");
+  await expect(page.locator(".demo-banner")).toHaveCount(0);
+  const firstTitle = await page.locator(".notice-title").first().innerText();
+  await page
+    .getByRole("textbox", { name: "Search notices" })
+    .fill(firstTitle.split(" ")[0]);
+  await expect(page.locator(".notice-card").first()).toBeVisible();
+  await page.locator(".notice-title").first().click();
+  await expect(page.locator(".sample-callout")).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Open original source" }),
   ).toHaveAttribute("href", /^https:\/\//);

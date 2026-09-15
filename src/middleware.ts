@@ -1,30 +1,113 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+
+const staticRoutes = new Set([
+  "/",
+  "/today",
+  "/storm",
+  "/deadlines",
+  "/map",
+  "/events",
+  "/sources",
+  "/about",
+  "/disclaimer",
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+  "/onboarding",
+  "/app",
+  "/app/feed",
+  "/app/map",
+  "/app/saved",
+  "/app/deadlines",
+  "/app/locations",
+  "/app/locations/new",
+  "/app/alerts",
+  "/app/settings",
+  "/admin",
+  "/admin/notices",
+  "/admin/deadlines",
+  "/admin/sources",
+  "/admin/review",
+  "/admin/ingestion",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/_not-found",
+]);
+
+function notFoundResponse(request: NextRequest) {
+  return NextResponse.rewrite(new URL("/_not-found", request.url), {
+    status: 404,
+  });
+}
+
+function isSystemPath(pathname: string) {
+  return pathname.startsWith("/_next/") || pathname.startsWith("/api/");
+}
+
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+  if (isSystemPath(pathname) || staticRoutes.has(pathname)) {
+    let response = NextResponse.next({ request });
+    if (
+      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+      return response;
+    const client = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (items) => {
+            items.forEach(({ name, value }) => request.cookies.set(name, value));
+            response = NextResponse.next({ request });
+            items.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options),
+            );
+          },
+        },
+      },
+    );
+    await client.auth.getUser();
+    return response;
+  }
+
+  const [, type, value, ...rest] = pathname.split("/");
+  if (rest.length || !value || !["notice", "deadline"].includes(type)) {
+    return notFoundResponse(request);
+  }
+
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  )
-    return response;
+  ) {
+    return notFoundResponse(request);
+  }
+
   const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (items) => {
-          items.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          items.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
+    { cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} } },
   );
-  await client.auth.getUser();
-  return response;
+  const query =
+    type === "notice"
+      ? client
+          .from("notices")
+          .select("id")
+          .eq("slug", value)
+          .eq("verification_status", "verified")
+          .maybeSingle()
+      : client
+          .from("deadlines")
+          .select("id")
+          .eq("id", value)
+          .not("verified_at", "is", null)
+          .maybeSingle();
+  const { data } = await query;
+  return data ? NextResponse.next({ request }) : notFoundResponse(request);
 }
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"],
