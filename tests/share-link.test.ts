@@ -111,4 +111,16 @@ describe("public sharing links", () => {
       "public HTTPS origin",
     );
   });
+
+  it("rejects slash-backslash paths that URL parsing would normalize off-site", () => {
+    expect(() => canonicalShareUrl("https://parispulse.ca", "/\\outside.invalid/")).toThrow(
+      "site-relative path",
+    );
+  });
+
+  it("rejects control characters before URL parsing can normalize them", () => {
+    expect(() => canonicalShareUrl("https://parispulse.ca", "/notice\nroadwork")).toThrow(
+      "site-relative path",
+    );
+  });
 });

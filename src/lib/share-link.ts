@@ -10,10 +10,20 @@ export type ShareOutcome = {
 
 export function canonicalShareUrl(base: string, publicPath: string): string {
   const origin = new URL(base);
-  if (origin.protocol !== "https:" || !publicPath.startsWith("/") || publicPath.startsWith("//")) {
+  if (
+    origin.protocol !== "https:" ||
+    !publicPath.startsWith("/") ||
+    publicPath.startsWith("//") ||
+    /[\\\u0000-\u001F\u007F]/.test(publicPath)
+  ) {
     throw new Error("A public HTTPS origin and site-relative path are required.");
   }
+
   const url = new URL(publicPath, origin.origin);
+  if (url.origin !== origin.origin) {
+    throw new Error("A public HTTPS origin and site-relative path are required.");
+  }
+
   url.search = "";
   url.hash = "";
   return url.toString();
