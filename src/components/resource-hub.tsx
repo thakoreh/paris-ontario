@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight, Search } from "lucide-react";
 import { useState } from "react";
 import { filterParisResources } from "@/data/paris-resources";
+import { ShareButton } from "./share-button";
 import "./resource-hub.css";
 
 export function ParisOntarioResourceHub() {
@@ -18,6 +19,13 @@ export function ParisOntarioResourceHub() {
         Start with a task, then open the official source for the current details.
         Paris Pulse does not replace the organizations that run these services.
       </p>
+      <div className="action-row resource-share-row">
+        <ShareButton
+          base={process.env.NEXT_PUBLIC_APP_URL || "https://parispulse.ca"}
+          publicPath="/paris-ontario"
+          title="Paris, Ontario resource guide"
+        />
+      </div>
       <div className="message-box">
         Information can change. Each guide is a manually reviewed starting point,
         not a live status feed. Check the original source before you travel,

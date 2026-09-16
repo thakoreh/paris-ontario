@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { filterServices, residentServices } from "@/data/resident-services";
+import { ShareButton } from "./share-button";
 import "./resident-guide.css";
 
 export function ResidentServices() {
@@ -18,6 +19,13 @@ export function ResidentServices() {
         Less searching through menus. Find the right place to book a ride, check
         collection, join a program or get help.
       </p>
+      <div className="action-row resource-share-row">
+        <ShareButton
+          base={process.env.NEXT_PUBLIC_APP_URL || "https://parispulse.ca"}
+          publicPath="/services"
+          title="Everyday services in Paris, Ontario"
+        />
+      </div>
       <div className="message-box">
         These links open external service providers. Paris Pulse does not
         process bookings, payments or reports. For a medical emergency, call{" "}

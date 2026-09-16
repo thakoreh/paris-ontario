@@ -314,6 +314,39 @@ small {
   background: transparent;
   color: var(--green);
 }
+.share-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.share-status {
+  color: var(--muted);
+  font-size: 11px;
+}
+.share-status:empty {
+  display: none;
+}
+.share-manual-link {
+  display: grid;
+  gap: 4px;
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}
+.share-manual-link input {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  padding: 9px 10px;
+}
+.resource-share-row {
+  margin-top: 14px;
+}
 .demo-banner {
   min-height: 33px;
   background: #f0efdf;

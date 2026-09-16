@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   Bookmark,
   Check,
-  Share2,
   ShieldCheck,
   MapPin,
 } from "lucide-react";
@@ -18,6 +17,7 @@ import { track } from "@/lib/analytics";
 import { usePersonal } from "./provider";
 import { SampleBadge, DeadlineCard, EmptyState } from "./cards";
 import { MapPanel } from "./map-panel";
+import { ShareButton } from "./share-button";
 export function NoticeDetail({
   notice: n,
   source,
@@ -101,20 +101,11 @@ export function NoticeDetail({
           <Check size={16} />
           {p.read.includes(n.id) ? "Mark unread" : "Mark read"}
         </button>
-        <button
-          className="button outline"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(window.location.href);
-              p.notify("Link copied.");
-            } catch {
-              p.notify("Copy this page’s address to share it.");
-            }
-          }}
-        >
-          <Share2 size={16} />
-          Share
-        </button>
+        <ShareButton
+          base={process.env.NEXT_PUBLIC_APP_URL || "https://parispulse.ca"}
+          publicPath={`/notice/${n.slug}`}
+          title={n.title}
+        />
       </div>
       <section className="panel">
         <h2>What to know</h2>
