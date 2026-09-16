@@ -8,6 +8,16 @@ describe("Paris Ontario resource finder", () => {
       "getting-around",
       "family-recreation",
       "settling-in",
+      "garbage-recycling",
+    ]);
+    expect(filterParisResources("waste transfer recycling").map((resource) => resource.id)).toEqual([
+      "garbage-recycling",
+    ]);
+    expect(filterParisResources("large items").map((resource) => resource.id)).toEqual([
+      "garbage-recycling",
+    ]);
+    expect(filterParisResources("household items").map((resource) => resource.id)).toEqual([
+      "garbage-recycling",
     ]);
     expect(filterParisResources("trail").map((resource) => resource.id)).toEqual([
       "outdoors",
@@ -22,7 +32,9 @@ describe("Paris Ontario resource finder", () => {
     for (const resource of parisResources) {
       expect(resource.sources.length).toBeGreaterThan(0);
       expect(resource.sources.every((source) => source.url.startsWith("https://"))).toBe(true);
-      expect(resource.reviewedAt).toBe("2026-09-15");
+      expect(resource.reviewedAt).toBe(
+        resource.id === "garbage-recycling" ? "2026-09-16" : "2026-09-15",
+      );
     }
   });
 });

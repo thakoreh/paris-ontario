@@ -5,7 +5,7 @@ export type ParisResourceSource = {
 };
 
 export type ParisResource = {
-  id: "outdoors" | "getting-around" | "family-recreation" | "settling-in";
+  id: "outdoors" | "getting-around" | "family-recreation" | "settling-in" | "garbage-recycling";
   title: string;
   summary: string;
   task: string;
@@ -97,6 +97,42 @@ export const parisResources: ParisResource[] = [
         label: "County of Brant newcomer resources",
         organization: "County of Brant",
         url: "https://www.brant.ca/community-and-support/brant-cares/newcomers",
+      },
+    ],
+  },
+  {
+    id: "garbage-recycling",
+    title: "Garbage, recycling & disposal",
+    task: "Check a collection day, item-disposal option or eligible pickup with the responsible operator.",
+    summary:
+      "Use the County's collection map and item lookup before setting out waste. Its current pages also point to recycling contacts, large-item pickup eligibility and Paris transfer-station details.",
+    keywords: "garbage waste recycling blue box collection day bulky large item large items household item household items pickup transfer station disposal landfill",
+    reviewedAt: "2026-09-16",
+    sources: [
+      {
+        label: "County of Brant garbage and recycling overview",
+        organization: "County of Brant",
+        url: "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant",
+      },
+      {
+        label: "County of Brant collection guidelines and map",
+        organization: "County of Brant",
+        url: "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/garbage-collection-guidelines-and-schedule",
+      },
+      {
+        label: "County of Brant recycling contact information",
+        organization: "County of Brant",
+        url: "https://brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/recycling",
+      },
+      {
+        label: "Paris transfer station details",
+        organization: "County of Brant",
+        url: "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/landfill-and-transfer-station",
+      },
+      {
+        label: "Large household item pickup eligibility",
+        organization: "County of Brant",
+        url: "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/large-household-items-pickup",
       },
     ],
   },

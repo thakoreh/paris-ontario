@@ -54,6 +54,36 @@
       "url": "https://www.brant.ca/media-manager/media-pages/parks-and-facilities-pf/paris-lions-park",
       "title": "",
       "accessed": "2026-09-15"
+    },
+    {
+      "id": 10,
+      "url": "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant",
+      "title": "",
+      "accessed": "2026-09-16"
+    },
+    {
+      "id": 11,
+      "url": "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/garbage-collection-guidelines-and-schedule",
+      "title": "",
+      "accessed": "2026-09-16"
+    },
+    {
+      "id": 12,
+      "url": "https://brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/recycling",
+      "title": "",
+      "accessed": "2026-09-16"
+    },
+    {
+      "id": 13,
+      "url": "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/landfill-and-transfer-station",
+      "title": "",
+      "accessed": "2026-09-16"
+    },
+    {
+      "id": 14,
+      "url": "https://www.brant.ca/garbage-and-recycling/garbage-and-recycling-in-brant/large-household-items-pickup",
+      "title": "",
+      "accessed": "2026-09-16"
     }
   ]
 }
