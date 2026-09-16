@@ -21,6 +21,17 @@ export function isExpired(n: Notice, now = new Date()) {
     )
   );
 }
+export function upcomingDeadlines<T extends Pick<Deadline, "deadline_at">>(
+  deadlines: T[],
+  now = new Date(),
+) {
+  const start = now.getTime();
+  const end = start + 7 * 86400000;
+  return deadlines.filter((d) => {
+    const at = new Date(d.deadline_at).getTime();
+    return at >= start && at < end;
+  });
+}
 export function deadlineScore(
   d: Pick<Deadline, "deadline_at">,
   now = new Date(),

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   Activity,
@@ -13,6 +14,8 @@ import {
   Home,
   Map,
   MapPin,
+  Menu,
+  X,
   Newspaper,
   Settings,
   ShieldCheck,
@@ -28,6 +31,72 @@ const main = [
   ["/services", "Everyday services", ShieldCheck],
   ["/new-to-paris", "New to Paris", Home],
 ] as const;
+const personal = [
+  ["/app", "My overview", SlidersHorizontal],
+  ["/app/saved", "Saved notices", Bookmark],
+  ["/app/locations", "My locations", MapPin],
+  ["/app/alerts", "Alert preferences", Bell],
+  ["/notifications", "Browser notifications", Bell],
+] as const;
+
+function MobilePageMenu({ path }: { path: string }) {
+  const [open, setOpen] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
+  return (
+    <div
+      className="mobile-page-menu"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          setOpen(false);
+          toggle.current?.focus();
+        }
+      }}
+    >
+      <button
+        ref={toggle}
+        type="button"
+        className="button outline small"
+        aria-label="Browse all pages"
+        aria-expanded={open}
+        aria-controls="all-pages-menu"
+        onClick={() => setOpen(!open)}
+      >
+        {open ? <X size={18} /> : <Menu size={18} />} Menu
+      </button>
+      <nav id="all-pages-menu" aria-label="All pages" hidden={!open}>
+        <p className="nav-label">AROUND YOU</p>
+        {main.map(([href, label, Icon]) => (
+          <Link
+            href={href}
+            key={href}
+            aria-current={path === href ? "page" : undefined}
+            onClick={() => setOpen(false)}
+          >
+            <Icon size={19} />
+            {label}
+          </Link>
+        ))}
+        <p className="nav-label">YOUR PULSE</p>
+        {personal.map(([href, label, Icon]) => (
+          <Link
+            href={href}
+            key={href}
+            aria-current={path === href ? "page" : undefined}
+            onClick={() => setOpen(false)}
+          >
+            <Icon size={19} />
+            {label}
+          </Link>
+        ))}
+        <Link href="/app/settings" onClick={() => setOpen(false)}>
+          <Settings size={19} />
+          Account settings
+        </Link>
+      </nav>
+    </div>
+  );
+}
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const p = usePersonal();
@@ -68,13 +137,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </nav>
         <span className="nav-label personal-label">YOUR PULSE</span>
         <nav aria-label="Personal navigation">
-          {[
-            ["/app", "My overview", SlidersHorizontal],
-            ["/app/saved", "Saved notices", Bookmark],
-            ["/app/locations", "My locations", MapPin],
-            ["/app/alerts", "Alert preferences", Bell],
-            ["/notifications", "Browser notifications", Bell],
-          ].map(([href, label, Icon]) => {
+          {personal.map(([href, label, Icon]) => {
             const I = Icon as typeof Home;
             return (
               <Link
@@ -117,6 +180,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="site-body">
         <header className="topbar">
+          <MobilePageMenu key={path} path={path} />
           <span className="topbar-label">
             <span className="live-dot" /> A little more in the know.
           </span>

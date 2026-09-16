@@ -22,6 +22,7 @@ import {
   isExpired,
   severityRank,
   relevantDeadline,
+  upcomingDeadlines,
 } from "@/lib/relevance";
 import { usePersonal } from "./provider";
 import { NoticeCard, DeadlineCard, SectionHeading, EmptyState } from "./cards";
@@ -53,6 +54,26 @@ export function Feed({
   const dashboard = ["home", "today", "app"].includes(mode);
   const [limit, setLimit] = useState(12);
   const [expanded, setExpanded] = useState(false);
+  const defaultStatus = mode === "saved" ? "saved" : "all";
+  const hasFilters = Boolean(
+    query ||
+    category !== "all" ||
+    importance !== "all" ||
+    period !== "all" ||
+    sort !== "relevant" ||
+    location !== "all" ||
+    status !== defaultStatus,
+  );
+  function clearFilters() {
+    setQuery("");
+    setCategory("all");
+    setImportance("all");
+    setPeriod("all");
+    setSort("relevant");
+    setLocation("all");
+    setStatus(defaultStatus);
+    setLimit(12);
+  }
   const matches = useMemo(
     () =>
       rankMatches(
@@ -196,8 +217,14 @@ export function Feed({
       )}
       {dashboard && (
         <nav className="resident-shortcuts" aria-label="Resident essentials">
-          <Link href="/services"><ShieldCheck size={20} />Find everyday services <ArrowUpRight size={16} /></Link>
-          <Link href="/new-to-paris"><MapPin size={20} />New to Paris? Start here <ArrowUpRight size={16} /></Link>
+          <Link href="/services">
+            <ShieldCheck size={20} />
+            Find everyday services <ArrowUpRight size={16} />
+          </Link>
+          <Link href="/new-to-paris">
+            <MapPin size={20} />
+            New to Paris? Start here <ArrowUpRight size={16} />
+          </Link>
         </nav>
       )}
       {dashboard && (
@@ -217,16 +244,8 @@ export function Feed({
               <Bell size={19} />
             </span>
             <div>
-              <strong>
-                {
-                  deadlines.filter(
-                    (d) =>
-                      +new Date(d.deadline_at) <
-                      new Date().getTime() + 7 * 86400000,
-                  ).length
-                }
-              </strong>
-              <span>deadlines this week</span>
+              <strong>{upcomingDeadlines(deadlines).length}</strong>
+              <span>deadlines in the next 7 days</span>
             </div>
             <small>A little heads-up</small>
           </Link>
@@ -317,6 +336,8 @@ export function Feed({
             </div>
             <button
               className={`button outline small ${filters ? "selected" : ""}`}
+              aria-expanded={filters}
+              aria-controls="notice-filter-panel"
               onClick={() => setFilters(!filters)}
             >
               <SlidersHorizontal size={15} />
@@ -340,6 +361,7 @@ export function Feed({
                 <button
                   key={c}
                   className={category === c ? "active" : ""}
+                  aria-pressed={category === c}
                   onClick={() => {
                     setCategory(c);
                     setLimit(12);
@@ -359,7 +381,7 @@ export function Feed({
             )}
           </div>
           {filters && (
-            <div className="filter-panel">
+            <div className="filter-panel" id="notice-filter-panel">
               <label>
                 Category
                 <select
@@ -443,6 +465,27 @@ export function Feed({
               )}
             </div>
           )}
+          <div className="feed-results">
+            <p
+              role="status"
+              aria-label="Notice results"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              Showing{" "}
+              {Math.min(filtered.length, dashboard && !expanded ? 6 : limit)} of{" "}
+              {filtered.length} notices
+            </p>
+            {hasFilters && (
+              <button
+                type="button"
+                className="button outline small"
+                onClick={clearFilters}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
           {(map || mode === "personal-map") && (
             <div className="large-map">
               <MapPanel
@@ -465,7 +508,24 @@ export function Feed({
                 match={personal ? m : undefined}
               />
             ))}
-            {!filtered.length && <EmptyState />}
+            {!filtered.length && (
+              <EmptyState
+                title={
+                  hasFilters
+                    ? "No matching notices."
+                    : mode === "saved"
+                      ? "No saved notices yet."
+                      : "You’re all caught up."
+                }
+                description={
+                  hasFilters
+                    ? "Clear your filters or try a different street or topic."
+                    : mode === "saved"
+                      ? "Use the bookmark button on a notice to keep it here for later."
+                      : "There are no current notices to show. Check the original sources for the latest information."
+                }
+              />
+            )}
           </div>
           {dashboard && !expanded ? (
             <button onClick={() => setExpanded(true)} className="feed-more">
