@@ -40,6 +40,14 @@ const personal = [
   ["/notifications", "Browser notifications", Bell],
 ] as const;
 
+function isCurrentPath(path: string, href: string) {
+  return (
+    path === href ||
+    (href === "/today" && path === "/app/feed") ||
+    (href === "/map" && path === "/app/map")
+  );
+}
+
 function MobilePageMenu({ path }: { path: string }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -70,7 +78,7 @@ function MobilePageMenu({ path }: { path: string }) {
           <Link
             href={href}
             key={href}
-            aria-current={path === href ? "page" : undefined}
+            aria-current={isCurrentPath(path, href) ? "page" : undefined}
             onClick={() => setOpen(false)}
           >
             <Icon size={19} />
@@ -82,7 +90,7 @@ function MobilePageMenu({ path }: { path: string }) {
           <Link
             href={href}
             key={href}
-            aria-current={path === href ? "page" : undefined}
+            aria-current={isCurrentPath(path, href) ? "page" : undefined}
             onClick={() => setOpen(false)}
           >
             <Icon size={19} />
@@ -101,6 +109,10 @@ function MobilePageMenu({ path }: { path: string }) {
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const p = usePersonal();
+  const currentPath = path || "/";
+  const isCurrent = (href: string) => isCurrentPath(currentPath, href);
+  const mobileHomeHref =
+    currentPath === "/app" || currentPath.startsWith("/app/") ? "/app" : "/";
   return (
     <>
       <a className="skip" href="#main">
@@ -126,9 +138,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <nav aria-label="Main navigation">
           {main.map(([href, label, Icon]) => (
             <Link
-              className={path === href ? "active" : ""}
+              className={isCurrent(href) ? "active" : ""}
               href={href}
               key={href}
+              aria-current={isCurrent(href) ? "page" : undefined}
             >
               <Icon size={19} />
               {label}
@@ -144,7 +157,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Link
                 href={href as string}
                 key={href as string}
-                className={path === href ? "active" : ""}
+                className={isCurrent(href as string) ? "active" : ""}
+                aria-current={
+                  isCurrent(href as string) ? "page" : undefined
+                }
               >
                 <I size={19} />
                 {label as string}
@@ -181,7 +197,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="site-body">
         <header className="topbar">
-          <MobilePageMenu key={path} path={path} />
+          <MobilePageMenu key={currentPath} path={currentPath} />
           <span className="topbar-label">
             <span className="live-dot" /> A little more in the know.
           </span>
@@ -229,18 +245,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {[
-          ["/app", "Home", Home],
+          [mobileHomeHref, "Home", Home],
           ["/today", "Feed", Newspaper],
+          ["/map", "Map", Map],
           ["/services", "Services", Compass],
           ["/app/saved", "Saved", Bookmark],
-          ["/app/settings", "Settings", Settings],
         ].map(([href, label, Icon]) => {
           const I = Icon as typeof Home;
           return (
             <Link
-              className={path === href ? "active" : ""}
+              className={isCurrent(href as string) ? "active" : ""}
               key={href as string}
               href={href as string}
+              aria-current={
+                isCurrent(href as string) ? "page" : undefined
+              }
             >
               <I size={21} />
               <span>{label as string}</span>

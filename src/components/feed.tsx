@@ -13,6 +13,7 @@ import {
   List,
   Activity,
   Bell,
+  CalendarDays,
 } from "lucide-react";
 import type { Notice, Deadline, Source } from "@/types";
 import { categories, categoryLabels } from "@/types";
@@ -28,6 +29,13 @@ import { usePersonal } from "./provider";
 import { NoticeCard, DeadlineCard, SectionHeading, EmptyState } from "./cards";
 import { MapPanel } from "./map-panel";
 import "./resident-guide.css";
+
+const quickFilters = [
+  { label: "All updates", category: "all", period: "all" },
+  { label: "Today", category: "all", period: "today" },
+  { label: "This week", category: "all", period: "week" },
+  { label: "Events", category: "event", period: "all" },
+] as const;
 export function Feed({
   notices,
   deadlines,
@@ -218,12 +226,34 @@ export function Feed({
       {dashboard && (
         <nav className="resident-shortcuts" aria-label="Resident essentials">
           <Link href="/services">
-            <ShieldCheck size={20} />
-            Find everyday services <ArrowUpRight size={16} />
+            <span className="shortcut-icon">
+              <ShieldCheck size={20} />
+            </span>
+            <span className="shortcut-copy">
+              <strong>Find a service</strong>
+              <small>Waste, transit, library and more</small>
+            </span>
+            <ArrowUpRight size={16} />
+          </Link>
+          <Link href="/deadlines">
+            <span className="shortcut-icon warm">
+              <CalendarDays size={20} />
+            </span>
+            <span className="shortcut-copy">
+              <strong>Check upcoming deadlines</strong>
+              <small>Keep due dates in view</small>
+            </span>
+            <ArrowUpRight size={16} />
           </Link>
           <Link href="/new-to-paris">
-            <MapPin size={20} />
-            New to Paris? Start here <ArrowUpRight size={16} />
+            <span className="shortcut-icon cool">
+              <MapPin size={20} />
+            </span>
+            <span className="shortcut-copy">
+              <strong>New to Paris? Start here</strong>
+              <small>A practical first-week checklist</small>
+            </span>
+            <ArrowUpRight size={16} />
           </Link>
         </nav>
       )}
@@ -260,6 +290,69 @@ export function Feed({
             <small>Know where it comes from</small>
           </Link>
         </div>
+      )}
+      {dashboard && (
+        <section className="discovery-panel" aria-labelledby="discovery-title">
+          <div className="discovery-intro">
+            <div>
+              <span className="eyebrow">FIND SOMETHING LOCAL</span>
+              <h2 id="discovery-title">What do you need today?</h2>
+            </div>
+            <p>Search updates, streets or topics, then narrow the list in one tap.</p>
+          </div>
+          <div className="feed-toolbar discovery-toolbar">
+            <div className="search-field">
+              <Search size={17} aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Search local updates"
+                placeholder="Search updates, streets or topics…"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setLimit(12);
+                }}
+              />
+            </div>
+            <button
+              className={`button outline small ${filters ? "selected" : ""}`}
+              aria-expanded={filters}
+              aria-controls="notice-filter-panel"
+              onClick={() => setFilters(!filters)}
+            >
+              <SlidersHorizontal size={15} />
+              More filters
+            </button>
+            <button
+              className="icon-button view-switch"
+              aria-label={map ? "Show list" : "Show map"}
+              onClick={() => setMap(!map)}
+            >
+              {map ? <List size={18} /> : <MapIcon size={18} />}
+            </button>
+          </div>
+          <div className="quick-filter-row" role="group" aria-label="Quick filters">
+            {quickFilters.map((filter) => {
+              const selected =
+                category === filter.category && period === filter.period;
+              return (
+                <button
+                  key={filter.label}
+                  type="button"
+                  className={selected ? "active" : ""}
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setCategory(filter.category);
+                    setPeriod(filter.period);
+                    setLimit(12);
+                  }}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
       <div className={dashboard ? "content-grid" : "full-content"}>
         <div className="feed-column">
@@ -321,36 +414,39 @@ export function Feed({
             }
             note={dashboard ? "Less searching. More knowing." : ""}
           />
-          <div className="feed-toolbar">
-            <div className="search-field">
-              <Search size={17} />
-              <input
-                aria-label="Search notices"
-                placeholder="Search a street, topic or update…"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setLimit(12);
-                }}
-              />
+          {!dashboard && (
+            <div className="feed-toolbar">
+              <div className="search-field">
+                <Search size={17} />
+                <input
+                  type="search"
+                  aria-label="Search notices"
+                  placeholder="Search a street, topic or update…"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setLimit(12);
+                  }}
+                />
+              </div>
+              <button
+                className={`button outline small ${filters ? "selected" : ""}`}
+                aria-expanded={filters}
+                aria-controls="notice-filter-panel"
+                onClick={() => setFilters(!filters)}
+              >
+                <SlidersHorizontal size={15} />
+                Filters
+              </button>
+              <button
+                className="icon-button view-switch"
+                aria-label={map ? "Show list" : "Show map"}
+                onClick={() => setMap(!map)}
+              >
+                {map ? <List size={18} /> : <MapIcon size={18} />}
+              </button>
             </div>
-            <button
-              className={`button outline small ${filters ? "selected" : ""}`}
-              aria-expanded={filters}
-              aria-controls="notice-filter-panel"
-              onClick={() => setFilters(!filters)}
-            >
-              <SlidersHorizontal size={15} />
-              Filters
-            </button>
-            <button
-              className="icon-button view-switch"
-              aria-label={map ? "Show list" : "Show map"}
-              onClick={() => setMap(!map)}
-            >
-              {map ? <List size={18} /> : <MapIcon size={18} />}
-            </button>
-          </div>
+          )}
           <div
             className="filter-tabs"
             role="group"

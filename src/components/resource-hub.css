@@ -37,6 +37,76 @@
 .resource-count {
   margin: 0 0 20px;
 }
+.resource-discovery {
+  margin: 24px 0 28px;
+  padding: 22px 24px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfcf8;
+}
+.resource-discovery-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.resource-discovery-head h2 {
+  margin: 7px 0 0;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1.2;
+}
+.resource-discovery-head p {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.resource-task-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+.resource-task-grid button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
+}
+.resource-task-grid button:hover,
+.resource-task-grid button.active {
+  border-color: #b9c8b5;
+  background: #e9f1e7;
+}
+.resource-task-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: #edf3e9;
+  color: #315a4c;
+}
+.resource-task-grid button > span:nth-child(2) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.resource-task-grid button > svg {
+  color: var(--muted);
+}
 .resource-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -86,5 +156,28 @@
   }
   .resource-search input {
     font-size: 16px;
+  }
+  .resource-discovery {
+    margin: 20px 0 24px;
+    padding: 18px 15px 14px;
+    border-radius: 12px;
+  }
+  .resource-discovery-head {
+    display: block;
+  }
+  .resource-discovery-head p {
+    margin-top: 8px;
+  }
+  .resource-task-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .resource-task-grid button {
+    grid-template-columns: auto minmax(0, 1fr);
+    min-height: 52px;
+    padding: 9px;
+  }
+  .resource-task-grid button > svg {
+    display: none;
   }
 }

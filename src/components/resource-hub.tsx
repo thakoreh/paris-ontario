@@ -1,11 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Search } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bus,
+  MapPin,
+  Search,
+  TreePine,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { filterParisResources } from "@/data/paris-resources";
 import { ShareButton } from "./share-button";
 import "./resource-hub.css";
+
+const resourceTaskShortcuts = [
+  { label: "Waste & recycling", query: "waste recycling", Icon: Trash2 },
+  { label: "Getting around", query: "transit parking", Icon: Bus },
+  { label: "Outdoors", query: "trail", Icon: TreePine },
+  { label: "Settling in", query: "moving", Icon: MapPin },
+] as const;
 
 export function ParisOntarioResourceHub() {
   const [query, setQuery] = useState("");
@@ -31,6 +45,32 @@ export function ParisOntarioResourceHub() {
         not a live status feed. Check the original source before you travel,
         book, pay or rely on a service.
       </div>
+      <section className="resource-discovery" aria-labelledby="resource-discovery-title">
+        <div className="resource-discovery-head">
+          <div>
+            <span className="eyebrow">START WITH A TASK</span>
+            <h2 id="resource-discovery-title">What are you looking for?</h2>
+          </div>
+          <p>Pick a common starting point or search all five reviewed guides.</p>
+        </div>
+        <div className="resource-task-grid" role="group" aria-label="Common guide tasks">
+          {resourceTaskShortcuts.map(({ label, query: shortcutQuery, Icon }) => (
+            <button
+              key={label}
+              type="button"
+              className={query === shortcutQuery ? "active" : ""}
+              aria-pressed={query === shortcutQuery}
+              onClick={() => setQuery(shortcutQuery)}
+            >
+              <span className="resource-task-icon">
+                <Icon size={18} aria-hidden="true" />
+              </span>
+              <span>{label}</span>
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </section>
       <label className="resource-search">
         <span>Find a guide</span>
         <div>

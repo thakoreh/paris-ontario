@@ -91,6 +91,124 @@
   border-radius: 10px;
   font-size: 14px;
 }
+.resident-shortcuts a:hover {
+  border-color: #b9c8b5;
+  background: #fbfcf8;
+  transform: translateY(-1px);
+}
+.resident-shortcuts .shortcut-icon {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 10px;
+  color: #315a4c;
+  background: #e9f1e7;
+}
+.resident-shortcuts .shortcut-icon.warm {
+  color: #765d38;
+  background: #f5eee0;
+}
+.resident-shortcuts .shortcut-icon.cool {
+  color: #3e6170;
+  background: #e7f0f2;
+}
+.resident-shortcuts .shortcut-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+}
+.resident-shortcuts strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.resident-shortcuts small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.resident-shortcuts > a > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+.discovery-panel {
+  margin: 0 0 32px;
+  padding: 22px 24px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfcf8;
+}
+.discovery-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.discovery-intro h2 {
+  margin: 7px 0 0;
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.35px;
+}
+.discovery-intro p {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.discovery-toolbar {
+  margin: 20px 0 12px;
+}
+.discovery-toolbar .search-field {
+  height: 46px;
+  border-radius: 9px;
+}
+.discovery-toolbar .search-field input {
+  font-size: 13px !important;
+}
+.discovery-toolbar .button,
+.discovery-toolbar .icon-button {
+  min-height: 44px;
+}
+.discovery-toolbar .button {
+  white-space: nowrap;
+}
+.quick-filter-row {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 2px 2px 4px;
+  scrollbar-width: none;
+}
+.quick-filter-row::-webkit-scrollbar {
+  display: none;
+}
+.quick-filter-row button {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.quick-filter-row button:hover,
+.quick-filter-row button.active {
+  border-color: #b9c8b5;
+  background: #e9f1e7;
+  color: #315a4c;
+}
+.resident-shortcuts a,
+.quick-filter-row button,
+.discovery-toolbar .button,
+.discovery-toolbar .icon-button {
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
 @media (max-width: 760px) {
   .guide-grid {
     grid-template-columns: 1fr;
@@ -107,6 +225,42 @@
   }
   .resident-guide .text-link {
     overflow-wrap: anywhere;
+  }
+  .resident-shortcuts {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .resident-shortcuts a {
+    min-width: 0;
+    padding: 13px 14px;
+  }
+  .discovery-panel {
+    margin-bottom: 24px;
+    padding: 18px 15px 14px;
+    border-radius: 12px;
+  }
+  .discovery-intro {
+    display: block;
+  }
+  .discovery-intro h2 {
+    font-size: 20px;
+  }
+  .discovery-intro p {
+    margin-top: 8px;
+  }
+  .discovery-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 7px;
+    margin-top: 16px;
+  }
+  .discovery-toolbar .search-field {
+    grid-column: 1 / -1;
+  }
+  .discovery-toolbar .button {
+    padding-inline: 10px;
   }
   footer > div {
     flex-wrap: wrap;
