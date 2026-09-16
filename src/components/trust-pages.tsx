@@ -68,6 +68,8 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
             storage use Supabase when configured. Email is used only when you
             opt in and a production delivery provider is enabled.
           </p>
+          <h2>Address search</h2>
+          <p>When you type an address in the location search, the query is sent through our server to Photon (Komoot), a public geocoder using OpenStreetMap data. Suggestions can be approximate. You can instead place a pin manually. Map tiles are supplied by OpenStreetMap.</p>
           <h2>Browser notifications</h2>
           <p>
             If you enable browser notifications, we store your push endpoint and

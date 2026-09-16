@@ -1338,6 +1338,43 @@ input[type="checkbox"][role="switch"]:checked:before {
   align-items: center;
   gap: 10px;
 }
+.address-autocomplete {
+  position: relative;
+}
+.address-privacy,
+.address-status {
+  display: block;
+  margin: 6px 0 0;
+  color: #59684f;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.address-suggestions {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  box-shadow: 0 8px 20px #263e3320;
+}
+.address-suggestions button {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.address-suggestions button:hover,
+.address-suggestions button:focus-visible {
+  background: #edf3e8;
+}
 .error {
   color: #59684f;
   white-space: pre-wrap;

@@ -25,6 +25,7 @@ import {
   type Preferences,
 } from "@/types";
 import { MapPanel } from "./map-panel";
+import { AddressAutocomplete, type AddressSuggestion } from "./address-autocomplete";
 import { Button } from "./ui/button";
 import { locationSchema } from "@/lib/validation";
 const authSchema = z.object({
@@ -292,15 +293,23 @@ export function LocationForm({ onDone }: { onDone?: () => void }) {
           </select>
         </label>
       </div>
-      <label>
-        Address or street
-        <input
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="e.g. 10 Grand River Street North"
-          required
-        />
-      </label>
+      <AddressAutocomplete
+        value={address}
+        onChange={(value) => {
+          setAddress(value);
+          setConfirmed(false);
+        }}
+        onSelect={(suggestion: AddressSuggestion) => {
+          setAddress(suggestion.address);
+          setPostal(suggestion.postalCode);
+          setPoint({
+            latitude: suggestion.latitude,
+            longitude: suggestion.longitude,
+          });
+          setConfirmed(false);
+          setMessage("");
+        }}
+      />
       <label>
         Postal code (optional)
         <input
@@ -311,8 +320,9 @@ export function LocationForm({ onDone }: { onDone?: () => void }) {
         />
       </label>
       <p className="message-box">
-        Address search isn’t connected yet. Tap the map to place your location,
-        or enter coordinates. Your address is never shown on public maps.
+        Choose a suggestion to preview its real map point. You can also type an
+        address manually and place the pin by tapping the map or editing the
+        coordinates.
       </p>
       <div className="location-map">
         <MapPanel notices={[]} pick={point} onPick={pick} />
