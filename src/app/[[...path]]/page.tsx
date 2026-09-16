@@ -15,6 +15,7 @@ import {
   SettingsPage,
 } from "@/components/account";
 import { Admin } from "@/components/admin";
+import { ParisOntarioResourceHub } from "@/components/resource-hub";
 export const dynamic = "force-dynamic";
 
 function isKnownContentRoute(path: string[]) {
@@ -27,6 +28,7 @@ function isKnownContentRoute(path: string[]) {
       "deadlines",
       "map",
       "events",
+      "paris-ontario",
       "sources",
       "about",
       "editorial-policy",
@@ -57,8 +59,11 @@ export async function generateMetadata({
       robots: { index: false, follow: false },
     };
   }
+  const homepage = route === "";
   const title =
-    path[0] === "notice"
+    homepage
+      ? "Paris, Ontario local updates and resources"
+      : path[0] === "notice"
       ? (await noticeBySlug(path[1]))?.title
       : path[0] === "deadline"
         ? (await deadlineById(path[1]))?.title
@@ -68,6 +73,7 @@ export async function generateMetadata({
               storm: "Storm & disruption",
               deadlines: "Upcoming deadlines",
               events: "Paris Ontario events",
+              "paris-ontario": "Paris, Ontario resource guide",
               map: "Local notice map",
               sources: "Our sources",
               about: "About Paris Pulse",
@@ -90,8 +96,11 @@ export async function generateMetadata({
     route === "disclaimer" ? "/privacy" : route ? `/${route}` : "/";
   return {
     title: title || "Know what changed around you",
-    description:
-      route === "editorial-policy"
+    description: homepage
+      ? "Source-linked local updates, practical resources and community information for Paris, Ontario."
+      : route === "paris-ontario"
+        ? "Source-linked guides for parks, getting around, family activities and essential services in Paris, Ontario."
+        : route === "editorial-policy"
         ? "How Paris Pulse verifies, corrects and expires local information for Paris, Ontario."
         : route === "sources"
           ? "Named sources, review status and source transparency for Paris Pulse."
@@ -165,6 +174,7 @@ export default async function Page({
       </AccountGate>
     );
   if (!isKnownContentRoute(path)) notFound();
+  if (route === "paris-ontario") return <ParisOntarioResourceHub />;
   if (path[0] === "notice" && path.length === 2) {
     const notice = await noticeBySlug(path[1]);
     if (!notice) notFound();

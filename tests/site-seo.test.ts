@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Source } from "@/types";
 import {
@@ -25,6 +27,17 @@ const source = (last_checked_at: string | null): Source => ({
 });
 
 describe("public-site configuration", () => {
+  it("gives the homepage a Paris, Ontario search title", () => {
+    const page = fs.readFileSync(
+      path.join(process.cwd(), "src/app/[[...path]]/page.tsx"),
+      "utf8",
+    );
+    expect(page).toContain('"Paris, Ontario local updates and resources"');
+    expect(page).toContain(
+      '"Source-linked local updates, practical resources and community information for Paris, Ontario."',
+    );
+  });
+
   it("accepts only a normalized HTTPS production URL", () => {
     expect(normalizePublicUrl("https://parispulse.ca/")?.toString()).toBe(
       "https://parispulse.ca/",

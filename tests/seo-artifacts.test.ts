@@ -37,6 +37,19 @@ describe("technical SEO artifacts", () => {
     }
   });
 
+  it("lists the source-backed Paris Ontario hub in AI-search and sitemap artifacts", () => {
+    const sitemap = read("src/app/sitemap.ts");
+    expect(sitemap).toContain('"/paris-ontario"');
+    const llms = read("src/app/llms.txt/route.ts");
+    expect(llms).toContain("Paris, Ontario resource guide");
+  });
+
+  it("uses a fixed review date for the resource hub and does not stamp every static URL at request time", () => {
+    const sitemap = read("src/app/sitemap.ts");
+    expect(sitemap).toContain('["/paris-ontario", "monthly", 0.9, "2026-09-15"]');
+    expect(sitemap).not.toContain("const lastModified = new Date()");
+  });
+
   it("ships a reusable HTTP SEO verification command", () => {
     expect(fs.existsSync(path.join(root, "scripts/verify-seo.mjs"))).toBe(true);
     const packageJson = JSON.parse(read("package.json")) as {

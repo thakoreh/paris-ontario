@@ -28,6 +28,7 @@ const main = [
   ["/deadlines", "Upcoming deadlines", CalendarDays],
   ["/storm", "Storm & disruption", CloudLightning],
   ["/events", "Events & activities", Compass],
+  ["/paris-ontario", "Paris resource guide", Compass],
   ["/services", "Everyday services", ShieldCheck],
   ["/new-to-paris", "New to Paris", Home],
 ] as const;

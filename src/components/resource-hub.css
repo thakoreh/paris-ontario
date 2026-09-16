@@ -1,0 +1,90 @@
+.resource-hub {
+  max-width: 1120px;
+}
+.resource-search {
+  display: block;
+  max-width: 620px;
+  margin: 28px 0 10px;
+  font-weight: 650;
+}
+.resource-search > span {
+  display: block;
+  margin-bottom: 8px;
+}
+.resource-search > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.resource-search input {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+}
+.resource-search input:focus {
+  outline: 0;
+}
+.resource-search > div:focus-within {
+  outline: 3px solid #254d3e;
+  outline-offset: 3px;
+}
+.resource-count {
+  margin: 0 0 20px;
+}
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.resource-card {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+.resource-card h2 {
+  font-size: 22px;
+  line-height: 1.35;
+}
+.resource-card h3 {
+  margin: 20px 0 8px;
+  font-size: 15px;
+}
+.resource-card ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.resource-card li + li {
+  margin-top: 10px;
+}
+.resource-card li small {
+  display: block;
+  color: #59684f;
+  font-size: 12px;
+}
+.resource-task {
+  color: #315a4c;
+  font-weight: 650;
+}
+.resource-card .guide-provenance {
+  margin-top: auto;
+}
+.resource-next {
+  margin-top: 28px;
+}
+@media (max-width: 760px) {
+  .resource-grid {
+    grid-template-columns: 1fr;
+  }
+  .resource-hub h1 {
+    overflow-wrap: anywhere;
+  }
+  .resource-search input {
+    font-size: 16px;
+  }
+}

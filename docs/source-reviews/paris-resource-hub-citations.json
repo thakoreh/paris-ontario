@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": 1,
+      "url": "https://www.brant.ca/recreation-and-parks/outdoor-courts-sports-and-trails/trails",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 2,
+      "url": "https://grandriver.ca/outdoor-recreation/trails/cambridge-to-paris-trail",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 3,
+      "url": "https://www.brant.ca/council-and-county-administration/customer-service-locations",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 4,
+      "url": "https://www.brant.ca/community-and-support/brant-cares/newcomers",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 5,
+      "url": "https://www.brantlibrary.ca/en/your-library/hours-and-locations.aspx",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 6,
+      "url": "https://brant.ca/bylaws-and-animal-services/parking/bia-residential-permit-parking",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 7,
+      "url": "https://www.brant.ca/roads-parking-and-public-transit/brant-transit",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 8,
+      "url": "https://www.brant.ca/recreation-and-parks/community-services-guides",
+      "title": "",
+      "accessed": "2026-09-15"
+    },
+    {
+      "id": 9,
+      "url": "https://www.brant.ca/media-manager/media-pages/parks-and-facilities-pf/paris-lions-park",
+      "title": "",
+      "accessed": "2026-09-15"
+    }
+  ]
+}
