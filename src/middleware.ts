@@ -43,6 +43,7 @@ const staticRoutes = new Set([
   "/admin/sources",
   "/admin/review",
   "/admin/ingestion",
+  "/manifest.webmanifest",
   "/robots.txt",
   "/sitemap.xml",
   "/llms.txt",
@@ -144,5 +145,7 @@ export async function middleware(request: NextRequest) {
   return data ? NextResponse.next({ request }) : notFoundResponse(request);
 }
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|icon-192.png|apple-touch-icon.png).*)",
+  ],
 };

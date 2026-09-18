@@ -6,6 +6,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { Provider } from "@/components/provider";
 import { Shell } from "@/components/shell";
 import { StructuredData } from "@/components/structured-data";
+import { FAVICON_METADATA } from "@/lib/favicon";
 import { normalizePublicUrl, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 
 const siteUrl = normalizePublicUrl();
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
     title: "Paris Pulse | Local updates for Paris, Ontario",
     description: SITE_DESCRIPTION,
   },
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: FAVICON_METADATA,
 };
 
 export const viewport: Viewport = {
