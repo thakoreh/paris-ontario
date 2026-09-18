@@ -9,7 +9,7 @@ test("public notices, filters, map and source links", async ({ page }) => {
   await expect(page.locator(".demo-banner")).toHaveCount(0);
   const firstTitle = await page.locator(".notice-title").first().innerText();
   await page
-    .getByRole("textbox", { name: "Search notices" })
+    .getByRole("searchbox", { name: "Search local updates" })
     .fill(firstTitle.split(" ")[0]);
   await expect(page.locator(".notice-card").first()).toBeVisible();
   await page.locator(".notice-title").first().click();
@@ -60,7 +60,7 @@ test("manual location and access protection", async ({ page, request }) => {
   await page.goto("/app/locations/new");
   await page.getByLabel("Place label").fill("Test Home");
   await page
-    .getByLabel("Address or street")
+    .getByRole("textbox", { name: "Search home address" })
     .fill("10 Grand River Street North");
   await page.getByLabel("I’ve checked this map location.").check();
   await page

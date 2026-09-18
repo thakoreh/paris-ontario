@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { publicData, noticeBySlug, deadlineById } from "@/lib/repository";
+import { privateRouteMetadata, publicRouteMetadata } from "@/lib/seo";
 import { Feed } from "@/components/feed";
 import { StormPage, SourcesPage, AboutPage } from "@/components/public-pages";
 import { TrustPage } from "@/components/trust-pages";
@@ -53,36 +54,6 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { path = [] } = await params;
   const route = path.join("/");
-  if (route === "_not-found") {
-    return {
-      title: "Update not found",
-      robots: { index: false, follow: false },
-    };
-  }
-  const homepage = route === "";
-  const title =
-    homepage
-      ? "Paris, Ontario local updates and resources"
-      : path[0] === "notice"
-      ? (await noticeBySlug(path[1]))?.title
-      : path[0] === "deadline"
-        ? (await deadlineById(path[1]))?.title
-        : (
-            {
-              today: "Today in Paris",
-              storm: "Storm & disruption",
-              deadlines: "Upcoming deadlines",
-              events: "Paris Ontario events",
-              "paris-ontario": "Paris, Ontario resource guide",
-              map: "Local notice map",
-              sources: "Our sources",
-              about: "About Paris Pulse",
-              "editorial-policy": "Editorial policy",
-              privacy: "Privacy",
-              terms: "Terms of use",
-              contact: "Contact and corrections",
-            } as Record<string, string>
-          )[path[0]];
   const privateRoute = [
     "app",
     "admin",
@@ -92,22 +63,106 @@ export async function generateMetadata({
     "reset-password",
     "onboarding",
   ].includes(path[0]);
-  const canonical =
-    route === "disclaimer" ? "/privacy" : route ? `/${route}` : "/";
-  return {
-    title: title || "Know what changed around you",
-    description: homepage
-      ? "Source-linked local updates, practical resources and community information for Paris, Ontario."
-      : route === "paris-ontario"
-        ? "Source-linked guides for parks, getting around, family activities and essential services in Paris, Ontario."
-        : route === "editorial-policy"
-        ? "How Paris Pulse verifies, corrects and expires local information for Paris, Ontario."
-        : route === "sources"
-          ? "Named sources, review status and source transparency for Paris Pulse."
-          : undefined,
-    alternates: privateRoute ? undefined : { canonical },
-    robots: privateRoute ? { index: false, follow: false } : undefined,
-  };
+  if (route === "_not-found") return privateRouteMetadata("Update not found");
+  if (privateRoute) return privateRouteMetadata("Your Paris Pulse");
+
+  const homepage = route === "";
+  let title: string | undefined;
+  let description: string | undefined;
+  const canonical = route === "disclaimer" ? "/privacy" : route ? `/${route}` : "/";
+  let type: "website" | "article" = "website";
+
+  if (homepage) {
+    title = "Paris, Ontario local updates and resources";
+    description =
+      "Source-linked local updates, practical resources and community information for Paris, Ontario.";
+  } else if (path[0] === "notice" && path.length === 2) {
+    const notice = await noticeBySlug(path[1]);
+    if (!notice) return privateRouteMetadata("Update not found");
+    title = notice.title;
+    description = notice.summary;
+    type = "article";
+  } else if (path[0] === "deadline" && path.length === 2) {
+    const deadline = await deadlineById(path[1]);
+    if (!deadline) return privateRouteMetadata("Deadline not found");
+    title = deadline.title;
+    description = deadline.description;
+    type = "article";
+  } else {
+    const pageMetadata: Record<string, { title: string; description: string }> = {
+      today: {
+        title: "Today in Paris",
+        description:
+          "The latest verified local updates and disruptions for Paris, Ontario.",
+      },
+      storm: {
+        title: "Storm & disruption",
+        description:
+          "Verified storm, outage and disruption information for Paris, Ontario, with links to original sources.",
+      },
+      deadlines: {
+        title: "Upcoming deadlines",
+        description:
+          "Verified public consultations, registrations and other upcoming deadlines for Paris, Ontario.",
+      },
+      events: {
+        title: "Paris Ontario events",
+        description:
+          "Local events and community activities in Paris, Ontario, linked to their original sources.",
+      },
+      "paris-ontario": {
+        title: "Paris, Ontario resource guide",
+        description:
+          "Source-linked guides for parks, getting around, family activities and essential services in Paris, Ontario.",
+      },
+      map: {
+        title: "Local notice map",
+        description:
+          "Explore verified local notices and their affected areas around Paris, Ontario.",
+      },
+      sources: {
+        title: "Our sources",
+        description:
+          "Named sources, review status and source transparency for Paris Pulse.",
+      },
+      about: {
+        title: "About Paris Pulse",
+        description:
+          "Learn how Paris Pulse shares source-linked local information for Paris, Ontario.",
+      },
+      "editorial-policy": {
+        title: "Editorial policy",
+        description:
+          "How Paris Pulse verifies, corrects and expires local information for Paris, Ontario.",
+      },
+      privacy: {
+        title: "Privacy",
+        description:
+          "How Paris Pulse handles information and keeps saved locations private.",
+      },
+      terms: {
+        title: "Terms of use",
+        description:
+          "Terms for using Paris Pulse local updates, guides and source links.",
+      },
+      contact: {
+        title: "Contact and corrections",
+        description:
+          "Contact Paris Pulse about corrections, sources and local information.",
+      },
+      disclaimer: {
+        title: "Privacy",
+        description:
+          "How Paris Pulse handles information and keeps saved locations private.",
+      },
+    };
+    const current = pageMetadata[path[0]];
+    title = current?.title;
+    description = current?.description;
+  }
+
+  if (!title || !description) return privateRouteMetadata("Page not found");
+  return publicRouteMetadata({ title, description, path: canonical, type });
 }
 export default async function Page({
   params,

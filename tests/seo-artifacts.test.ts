@@ -57,4 +57,20 @@ describe("technical SEO artifacts", () => {
     };
     expect(packageJson.scripts?.["verify:seo"]).toContain("verify-seo.mjs");
   });
+
+  it("checks sitemap details and route-aware social metadata", () => {
+    const verifier = read("scripts/verify-seo.mjs");
+    expect(verifier).toContain('property="og:image"');
+    expect(verifier).toContain('property="og:url"');
+    expect(verifier).toContain("/notice/");
+    expect(verifier).toContain("deadline");
+    expect(verifier).not.toContain(
+      "Sitemap must contain at least one eligible notice or deadline detail URL",
+    );
+  });
+
+  it("keeps the local OpenGraph image reachable through middleware", () => {
+    const middleware = read("src/middleware.ts");
+    expect(middleware).toContain('"/opengraph-image"');
+  });
 });

@@ -7,9 +7,11 @@ import { Provider } from "@/components/provider";
 import { Shell } from "@/components/shell";
 import { StructuredData } from "@/components/structured-data";
 import { FAVICON_METADATA } from "@/lib/favicon";
-import { normalizePublicUrl, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+import { normalizePublicUrl, sitePath, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+import { SOCIAL_IMAGE_ALT, SOCIAL_IMAGE_PATH } from "@/lib/seo";
 
 const siteUrl = normalizePublicUrl();
+const socialImage = sitePath(siteUrl, SOCIAL_IMAGE_PATH) || SOCIAL_IMAGE_PATH;
 
 export const metadata: Metadata = {
   metadataBase: siteUrl || undefined,
@@ -27,11 +29,20 @@ export const metadata: Metadata = {
     locale: "en_CA",
     url: siteUrl ? "/" : undefined,
     siteName: SITE_NAME,
+    images: [
+      {
+        url: socialImage,
+        width: 1200,
+        height: 630,
+        alt: SOCIAL_IMAGE_ALT,
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Paris Pulse | Local updates for Paris, Ontario",
     description: SITE_DESCRIPTION,
+    images: [socialImage],
   },
   icons: FAVICON_METADATA,
 };

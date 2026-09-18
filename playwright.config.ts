@@ -18,7 +18,8 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "NEXT_PUBLIC_PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_TEST_MODE=1 npm run dev -- --port 3017",
+        command:
+          "NEXT_PUBLIC_APP_URL=https://parispulse.ca NEXT_PUBLIC_PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_TEST_MODE=1 npm run dev -- --port 3017",
         url: "http://localhost:3017",
         reuseExistingServer: true,
         timeout: 120000,

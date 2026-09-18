@@ -1,4 +1,9 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { privateRouteMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = privateRouteMetadata("Update not found");
+
 export default function NotFound() {
   return (
     <div className="page-wrap">

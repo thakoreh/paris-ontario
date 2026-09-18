@@ -1,4 +1,10 @@
 import type { MetadataRoute } from "next";
+import { publicData } from "@/lib/repository";
+import {
+  contentLastModified,
+  isPublicDeadline,
+  isPublicNotice,
+} from "@/lib/public-content";
 import { normalizePublicUrl, sitePath } from "@/lib/site";
 
 type SitemapEntry = [
@@ -27,13 +33,59 @@ const routes: SitemapEntry[] = [
   ["/about", "monthly", 0.6],
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const base = normalizePublicUrl();
-  if (!base) return [];
+function staticEntries(base: URL): MetadataRoute.Sitemap {
   return routes.map(([path, changeFrequency, priority, reviewedAt]) => ({
     url: sitePath(base, path)!,
     ...(reviewedAt ? { lastModified: new Date(`${reviewedAt}T00:00:00.000Z`) } : {}),
     changeFrequency,
     priority,
   }));
+}
+
+export async function buildSitemap(
+  now = new Date(),
+): Promise<MetadataRoute.Sitemap> {
+  const base = normalizePublicUrl();
+  if (!base) return [];
+
+  const entries = staticEntries(base);
+  const data = await publicData(now);
+  if (data.error) return entries;
+
+  const notices = data.notices
+    .filter((notice) => isPublicNotice(notice, now))
+    .map((notice) => ({
+      url: sitePath(base, `/notice/${encodeURIComponent(notice.slug)}`)!,
+      ...(contentLastModified(notice)
+        ? { lastModified: new Date(contentLastModified(notice)!) }
+        : {}),
+      changeFrequency: "daily" as const,
+      priority: 0.8,
+    }));
+  const deadlines = data.deadlines
+    .filter((deadline) => isPublicDeadline(deadline, now))
+    .map((deadline) => ({
+      url: sitePath(base, `/deadline/${encodeURIComponent(deadline.id)}`)!,
+      ...(contentLastModified({
+        verified_at: deadline.verified_at,
+        created_at: deadline.created_at,
+      })
+        ? {
+            lastModified: new Date(
+              contentLastModified({
+                verified_at: deadline.verified_at,
+                created_at: deadline.created_at,
+              })!,
+            ),
+          }
+        : {}),
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    }));
+
+  return [...entries, ...notices, ...deadlines];
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  return buildSitemap();
 }

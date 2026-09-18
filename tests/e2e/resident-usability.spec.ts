@@ -14,14 +14,18 @@ test("notice filters announce results and reset without a reload", async ({
   await expect(results).toContainText(/Showing \d+ of \d+ notices/);
   await expect(page.locator(".notice-list .notice-card").first()).toBeVisible();
   const original = await results.innerText();
-  await page.getByLabel("Search notices").fill("zzzz-no-such-paris-notice");
+  await page
+    .getByRole("searchbox", { name: "Search local updates" })
+    .fill("zzzz-no-such-paris-notice");
   await expect(results).toHaveText("Showing 0 of 0 notices");
   await expect(
     page.getByRole("heading", { name: "No matching notices." }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await page
+    .getByRole("button", { name: "More filters", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "Filters", exact: true }),
+    page.getByRole("button", { name: "More filters", exact: true }),
   ).toHaveAttribute("aria-expanded", "true");
   await page
     .getByRole("combobox", { name: "Importance", exact: true })
@@ -29,12 +33,16 @@ test("notice filters announce results and reset without a reload", async ({
   await page
     .getByRole("button", { name: "Clear filters", exact: true })
     .click();
-  await expect(page.getByLabel("Search notices")).toHaveValue("");
+  await expect(
+    page.getByRole("searchbox", { name: "Search local updates" }),
+  ).toHaveValue("");
   await expect(
     page.getByRole("combobox", { name: "Importance", exact: true }),
   ).toHaveValue("all");
   await expect(
-    page.getByRole("button", { name: "All updates", exact: true }),
+    page
+      .getByRole("group", { name: "Category filters", exact: true })
+      .getByRole("button", { name: "All updates", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(results).toHaveText(original);
   await expect(

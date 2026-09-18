@@ -13,7 +13,7 @@ async function fetchRoute(path) {
   const url = new URL(path, targetBase);
   const response = await fetch(url, { redirect: "manual" });
   const body = await response.text();
-  return { path, response, body };
+  return { path, url, response, body };
 }
 
 function expect(check, detail) {
@@ -24,11 +24,23 @@ const root = await fetchRoute("/");
 const robots = await fetchRoute("/robots.txt");
 const sitemap = await fetchRoute("/sitemap.xml");
 const llms = await fetchRoute("/llms.txt");
+const image = await fetchRoute("/opengraph-image");
 const login = await fetchRoute("/login");
+const app = await fetchRoute("/app");
 const missing = await fetchRoute("/notice/this-page-does-not-exist");
 const trustRoutes = await Promise.all(
   ["/editorial-policy", "/privacy", "/terms", "/contact"].map(fetchRoute),
 );
+
+const sitemapUrls = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
+  ([, url]) => url,
+);
+const dynamicDetailUrl = sitemapUrls.find((url) =>
+  /\/(notice|deadline)\/[^/]+$/.test(url),
+);
+const dynamicDetail = dynamicDetailUrl
+  ? await fetchRoute(new URL(dynamicDetailUrl).pathname)
+  : null;
 
 expect(root.response.status === 200, `GET / returned ${root.response.status}`);
 expect(
@@ -42,6 +54,17 @@ expect(
 expect(
   root.body.includes('property="og:locale" content="en_CA"'),
   "Homepage is missing the Canadian OpenGraph locale",
+);
+expect(
+  root.body.includes('property="og:image"') &&
+    root.body.includes("/opengraph-image"),
+  "Homepage is missing the local OpenGraph image",
+);
+expect(
+  root.body.includes(
+    `property="og:url" content="${canonicalBase.toString().replace(/\/$/, "")}"`,
+  ),
+  "Homepage OpenGraph URL does not match its canonical URL",
 );
 expect(
   robots.response.status === 200 &&
@@ -58,6 +81,15 @@ expect(
   "Sitemap is missing one or more trust routes",
 );
 expect(
+  sitemapUrls.length === new Set(sitemapUrls).size,
+  "Sitemap contains duplicate URLs",
+);
+expect(
+  image.response.status === 200 &&
+    image.response.headers.get("content-type")?.startsWith("image/png"),
+  "Local OpenGraph image must return a PNG",
+);
+expect(
   llms.response.status === 200 &&
     llms.body.includes("original official source") &&
     llms.body.includes("not an emergency service"),
@@ -69,9 +101,20 @@ expect(
   "Login must be noindex, nofollow",
 );
 expect(
+  app.response.status === 200 &&
+    app.body.includes('name="robots" content="noindex, nofollow"'),
+  "App must be noindex, nofollow",
+);
+expect(
   missing.response.status === 404 &&
     (missing.body.match(/name="robots" content="noindex"/g) || []).length === 1,
   "Missing public content must return one noindex 404 response",
+);
+expect(
+  !dynamicDetail ||
+    (dynamicDetail.body.includes('property="og:image"') &&
+      dynamicDetail.body.includes(`property="og:url" content="${dynamicDetailUrl}"`)),
+  "Dynamic detail pages must emit route-correct OpenGraph metadata",
 );
 expect(
   trustRoutes.every(({ response }) => response.status === 200),
