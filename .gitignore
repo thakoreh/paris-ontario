@@ -43,4 +43,6 @@ next-env.d.ts
 work/
 playwright-report/
 test-results/
+__pycache__/
+*.pyc
 !.env.example
