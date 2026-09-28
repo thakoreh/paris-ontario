@@ -7,7 +7,21 @@ from pathlib import Path
 import urllib.request
 
 STATE = Path.home() / '.hermes' / 'paris-pulse-publisher' / 'last_run.json'
+JOBS = Path.home() / '.hermes' / 'cron' / 'jobs.json'
 HEALTH = 'https://parispulse.ca/api/health'
+
+
+def assess_jobs(jobs):
+    issues = []
+    expected = ('Paris Pulse guarded official-source publisher', 'Paris Pulse independent reviewer', 'Paris Pulse incident advisor agent')
+    by_name = {job.get('name'): job for job in jobs}
+    for name in expected:
+        job = by_name.get(name)
+        if job is None or not job.get('enabled'):
+            issues.append(name + ' disabled or missing')
+        elif job.get('last_status') == 'error':
+            issues.append(name + ' failed')
+    return issues
 
 
 def assess(last, status, health, now):
@@ -42,7 +56,13 @@ def check(now=None):
             status, health = response.status, json.loads(response.read(2000))
     except Exception:
         status, health = None, None
-    return assess(last, status, health, now)
+    issues = assess(last, status, health, now)
+    try:
+        jobs = json.loads(JOBS.read_text()).get('jobs', [])
+        issues.extend(assess_jobs(jobs))
+    except (OSError, ValueError, TypeError):
+        issues.append('Hermes cron registry unavailable')
+    return issues
 
 
 if __name__ == '__main__':

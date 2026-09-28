@@ -22,6 +22,16 @@ class WatchdogTests(unittest.TestCase):
         last['at'] = (NOW - dt.timedelta(hours=9)).isoformat()
         self.assertTrue(watchdog.assess(last, 200, {'ok': True, 'dataMode': 'supabase'}, NOW))
 
+    def test_failed_reviewer_or_disabled_publisher_triggers_escalation(self):
+        jobs = [
+            {'name':'Paris Pulse guarded official-source publisher','enabled':False,'last_status':'ok'},
+            {'name':'Paris Pulse independent reviewer','enabled':True,'last_status':'error'},
+            {'name':'Paris Pulse incident advisor agent','enabled':True,'last_status':'ok'},
+        ]
+        issues = watchdog.assess_jobs(jobs)
+        self.assertTrue(any('publisher' in issue.lower() for issue in issues))
+        self.assertTrue(any('reviewer' in issue.lower() for issue in issues))
+
     def test_site_down_or_backend_preview_alerts(self):
         last = {'at': NOW.isoformat(), 'run_status': 'ok'}
         self.assertTrue(watchdog.assess(last, 503, None, NOW))
