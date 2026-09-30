@@ -107,21 +107,23 @@ def review(url, independent_fetch, now, expected_title=None):
     section = re.search(r'<section\b[^>]*class="[^"]*gs-news-details-meta[^>]*>(.*?)</section>', page, re.I | re.S)
     if not title_match or not date_match or not section: raise ValueError('Article title/date/category missing')
     title, date_string = clean(title_match.group(1)), clean(date_match.group(1))
+    if not title: raise ValueError('Article title empty')
     if expected_title is not None and title != expected_title: raise ValueError('Listing/article title mismatch')
     category = clean(section.group(1))
     if not category.replace(date_string, '').strip(): raise ValueError('Article category missing')
-    if 'Road Construction' not in category: raise EditorialHold('Not in official road-construction category')
     try:
         published = dt.datetime.strptime(date_string, '%b %d, %Y').date()
     except ValueError as e:
         raise ValueError('Unrecognized source publication date') from e
-    if not (dt.timedelta(0) <= now.date() - published <= dt.timedelta(days=5)):
-        raise EditorialHold('Source article is stale or future-dated')
     text_block = re.search(r'<div\b[^>]*class="[^"]*text base-text[^"]*"[^>]*>(.*?)</div>', page, re.I | re.S)
     if not text_block: raise ValueError('Official article body missing')
     paragraphs = [clean(p) for p in re.findall(r'<p\b[^>]*>(.*?)</p>', text_block.group(1), re.I | re.S)]
     excerpt = next((p for p in paragraphs if len(p) >= 30 and len(p) <= 400), '')
     if not any(paragraphs): raise ValueError('Official article paragraphs missing or empty')
+    # Validate required source structure before any healthy editorial skip.
+    if 'Road Construction' not in category: raise EditorialHold('Not in official road-construction category')
+    if not (dt.timedelta(0) <= now.date() - published <= dt.timedelta(days=5)):
+        raise EditorialHold('Source article is stale or future-dated')
     if not excerpt: raise EditorialHold('No short complete source excerpt')
     if not re.search(r'\bparis\b', title + ' ' + excerpt, re.I): raise EditorialHold('Not demonstrably Paris-specific')
     if BLOCK.search(title + ' ' + excerpt): raise EditorialHold('Sensitive/ambiguous article requires human review')

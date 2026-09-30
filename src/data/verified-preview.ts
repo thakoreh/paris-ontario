@@ -8,7 +8,8 @@ const source: Source = {
   organization: "County of Brant",
   source_type: "website",
   url: "https://www.brant.ca/news/",
-  description: "Official County of Brant public notices and service updates for Paris, Ontario.",
+  description:
+    "Official County of Brant public notices and service updates for Paris, Ontario.",
   authority_level: "official",
   ingestion_type: "manual",
   ingestion_enabled: false,
@@ -27,8 +28,7 @@ const notice: Notice = {
   slug: "street-lighting-installation-on-powerline-road",
   summary:
     "County of Brant is installing 17 LED streetlights on Powerline Road near Mile Hill Road, Brewis Street, Hitchman Street and Whiting Drive. No road closures or detours are planned.",
-  body:
-    "Reviewed official County of Brant notice. Work is expected from September 14 to October 12, 2026. Driveway and property access will be maintained where possible.",
+  body: "Reviewed official County of Brant notice. Work is expected from September 14 to October 12, 2026. Driveway and property access will be maintained where possible.",
   category: "construction",
   severity: "important",
   official_url:
@@ -40,7 +40,8 @@ const notice: Notice = {
   start_at: "2026-09-14T00:00:00-04:00",
   end_at: "2026-10-12T23:59:59-04:00",
   expires_at: "2026-10-13T00:00:00-04:00",
-  address_text: "Powerline Road near Mile Hill Road, Brewis Street, Hitchman Street and Whiting Drive",
+  address_text:
+    "Powerline Road near Mile Hill Road, Brewis Street, Hitchman Street and Whiting Drive",
   latitude: 43.1945,
   longitude: -80.3844,
   affected_area_text: "Powerline Road corridor",
@@ -56,7 +57,8 @@ const deadline: Deadline = {
   notice_id: notice.id,
   community_id: community.id,
   title: "Powerline Road lighting work ends",
-  description: "Expected end date for the source-linked Powerline Road lighting installation.",
+  description:
+    "Expected end date for the source-linked Powerline Road lighting installation.",
   category: "construction",
   starts_at: notice.start_at,
   deadline_at: "2026-10-12T23:59:59-04:00",
@@ -68,10 +70,42 @@ const deadline: Deadline = {
   is_sample: false,
 };
 
-export const verifiedPreview = {
+const recordedPreview = {
   notices: [notice],
   deadlines: [deadline],
   sources: [source],
   demo: false,
   error: null,
 };
+
+// Browser regression fixtures must not expire as the calendar advances. This
+// opt-in transformation is unreachable in production and never modifies source
+// records, production seeds or their recorded historical timestamps.
+export function previewForTests(now = new Date()) {
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.PARIS_PULSE_TEST_MODE !== "1" ||
+    process.env.PARIS_PULSE_RELATIVE_FIXTURES !== "1"
+  )
+    return recordedPreview;
+  const offset = now.getTime() - Date.parse("2026-09-15T16:00:00Z");
+  const shifted = <T extends object>(row: T): T =>
+    Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [
+        key,
+        key.endsWith("_at") &&
+        typeof value === "string" &&
+        Number.isFinite(Date.parse(value))
+          ? new Date(Date.parse(value) + offset).toISOString()
+          : value,
+      ]),
+    ) as T;
+  return {
+    ...recordedPreview,
+    notices: recordedPreview.notices.map(shifted),
+    deadlines: recordedPreview.deadlines.map(shifted),
+    sources: recordedPreview.sources.map(shifted),
+  };
+}
+
+export const verifiedPreview = previewForTests();

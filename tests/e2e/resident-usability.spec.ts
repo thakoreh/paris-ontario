@@ -1,11 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
-  if (!process.env.PLAYWRIGHT_BASE_URL) {
-    await page.clock.setFixedTime(new Date("2026-09-15T16:00:00Z"));
-  }
-});
-
 test("notice filters announce results and reset without a reload", async ({
   page,
 }) => {

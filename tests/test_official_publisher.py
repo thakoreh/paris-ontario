@@ -136,6 +136,29 @@ class PublisherTests(unittest.TestCase):
                 self.assertEqual(audit['status'], 'partial')
                 self.assertEqual(audit['records_failed'], 1)
 
+    def test_source_failures_take_precedence_over_editorial_holds(self):
+        malformed_articles = [
+            ARTICLE.replace('Road Construction', 'Recreation').replace('Sep 28, 2026', 'invalid date'),
+            ARTICLE.replace('Road Construction', 'Recreation').replace('text base-text', 'missing-body'),
+            ARTICLE.replace('Road Construction', 'Recreation').replace('<p>', '<aside>').replace('</p>', '</aside>'),
+            ARTICLE.replace('Sep 28, 2026', 'Sep 01, 2026').replace('text base-text', 'missing-body'),
+            ARTICLE.replace('Sep 28, 2026', 'Sep 01, 2026').replace('<p>', '<aside>').replace('</p>', '</aside>'),
+        ]
+        for article in malformed_articles:
+            with self.subTest(article=article):
+                outcome, requests = self.run_article_fixture(article)
+                self.assertEqual(outcome['run_status'], 'partial')
+                self.assertEqual(len(outcome['errors']), 1)
+                self.assertEqual(outcome['held'], [])
+                self.assertFalse(any(table == 'official_sources' for table, _, _ in requests))
+                audit = next(payload for table, _, payload in requests if table == 'ingestion_runs')
+                self.assertEqual(audit['status'], 'partial')
+                self.assertEqual(audit['records_failed'], 1)
+
+    def test_empty_title_is_source_failure_without_expected_title(self):
+        with self.assertRaisesRegex(ValueError, 'Article title empty'):
+            publisher.review(URL, lambda url: ARTICLE.replace('Paris paving update</h1>', '</h1>'), NOW)
+
     def test_fetch_and_backend_validation_errors_are_not_editorial_holds(self):
         for operation, message in [('review', 'Source returned non-200'),
                                    ('publish', 'Configured official source not approved')]:
