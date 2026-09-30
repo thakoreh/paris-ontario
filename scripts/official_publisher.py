@@ -33,6 +33,10 @@ BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w
 SPACE = re.compile(r'\s+')
 
 
+class EditorialHold(ValueError):
+    """A successfully read source is outside the conservative publishing policy."""
+
+
 def clean(text):
     return SPACE.sub(' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
 
@@ -73,7 +77,8 @@ def collect_feed(xml, now):
         raw_date = item.findtext('pubDate') or ''
         if not allowed(url) or not re.search(r'\bparis\b', title, re.I): continue
         try: published = parsedate_to_datetime(raw_date).astimezone(UTC)
-        except (ValueError, TypeError): continue
+        except (ValueError, TypeError, OverflowError) as e:
+            raise ValueError('Unrecognized RSS publication date for ' + url) from e
         if dt.timedelta(0) <= now - published <= dt.timedelta(days=5):
             selected[url] = title
         if len(selected) >= 15: break
@@ -102,21 +107,26 @@ def review(url, independent_fetch, now, expected_title=None):
     section = re.search(r'<section\b[^>]*class="[^"]*gs-news-details-meta[^>]*>(.*?)</section>', page, re.I | re.S)
     if not title_match or not date_match or not section: raise ValueError('Article title/date/category missing')
     title, date_string = clean(title_match.group(1)), clean(date_match.group(1))
+    if not title: raise ValueError('Article title empty')
     if expected_title is not None and title != expected_title: raise ValueError('Listing/article title mismatch')
-    if 'Road Construction' not in clean(section.group(1)): raise ValueError('Not in official road-construction category')
+    category = clean(section.group(1))
+    if not category.replace(date_string, '').strip(): raise ValueError('Article category missing')
     try:
         published = dt.datetime.strptime(date_string, '%b %d, %Y').date()
     except ValueError as e:
         raise ValueError('Unrecognized source publication date') from e
-    if not (dt.timedelta(0) <= now.date() - published <= dt.timedelta(days=5)):
-        raise ValueError('Source article is stale or future-dated')
     text_block = re.search(r'<div\b[^>]*class="[^"]*text base-text[^"]*"[^>]*>(.*?)</div>', page, re.I | re.S)
     if not text_block: raise ValueError('Official article body missing')
     paragraphs = [clean(p) for p in re.findall(r'<p\b[^>]*>(.*?)</p>', text_block.group(1), re.I | re.S)]
     excerpt = next((p for p in paragraphs if len(p) >= 30 and len(p) <= 400), '')
-    if not excerpt: raise ValueError('No short complete source excerpt')
-    if not re.search(r'\bparis\b', title + ' ' + excerpt, re.I): raise ValueError('Not demonstrably Paris-specific')
-    if BLOCK.search(title + ' ' + excerpt): raise ValueError('Sensitive/ambiguous article requires human review')
+    if not any(paragraphs): raise ValueError('Official article paragraphs missing or empty')
+    # Validate required source structure before any healthy editorial skip.
+    if 'Road Construction' not in category: raise EditorialHold('Not in official road-construction category')
+    if not (dt.timedelta(0) <= now.date() - published <= dt.timedelta(days=5)):
+        raise EditorialHold('Source article is stale or future-dated')
+    if not excerpt: raise EditorialHold('No short complete source excerpt')
+    if not re.search(r'\bparis\b', title + ' ' + excerpt, re.I): raise EditorialHold('Not demonstrably Paris-specific')
+    if BLOCK.search(title + ' ' + excerpt): raise EditorialHold('Sensitive/ambiguous article requires human review')
     slug = urllib.parse.urlsplit(url).path.strip('/').split('/')[-1]
     return {
         'community_id': COMMUNITY_ID, 'source_id': SOURCE_ID,
@@ -190,7 +200,7 @@ def publish(row, db, now):
     if dt.datetime.fromisoformat(row['expires_at']) <= now or dt.datetime.fromisoformat(row['expires_at']) > now + dt.timedelta(days=3, minutes=10):
         raise ValueError('Expiry outside strict window')
     if db.existing(row['official_url']): return 'duplicate'
-    if db.today_count(now) >= MAX_PER_DAY: raise ValueError('Daily publish cap reached')
+    if db.today_count(now) >= MAX_PER_DAY: raise EditorialHold('Daily publish cap reached')
     if hasattr(db, 'source_ready') and not db.source_ready(): raise ValueError('Configured official source not approved')
     created = db.create(row)
     actual = db.read(created['id'])
@@ -251,7 +261,7 @@ def run(publish_enabled=False, env_file=None):
                             outcome['published'].append(url)
                         else: outcome['duplicates'] += 1
                     else: outcome['held'].append({'url': url, 'title': row['title'], 'decision': 'would-publish'})
-                except ValueError as e:
+                except EditorialHold as e:
                     outcome['held'].append({'url': url, 'reason': str(e)})
                 except Exception as e:
                     outcome['errors'].append({'url': url, 'error': type(e).__name__ + ': ' + str(e)[:180]})

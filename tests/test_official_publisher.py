@@ -2,6 +2,8 @@ import datetime as dt
 import importlib.util
 import pathlib
 import unittest
+import tempfile
+from unittest.mock import patch
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / 'scripts' / 'official_publisher.py'
 spec = importlib.util.spec_from_file_location('official_publisher', SCRIPT)
@@ -93,6 +95,105 @@ class PublisherTests(unittest.TestCase):
         db.audit_run({'at':NOW.isoformat(),'run_status':'ok','found':10,'created':1,'errors':[]})
         self.assertTrue(any(table == 'ingestion_runs' and method == 'POST' and payload['records_created'] == 1 for table,method,payload in requests))
         self.assertTrue(any(table == 'official_sources' and method == 'PATCH' and payload['last_success_at'] == NOW.isoformat() for table,method,payload in requests))
+
+    def run_article_fixture(self, article):
+        """Run the publish orchestration with only in-memory backend requests."""
+        requests = []
+        now = dt.datetime.now(publisher.UTC)
+        article = article.replace('Sep 28, 2026', now.strftime('%b %d, %Y'))
+        feed = ('<rss><channel><item><title>Paris paving update</title>'
+                f'<link>{URL}</link><pubDate>{now.strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate>'
+                '</item></channel></rss>')
+        db = publisher.Supabase('https://example.supabase.co', 'test-only')
+        db.source_ready = lambda: True
+        db.existing = lambda url: {'id': 'already-published'}
+        db.request = lambda table, params='', method='GET', payload=None: requests.append((table, method, payload)) or [{}]
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(publisher, 'STATE_DIR', pathlib.Path(tmp)), \
+             patch.object(publisher, 'fetch', side_effect=lambda url: (feed if url == publisher.FEED_URL else article, url)), \
+             patch.object(publisher, 'Supabase', return_value=db):
+            outcome = publisher.run(True)
+        return outcome, requests
+
+    def test_source_extraction_failures_are_degraded_and_do_not_refresh_success(self):
+        for article in [
+            ARTICLE.replace('heading main base-heading', 'missing-title'),
+            ARTICLE.replace('gs-news-details-date', 'missing-date'),
+            ARTICLE.replace('Sep 28, 2026', 'unrecognized date'),
+            ARTICLE.replace('gs-news-details-meta', 'missing-category'),
+            ARTICLE.replace('<a title="Road Construction">Road Construction</a>', ''),
+            ARTICLE.replace('text base-text', 'missing-body'),
+            ARTICLE.replace('<p>', '<aside>').replace('</p>', '</aside>'),
+            ARTICLE.replace('Paris paving update</h1>', 'Changed title</h1>'),
+        ]:
+            with self.subTest(article=article):
+                outcome, requests = self.run_article_fixture(article)
+                self.assertEqual(outcome['run_status'], 'partial')
+                self.assertEqual(len(outcome['errors']), 1)
+                self.assertEqual(outcome['held'], [])
+                self.assertFalse(any(table == 'official_sources' for table, _, _ in requests))
+                audit = next(payload for table, _, payload in requests if table == 'ingestion_runs')
+                self.assertEqual(audit['status'], 'partial')
+                self.assertEqual(audit['records_failed'], 1)
+
+    def test_source_failures_take_precedence_over_editorial_holds(self):
+        malformed_articles = [
+            ARTICLE.replace('Road Construction', 'Recreation').replace('Sep 28, 2026', 'invalid date'),
+            ARTICLE.replace('Road Construction', 'Recreation').replace('text base-text', 'missing-body'),
+            ARTICLE.replace('Road Construction', 'Recreation').replace('<p>', '<aside>').replace('</p>', '</aside>'),
+            ARTICLE.replace('Sep 28, 2026', 'Sep 01, 2026').replace('text base-text', 'missing-body'),
+            ARTICLE.replace('Sep 28, 2026', 'Sep 01, 2026').replace('<p>', '<aside>').replace('</p>', '</aside>'),
+        ]
+        for article in malformed_articles:
+            with self.subTest(article=article):
+                outcome, requests = self.run_article_fixture(article)
+                self.assertEqual(outcome['run_status'], 'partial')
+                self.assertEqual(len(outcome['errors']), 1)
+                self.assertEqual(outcome['held'], [])
+                self.assertFalse(any(table == 'official_sources' for table, _, _ in requests))
+                audit = next(payload for table, _, payload in requests if table == 'ingestion_runs')
+                self.assertEqual(audit['status'], 'partial')
+                self.assertEqual(audit['records_failed'], 1)
+
+    def test_empty_title_is_source_failure_without_expected_title(self):
+        with self.assertRaisesRegex(ValueError, 'Article title empty'):
+            publisher.review(URL, lambda url: ARTICLE.replace('Paris paving update</h1>', '</h1>'), NOW)
+
+    def test_fetch_and_backend_validation_errors_are_not_editorial_holds(self):
+        for operation, message in [('review', 'Source returned non-200'),
+                                   ('publish', 'Configured official source not approved')]:
+            with self.subTest(operation=operation), patch.object(publisher, operation, side_effect=ValueError(message)):
+                outcome, requests = self.run_article_fixture(ARTICLE)
+            self.assertEqual(outcome['run_status'], 'partial')
+            self.assertEqual(outcome['held'], [])
+            self.assertIn(message, outcome['errors'][0]['error'])
+            self.assertFalse(any(table == 'official_sources' for table, _, _ in requests))
+
+    def test_only_explicit_editorial_holds_are_healthy_skips(self):
+        for article in [ARTICLE.replace('Road Construction', 'Recreation'),
+                        ARTICLE.replace('Paris paving update', 'Paris election update'),
+                        ARTICLE.replace('Sep 28, 2026', 'Sep 01, 2026')]:
+            with self.subTest(article=article), self.assertRaises(publisher.EditorialHold):
+                publisher.review(URL, lambda url: article, NOW)
+        class CappedDB:
+            def existing(self, url): return None
+            def today_count(self, now): return publisher.MAX_PER_DAY
+        with self.assertRaises(publisher.EditorialHold):
+            publisher.publish(publisher.review(URL, lambda url: ARTICLE, NOW), CappedDB(), NOW)
+
+    def test_editorial_hold_is_healthy_and_refreshes_success(self):
+        outcome, requests = self.run_article_fixture(ARTICLE.replace('Road Construction', 'Recreation'))
+        self.assertEqual(outcome['run_status'], 'ok')
+        self.assertEqual(len(outcome['held']), 1)
+        self.assertEqual(outcome['errors'], [])
+        self.assertTrue(any(table == 'official_sources' and 'last_success_at' in payload
+                            for table, _, payload in requests))
+
+    def test_rss_unreadable_candidate_date_is_a_source_failure(self):
+        feed = (f'<rss><channel><item><title>Paris paving update</title><link>{URL}</link>'
+                '<pubDate>unknown</pubDate></item></channel></rss>')
+        with self.assertRaisesRegex(ValueError, 'RSS publication date'):
+            publisher.collect_feed(feed, NOW)
 
     def test_daily_cap_and_reviewer_rechecks_age_before_write(self):
         row = publisher.review(URL, lambda u: ARTICLE, NOW)

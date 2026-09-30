@@ -9,6 +9,7 @@ Status: operating on the Hermes host as an external editorial worker; no Next.js
 - No emergency, flood, outage, election, health, school, safety or ambiguous claims. Other categories remain manual until separately tested and approved. Rejected candidates are logged with reasons, not published.
 - Only the source headline and an intact first paragraph are used, followed by a link reminder. Severity is always `info`, not an alert. No precise coordinates are invented. Records expire within 72 hours, even if the original project continues.
 - Never overwrite an existing notice with the same official URL, including an editor-created one. Supabase unique slug/external ID also guard against concurrent duplicate insertion. Maximum two County auto-publications per UTC day. The publisher reads back the exact record after writing.
+- Expected editorial exclusions are held; malformed source fields, fetch failures and backend failures degrade the run and alert. They never advance a source success timestamp.
 - Production `official_sources` timestamps and `ingestion_runs` are updated only after successful source review. Local JSONL audit and last-run heartbeat are retained under `~/.hermes/paris-pulse-publisher/`.
 - The independent reviewer agent checks published source-vs-live content after the fact. It reports concerns; it does not bypass the deterministic pre-publication gate. The advisor agent reacts to status changes; the script-only watchdog reports outages even if the advisor model fails.
 
@@ -34,3 +35,7 @@ Scheduled jobs: source publisher every four hours, no-agent watchdog hourly, LLM
 5. Stop automated publishing: pause the publisher cron job. Run `scripts/official_watchdog.py --monitor` and inspect the paused job before restarting.
 
 Limitations: this worker runs on Hiren's Hermes host. If that host or the Hermes scheduler itself is offline, its cron jobs cannot deliver alerts. Host-independent monitoring would need a separate external uptime service or server-side watchdog. Do not imply emergency/outage monitoring or comprehensive County coverage from this narrow source.
+
+## Reliability release
+
+The host-independent monitor integration is opt-in and not activated by this code. See [independent monitoring](independent-monitoring.md) for operator setup and verification, and [content operations](CONTENT_OPERATIONS.md) for the ongoing editorial plan. Run all publisher/heartbeat tests with `python3 -m unittest discover -s tests -p 'test_*.py' -v`.

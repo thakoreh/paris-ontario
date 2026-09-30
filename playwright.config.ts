@@ -4,8 +4,15 @@ export default defineConfig({
   workers: 1,
   timeout: 90_000,
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3017",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3017",
     trace: "retain-on-failure",
+    ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH
+      ? {
+          launchOptions: {
+            executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH,
+          },
+        }
+      : {}),
     ...(process.env.PLAYWRIGHT_CHROME === "1" ? { channel: "chrome" } : {}),
   },
   projects: [
@@ -19,9 +26,11 @@ export default defineConfig({
     ? undefined
     : {
         command:
-          "NEXT_PUBLIC_APP_URL=https://parispulse.ca NEXT_PUBLIC_PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_TEST_MODE=1 npm run dev -- --port 3017",
-        url: "http://localhost:3017",
-        reuseExistingServer: true,
-        timeout: 120000,
+          process.env.PLAYWRIGHT_PRODUCTION === "1"
+            ? "npm run build && PORT=3017 HOSTNAME=127.0.0.1 node .next/standalone/server.js"
+            : "NEXT_PUBLIC_APP_URL=https://parispulse.ca NEXT_PUBLIC_PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_RELATIVE_FIXTURES=1 npm run dev -- --hostname 127.0.0.1 --port 3017",
+        url: "http://127.0.0.1:3017",
+        reuseExistingServer: !process.env.CI,
+        timeout: process.env.PLAYWRIGHT_PRODUCTION === "1" ? 240000 : 120000,
       },
 });

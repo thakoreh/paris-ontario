@@ -19,3 +19,37 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+  publisher-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Standard-library tests with mocked sources/database: never run the publisher.
+      - run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+  resident-browser-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Local deterministic preview only; no production URL, credentials or writes.
+      - run: npm run test:e2e -- tests/e2e/flows.spec.ts tests/e2e/resident-guide.spec.ts tests/e2e/resident-usability.spec.ts tests/e2e/navigation-regressions.spec.ts --project=desktop --project=mobile
+      # Next dev streaming can return 200 for not-found pages; verify real HTTP
+      # semantics against the production standalone server, without test fixtures.
+      - run: npm run test:e2e -- tests/e2e/route-status.spec.ts --project=desktop --project=mobile
+        env:
+          PLAYWRIGHT_PRODUCTION: "1"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: resident-browser-failures
+          path: test-results/
+          retention-days: 7
