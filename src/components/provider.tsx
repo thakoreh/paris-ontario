@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type {
@@ -18,6 +19,7 @@ import { defaultPreferences } from "@/config/community";
 import { demoLocations } from "@/data/seed";
 import { track } from "@/lib/analytics";
 import { browserClient } from "@/lib/supabase/client";
+import { areaScopeStorageKey, validVisitCheckpoint, visitStoragePrefix } from "@/lib/resident-experience";
 const empty: PersonalState = {
   profile: null,
   locations: [],
@@ -28,6 +30,10 @@ const empty: PersonalState = {
   reminders: [],
 };
 type Context = PersonalState & {
+  areaScope: "nearby" | "all";
+  setAreaScope: (scope: "nearby" | "all") => void;
+  lastVisitAt: string | null;
+  visitHistoryAvailable: boolean;
   demo: boolean;
   guest: boolean;
   ready: boolean;
@@ -52,6 +58,29 @@ export function Provider({ children }: { children: ReactNode }) {
   const [state, setState] = useState(empty);
   const [ready, setReady] = useState(false);
   const [message, notify] = useState("");
+  const [areaScope, changeAreaScope] = useState<"nearby" | "all">("nearby");
+  const [lastVisitAt, setLastVisitAt] = useState<string | null>(null);
+  const [visitHistoryAvailable, setVisitHistoryAvailable] = useState(true);
+  const visitIdentity = useRef<string | null>(null);
+  useEffect(() => {
+    try { changeAreaScope(localStorage.getItem(areaScopeStorageKey) === "all" ? "all" : "nearby"); } catch { /* In-memory scope still works. */ }
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    const identity = state.profile?.id || "guest";
+    if (visitIdentity.current === identity) return;
+    visitIdentity.current = identity;
+    try {
+      const key = visitStoragePrefix + identity;
+      const now = new Date();
+      setLastVisitAt(validVisitCheckpoint(localStorage.getItem(key), now));
+      localStorage.setItem(key, now.toISOString());
+      setVisitHistoryAvailable(true);
+    } catch {
+      setLastVisitAt(null);
+      setVisitHistoryAvailable(false);
+    }
+  }, [ready, state.profile?.id]);
   const update = useCallback(
     (fn: (s: PersonalState) => PersonalState) =>
       setState((s) => {
@@ -157,6 +186,14 @@ export function Provider({ children }: { children: ReactNode }) {
   }
   const value: Context = {
     ...state,
+    areaScope,
+    setAreaScope: (scope) => {
+      changeAreaScope(scope);
+      try { localStorage.setItem(areaScopeStorageKey, scope); }
+      catch { notify("Your area choice will last for this visit. Browser storage is unavailable."); }
+    },
+    lastVisitAt,
+    visitHistoryAvailable,
     demo,
     guest: demo || !state.profile,
     ready,
@@ -252,8 +289,16 @@ export function Provider({ children }: { children: ReactNode }) {
       const db = browserClient();
       if (db && !demo) await db.auth.signOut();
       if (!db || demo || !state.profile) {
-        localStorage.removeItem("paris-pulse-demo");
-        localStorage.removeItem("paris-pulse-guest");
+        try {
+          localStorage.removeItem("paris-pulse-demo");
+          localStorage.removeItem("paris-pulse-guest");
+          localStorage.removeItem(areaScopeStorageKey);
+          const keys = Object.keys(localStorage).filter((key) => key.startsWith(visitStoragePrefix));
+          keys.forEach((key) => localStorage.removeItem(key));
+        } catch {
+          notify("Browser storage could not be cleared. Use your browser’s site-data settings to remove it.");
+          return;
+        }
       }
       setState(empty);
       window.location.assign("/");

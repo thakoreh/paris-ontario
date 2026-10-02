@@ -120,6 +120,7 @@ export function Admin({ section }: { section: string }) {
           "deadlines",
           "sources",
           "review",
+          "submissions",
           "ingestion",
         ].map((s) => (
           <Link

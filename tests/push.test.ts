@@ -93,6 +93,14 @@ describe("push subscription validation", () => {
 });
 
 describe("push notification construction", () => {
+  it("keeps different notices in separate browser notification slots", () => {
+    const first = buildNoticeNotification({ title: "First", slug: "first" });
+    const second = buildNoticeNotification({ title: "Second", slug: "second" });
+    expect(first.tag).not.toBe(second.tag);
+    expect(first.tag).toBe(
+      buildNoticeNotification({ title: "Updated first", slug: "first" }).tag,
+    );
+  });
   it("contains only safe notification fields and an encoded relative notice URL", () => {
     const notification = buildNoticeNotification({
       title: "Road closure",
@@ -103,8 +111,9 @@ describe("push notification construction", () => {
       title: "Paris Pulse: Road closure",
       body: "Use King Street instead.",
       url: "/notice/road%20closure%2Fone",
+      tag: "paris-pulse:road closure/one",
     });
-    expect(Object.keys(notification)).toEqual(["title", "body", "url"]);
+    expect(Object.keys(notification)).toEqual(["title", "body", "url", "tag"]);
   });
 
   it("reports VAPID readiness without exposing the private key", () => {

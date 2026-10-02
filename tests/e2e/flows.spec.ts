@@ -27,7 +27,7 @@ test("guest preferences, saved notices and reminders persist without sign-in", a
 }) => {
   await page.goto("/app");
   await expect(
-    page.getByRole("heading", { name: "Your neighbourhood, in focus." }),
+    page.getByRole("heading", { name: "Today in Paris" }),
   ).toBeVisible();
   await page.locator(".notice-card .bookmark").first().click();
   await page.goto("/app/saved");
@@ -119,7 +119,7 @@ test("sign-in is optional and guest data can be cleared", async ({ page }) => {
   await page.goto("/login");
   await page.getByRole("link", { name: "Continue without signing in" }).click();
   await expect(
-    page.getByRole("heading", { name: "Your neighbourhood, in focus." }),
+    page.getByRole("heading", { name: "Today in Paris" }),
   ).toBeVisible();
   await page.locator(".notice-card .bookmark").first().click();
   await page.goto("/app/settings");
@@ -129,7 +129,7 @@ test("sign-in is optional and guest data can be cleared", async ({ page }) => {
   await page.getByRole("button", { name: "Clear browser data" }).click();
   await page.goto("/app/saved");
   await expect(
-    page.getByRole("heading", { name: "Your saved notices." }),
+    page.getByRole("heading", { name: "Your saved notices" }),
   ).toBeVisible();
   await expect(page.locator(".notice-card")).toHaveCount(0);
 });
