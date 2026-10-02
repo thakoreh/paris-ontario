@@ -62,8 +62,9 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
         <>
           <h2>Locations and preferences</h2>
           <p>
-            Saved locations are used only to personalize relevance. Public maps
-            show notice locations, never a resident’s saved place. Guest data
+            Saved locations are used only to personalize relevance. Map views can
+            show your saved places only in your own browser; other residents
+            cannot see them. Guest data
             remains in this browser; signed-in data is protected by
             account-level access controls.
           </p>
@@ -103,6 +104,9 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
               Manage browser notifications
             </Link>
           </p>
+          <h2>Community submissions and visit history</h2>
+          <p>Community suggestions go to a private editor queue. We ask only for public details, coarse area and a public source, not your name, contact information or home location. A deployment-specific keyed fingerprint of your network address limits spam; neither the raw address nor its fingerprint is stored with submissions. Rate counters are cleaned after their windows expire as new updates arrive. Private submissions are retained for editorial review and are not automatically deleted; an operator must establish a retention policy before enabling intake. Submitting does not publish an update or send notifications.</p>
+          <p>Your area-scope choice and last-visit timestamp stay in this browser. New-since-last-visit labels compare source update or publication times, not the time an editor last checked a source. Clear browser data in Settings to remove guest data and browser history.</p>
           <h2>Newcomer checklist</h2>
           <p>
             Checklist progress is saved only in this browser. Use Reset

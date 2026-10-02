@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,14 +12,14 @@ import {
   Map as MapIcon,
   List,
   CalendarDays,
-  Bell,
+  Plus,
+  Sparkles,
 } from "lucide-react";
-import type { Notice, Deadline, Source } from "@/types";
+import type { Notice, Deadline, Source, Match } from "@/types";
 import { categories, categoryLabels } from "@/types";
 import {
   scoreNotice,
   rankMatches,
-  isExpired,
   severityRank,
   relevantDeadline,
   upcomingDeadlines,
@@ -30,19 +30,25 @@ import { MapPanel } from "./map-panel";
 import {
   isThisWeekend,
   latestVerification,
-  noticeDateLabel,
+  localDateKey,
 } from "@/lib/resident-briefing";
+import {
+  groupTodayMatches,
+  latestPublicChangeAt,
+  noticeKind,
+} from "@/lib/resident-experience";
 import { formatDate } from "@/lib/utils";
 import { defaultPreferences } from "@/config/community";
-import "./resident-guide.css";
-import "./resident-dashboard.css";
+import "./neighbourhood.css";
 
-const quickFilters = [
-  { label: "All updates", category: "all", period: "all" },
-  { label: "Today", category: "all", period: "today" },
-  { label: "This week", category: "all", period: "week" },
-  { label: "Events", category: "event", period: "all" },
+const kinds = [
+  ["all", "All updates"],
+  ["change", "Roads & services"],
+  ["event", "Events"],
+  ["business", "Local openings"],
+  ["community", "Community"],
 ] as const;
+
 export function Feed({
   notices,
   deadlines,
@@ -55,26 +61,25 @@ export function Feed({
   mode?: string;
 }) {
   const p = usePersonal();
+  const dashboard = ["home", "today", "app"].includes(mode);
+  const nearby = p.locations.length > 0 && p.areaScope === "nearby";
   const [query, setQuery] = useState("");
+  const [kind, setKind] = useState(mode === "events" ? "event" : "all");
   const [category, setCategory] = useState("all");
   const [importance, setImportance] = useState("all");
   const [period, setPeriod] = useState("all");
   const [sort, setSort] = useState("relevant");
   const [location, setLocation] = useState("all");
-  const [status, setStatus] = useState(mode === "saved" ? "saved" : "all");
-  const [filters, setFilters] = useState(false);
-  const [map, setMap] = useState(mode === "map");
-  const home = mode === "home";
-  const personal =
-    ["app", "feed", "saved", "personal-map"].includes(mode) ||
-    (home && p.locations.length > 0);
-  const hasArea = personal && p.locations.length > 0;
-  const dashboard = ["home", "today", "app"].includes(mode);
-  const [limit, setLimit] = useState(12);
-  const [expanded, setExpanded] = useState(false);
   const defaultStatus = mode === "saved" ? "saved" : "all";
+  const [status, setStatus] = useState(defaultStatus);
+  const [filters, setFilters] = useState(false);
+  const [map, setMap] = useState(["map", "personal-map"].includes(mode));
+  const [limit, setLimit] = useState(12);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [selectedNotice, setSelectedNotice] = useState<string | null>(null);
   const hasFilters = Boolean(
     query ||
+    kind !== (mode === "events" ? "event" : "all") ||
     category !== "all" ||
     importance !== "all" ||
     period !== "all" ||
@@ -84,6 +89,7 @@ export function Feed({
   );
   function clearFilters() {
     setQuery("");
+    setKind(mode === "events" ? "event" : "all");
     setCategory("all");
     setImportance("all");
     setPeriod("all");
@@ -92,43 +98,39 @@ export function Feed({
     setStatus(defaultStatus);
     setLimit(12);
   }
+  const areaLocations = useMemo(
+    () =>
+      nearby
+        ? p.locations.filter(
+            (place) => location === "all" || place.id === location,
+          )
+        : [],
+    [nearby, p.locations, location],
+  );
   const matches = useMemo(
     () =>
       rankMatches(
         notices
-          .map((n) =>
+          .map((notice) =>
             scoreNotice(
-              n,
-              personal
-                ? p.locations.filter(
-                    (l) => location === "all" || l.id === location,
-                  )
-                : [],
-              personal ? p.preferences : defaultPreferences,
+              notice,
+              areaLocations,
+              nearby ? p.preferences : defaultPreferences,
               new Date(),
               deadlines,
             ),
           )
-          .filter((m): m is NonNullable<typeof m> => !!m),
+          .filter((match): match is Match => Boolean(match)),
         (id) =>
-          sources.find((s) => s.id === id)?.authority_level ||
+          sources.find((source) => source.id === id)?.authority_level ||
           "community_signal",
       ),
-    [
-      notices,
-      personal,
-      p.locations,
-      p.preferences,
-      location,
-      sources,
-      deadlines,
-    ],
+    [notices, areaLocations, nearby, p.preferences, deadlines, sources],
   );
   const filtered = matches
-    .filter((m) => {
-      const n = m.notice;
-      if (isExpired(n)) return false;
+    .filter(({ notice: n }) => {
       if (mode === "events" && n.category !== "event") return false;
+      if (kind !== "all" && noticeKind(n) !== kind) return false;
       if (category !== "all" && n.category !== category) return false;
       if (
         importance !== "all" &&
@@ -137,78 +139,119 @@ export function Feed({
       )
         return false;
       if (
-        query &&
-        !`${n.title} ${n.summary} ${n.address_text} ${n.tags_json.join(" ")} ${categoryLabels[n.category]}`
+        query.trim() &&
+        !`${n.title} ${n.summary} ${n.address_text || ""} ${n.tags_json.join(" ")} ${categoryLabels[n.category]}`
           .toLowerCase()
-          .includes(query.toLowerCase())
+          .includes(query.trim().toLowerCase())
       )
         return false;
       if (status === "saved" && !p.saved.includes(n.id)) return false;
       if (status === "unread" && p.read.includes(n.id)) return false;
-      if (personal && p.dismissed.includes(n.id)) return false;
-      const now = new Date().getTime();
-      if (period === "today" && now - +new Date(n.published_at) > 86400000)
+      if (p.dismissed.includes(n.id) && mode !== "saved") return false;
+      const changed = latestPublicChangeAt(n);
+      if (
+        period === "today" &&
+        (!changed || localDateKey(changed) !== localDateKey(new Date()))
+      )
         return false;
-      if (period === "week" && now - +new Date(n.published_at) > 7 * 86400000)
+      if (
+        period === "week" &&
+        (!changed || +new Date() - +new Date(changed) > 7 * 86400000)
+      )
         return false;
-      if (period === "family" && !n.tags_json.includes("family")) return false;
-      if (period === "free" && !n.tags_json.includes("free")) return false;
-      if (period === "downtown" && !n.tags_json.includes("downtown"))
+      if (
+        ["family", "free", "downtown"].includes(period) &&
+        !n.tags_json.includes(period)
+      )
         return false;
       if (period === "weekend" && !isThisWeekend(n)) return false;
       return true;
     })
     .sort((a, b) =>
       sort === "newest"
-        ? +new Date(b.notice.published_at) - +new Date(a.notice.published_at)
+        ? +new Date(latestPublicChangeAt(b.notice) || 0) -
+          +new Date(latestPublicChangeAt(a.notice) || 0)
         : sort === "closest"
           ? (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity)
           : 0,
     );
-  const briefingMatches = matches.filter(
-    (m) => !personal || !p.dismissed.includes(m.notice.id),
-  );
-  const lead = briefingMatches[0];
-  const weekend = briefingMatches.find((m) => isThisWeekend(m.notice));
-  const disruption = briefingMatches.find((m) =>
-    [
-      "roads",
-      "construction",
-      "storm",
-      "outage",
-      "emergency",
-      "transit",
-    ].includes(m.notice.category),
-  );
-  const verifiedAt = latestVerification(briefingMatches.map((m) => m.notice));
+  const groups = groupTodayMatches(filtered, p.lastVisitAt);
+  const verifiedAt = latestVerification(matches.map((match) => match.notice));
   const comingDeadlines = upcomingDeadlines(deadlines)
-    .filter((d) => !personal || relevantDeadline(d, p.locations, p.preferences))
+    .filter(
+      (deadline) =>
+        !nearby || relevantDeadline(deadline, areaLocations, p.preferences),
+    )
     .sort((a, b) => +new Date(a.deadline_at) - +new Date(b.deadline_at));
-  const areaLabel =
-    p.locations.length === 1 ? p.locations[0].label : "your saved places";
-  const title = home
-    ? hasArea
-      ? "Your neighbourhood, in focus."
-      : "Closer to what matters."
-    : mode === "app"
-      ? "Your neighbourhood, in focus."
-      : mode === "events"
-        ? "A little closer to your community."
-        : mode === "saved"
-          ? "Your saved notices."
-          : mode === "map" || mode === "personal-map"
-            ? "What’s happening nearby."
-            : mode === "feed"
-              ? "Your local feed."
-              : "Today in Paris";
+  const mapNotices = filtered.map((match) => match.notice);
+  const mappedCount = mapNotices.filter(
+    (notice) => notice.latitude !== null && notice.longitude !== null,
+  ).length;
+  const title = dashboard
+    ? "Today in Paris"
+    : mode === "events"
+      ? "Things to do in Paris"
+      : mode === "saved"
+        ? "Your saved notices"
+        : "Explore your neighbourhood";
+  const renderCard = (match: Match) => (
+    <NoticeCard
+      key={match.notice.id}
+      notice={match.notice}
+      source={sources.find((source) => source.id === match.notice.source_id)}
+      match={nearby ? match : undefined}
+    />
+  );
+  function renderGroup(
+    id: "change" | "event" | "business" | "community",
+    title: string,
+    note: string,
+    empty: string,
+  ) {
+    const items = groups[id];
+    if (!items.length && hasFilters) return null;
+    return (
+      <section
+        className={`today-section section-${id}`}
+        aria-labelledby={`section-${id}`}
+      >
+        <div className="section-heading">
+          <div>
+            <h2 id={`section-${id}`}>{title}</h2>
+            <p>{note}</p>
+          </div>
+          <span className="section-count">{items.length}</span>
+        </div>
+        {items.length ? (
+          <div
+            className={`today-cards ${id === "event" || id === "business" ? "discovery-cards" : ""}`}
+          >
+            {items
+              .slice(0, expandedGroups.includes(id) ? items.length : 3)
+              .map(renderCard)}
+          </div>
+        ) : (
+          <p className="section-empty">{empty}</p>
+        )}
+        {items.length > 3 && !expandedGroups.includes(id) && (
+          <button
+            className="section-more"
+            onClick={() => setExpandedGroups([...expandedGroups, id])}
+          >
+            Show all {items.length} updates <ArrowRight size={15} />
+          </button>
+        )}
+      </section>
+    );
+  }
   return (
     <div
-      className={`page-wrap resident-feed ${dashboard ? "resident-dashboard" : ""}`}
+      className={`page-wrap neighbourhood-feed ${dashboard ? "neighbourhood-today" : "neighbourhood-explore"}`}
     >
-      <div className="page-heading resident-heading">
+      <header className="neighbourhood-heading">
         <div>
-          <div className="eyebrow">
-            <span>PARIS, ONTARIO</span>
+          <span className="eyebrow">
+            PARIS, ONTARIO{" "}
             <span className="heading-place">
               {new Date().toLocaleDateString("en-CA", {
                 weekday: "long",
@@ -217,556 +260,472 @@ export function Feed({
                 timeZone: "America/Toronto",
               })}
             </span>
-          </div>
-          <h1 className={dashboard ? "hero-title" : ""}>{title}</h1>
+          </span>
+          <h1>{title}</h1>
           <p>
-            {hasArea
-              ? "Local changes, ranked around your places and interests."
-              : "Road changes, useful updates and things to do. Start with Paris, then make it yours."}
+            {dashboard
+              ? "A little closer to what’s happening around you."
+              : mode === "saved"
+                ? "The updates you’ve kept, all in one place."
+                : "Find a local change, something to do, or a new place to visit."}
           </p>
         </div>
-        <Link
-          href={hasArea ? "/app/locations" : "/onboarding"}
-          className="button primary"
-        >
-          <MapPin size={17} /> {hasArea ? "Manage my area" : "Set my area"}
-          <ArrowRight size={16} />
+        <Link href="/share-update" className="button outline">
+          <Plus size={17} /> Share a local update
         </Link>
-      </div>
-      {dashboard && (
-        <>
-          <div className="area-summary" aria-label="Your feed area">
-            <div>
-              <MapPin size={17} />
-              <strong>
-                {hasArea ? `Near ${areaLabel}` : "Exploring all Paris"}
-              </strong>
-              <span>
-                {hasArea
-                  ? p.preferences.radius_km === 0
-                    ? "All Paris"
-                    : `${p.preferences.radius_km} km radius`
-                  : "No address needed to browse"}
-              </span>
-              {hasArea && (
-                <Link href="/app/alerts">
-                  {p.preferences.categories_json.length} interests · Edit
-                </Link>
-              )}
-            </div>
-            <Link href="/notifications">
-              <BellIcon /> Browser alerts · Check this device{" "}
-              <ArrowUpRight size={14} />
-            </Link>
-          </div>
-          <section
-            className="resident-briefing"
-            aria-labelledby="briefing-title"
-          >
-            <div className="briefing-heading">
-              <h2 id="briefing-title">
-                {hasArea
-                  ? "Your local briefing"
-                  : mode === "today"
-                    ? "The local briefing"
-                    : "Today in Paris"}
-              </h2>
-              <p>
-                {p.demo
-                  ? "Sample preview · not live local information"
-                  : verifiedAt
-                    ? `Latest notice verified ${formatDate(verifiedAt)} ET`
-                    : "No verification time available for this feed"}
-              </p>
-            </div>
-            <div className="briefing-grid">
-              <div className="briefing-lead">
-                {lead ? (
-                  <NoticeCard
-                    notice={lead.notice}
-                    source={sources.find((s) => s.id === lead.notice.source_id)}
-                    match={hasArea ? lead : undefined}
-                  />
-                ) : (
-                  <div className="briefing-empty">
-                    <h3>No current notices in this feed</h3>
-                    <p>
-                      Coverage is limited. Check original sources for the latest
-                      information.
-                    </p>
-                    <Link className="text-link" href="/sources">
-                      Browse sources <ArrowRight size={14} />
-                    </Link>
-                  </div>
-                )}
-              </div>
-              <div className="briefing-side">
-                <BriefingItem
-                  title="This weekend"
-                  notice={weekend?.notice}
-                  href="/events"
-                  empty="No dated events for this weekend in this feed."
-                />
-                <BriefingItem
-                  title="Roads & disruptions"
-                  notice={disruption?.notice}
-                  href="/storm"
-                  empty="No current disruption notices in this feed. Check official live tools before travelling."
-                />
-              </div>
-            </div>
-          </section>
-        </>
-      )}
-      {dashboard && (
-        <section className="discovery-panel" aria-labelledby="discovery-title">
-          <div className="discovery-intro">
-            <div>
-              <span className="eyebrow">FIND SOMETHING LOCAL</span>
-              <h2 id="discovery-title">What do you need today?</h2>
-            </div>
+      </header>
+      {dashboard && p.ready && !p.locations.length && (
+        <div className="welcome-area">
+          <div>
+            <MapPin size={21} />
             <p>
-              Search updates, streets or topics, then narrow the list in one
-              tap.
+              <strong>Make this your neighbourhood.</strong> Choose a private
+              place and radius to bring nearby updates into focus.
             </p>
           </div>
-          <div className="feed-toolbar discovery-toolbar">
-            <div className="search-field">
-              <Search size={17} aria-hidden="true" />
-              <input
-                type="search"
-                aria-label="Search local updates"
-                placeholder="Search updates, streets or topics…"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setLimit(12);
-                }}
-              />
-            </div>
-            <button
-              className={`button outline small ${filters ? "selected" : ""}`}
-              aria-expanded={filters}
-              aria-controls="notice-filter-panel"
-              onClick={() => setFilters(!filters)}
-            >
-              <SlidersHorizontal size={15} />
-              More filters
-            </button>
-            <button
-              className="icon-button view-switch"
-              aria-label={map ? "Show list" : "Show map"}
-              onClick={() => setMap(!map)}
-            >
-              {map ? <List size={18} /> : <MapIcon size={18} />}
-            </button>
-          </div>
-          <div
-            className="quick-filter-row"
-            role="group"
-            aria-label="Quick filters"
-          >
-            {quickFilters.map((filter) => {
-              const selected =
-                category === filter.category && period === filter.period;
-              return (
-                <button
-                  key={filter.label}
-                  type="button"
-                  className={selected ? "active" : ""}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    setCategory(filter.category);
-                    setPeriod(filter.period);
-                    setLimit(12);
-                  }}
-                >
-                  {filter.label}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+          <Link className="button primary" href="/app/area">
+            Set my area <ArrowRight size={16} />
+          </Link>
+        </div>
       )}
-      <div className={dashboard ? "content-grid" : "full-content"}>
-        <div className="feed-column">
-          <SectionHeading
-            title={
-              dashboard
-                ? personal
-                  ? hasArea
-                    ? `Updates near ${areaLabel}`
-                    : "Updates across Paris"
-                  : "The latest around you"
-                : mode === "saved"
-                  ? "Saved for later"
-                  : mode === "events"
-                    ? "Events & community activities"
-                    : "Local updates"
-            }
-            note={dashboard ? "Less searching. More knowing." : ""}
-          />
+      <section className="explore-controls" aria-label="Find local updates">
+        <div className="feed-toolbar">
+          <div className="search-field">
+            <Search size={19} aria-hidden="true" />
+            <input
+              type="search"
+              aria-label="Search local updates"
+              placeholder="Search a street, place or topic…"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setLimit(12);
+              }}
+            />
+          </div>
+          <button
+            className="button outline"
+            aria-expanded={filters}
+            aria-controls="notice-filter-panel"
+            onClick={() => setFilters(!filters)}
+          >
+            <SlidersHorizontal size={17} />
+            More filters
+          </button>
           {!dashboard && (
-            <div className="feed-toolbar">
-              <div className="search-field">
-                <Search size={17} />
-                <input
-                  type="search"
-                  aria-label="Search notices"
-                  placeholder="Search a street, topic or update…"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setLimit(12);
-                  }}
-                />
-              </div>
-              <button
-                className={`button outline small ${filters ? "selected" : ""}`}
-                aria-expanded={filters}
-                aria-controls="notice-filter-panel"
-                onClick={() => setFilters(!filters)}
-              >
-                <SlidersHorizontal size={15} />
-                Filters
+            <div
+              className="view-control"
+              role="group"
+              aria-label="Explore view"
+            >
+              <button aria-pressed={!map} onClick={() => setMap(false)}>
+                <List size={16} />
+                List
               </button>
-              <button
-                className="icon-button view-switch"
-                aria-label={map ? "Show list" : "Show map"}
-                onClick={() => setMap(!map)}
-              >
-                {map ? <List size={18} /> : <MapIcon size={18} />}
+              <button aria-pressed={map} onClick={() => setMap(true)}>
+                <MapIcon size={16} />
+                Map
               </button>
             </div>
           )}
+        </div>
+        {mode !== "events" && (
           <div
             className="filter-tabs"
             role="group"
             aria-label="Category filters"
           >
-            {(["all", "roads", "planning", "recreation", "event"] as const).map(
-              (c) => (
-                <button
-                  key={c}
-                  className={category === c ? "active" : ""}
-                  aria-pressed={category === c}
-                  onClick={() => {
-                    setCategory(c);
-                    setLimit(12);
-                  }}
-                >
-                  {c === "all"
-                    ? "All updates"
-                    : c === "roads"
-                      ? "Roads & traffic"
-                      : c === "planning"
-                        ? "Planning"
-                        : c === "recreation"
-                          ? "Family & recreation"
-                          : "Events"}
-                </button>
-              ),
-            )}
+            {kinds.map(([value, label]) => (
+              <button
+                key={value}
+                aria-pressed={kind === value}
+                className={kind === value ? "active" : ""}
+                onClick={() => {
+                  setKind(value);
+                  setCategory("all");
+                  setLimit(12);
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          {filters && (
-            <div className="filter-panel" id="notice-filter-panel">
+        )}
+        {filters && (
+          <div className="filter-panel" id="notice-filter-panel">
+            <label>
+              Category
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
+                <option value="all">All categories</option>
+                {categories.map((value) => (
+                  <option key={value} value={value}>
+                    {categoryLabels[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Date / type
+              <select
+                value={period}
+                onChange={(event) => setPeriod(event.target.value)}
+              >
+                <option value="all">Any time</option>
+                <option value="today">Published or updated today</option>
+                <option value="week">Published or updated this week</option>
+                <option value="weekend">Events this weekend</option>
+                <option value="family">Family</option>
+                <option value="free">Free</option>
+                <option value="downtown">Downtown</option>
+              </select>
+            </label>
+            <label>
+              Importance
+              <select
+                value={importance}
+                onChange={(event) => setImportance(event.target.value)}
+              >
+                <option value="all">All importance</option>
+                <option value="important">Important & urgent</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </label>
+            <label>
+              Sort
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value)}
+              >
+                <option value="relevant">Relevant</option>
+                <option value="newest">Newest</option>
+                <option value="closest" disabled={!nearby}>
+                  Closest
+                </option>
+              </select>
+            </label>
+            {nearby && (
               <label>
-                Category
+                Location
                 <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
                 >
-                  <option value="all">All categories</option>
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {categoryLabels[c]}
+                  <option value="all">All saved places</option>
+                  {p.locations.map((place) => (
+                    <option key={place.id} value={place.id}>
+                      {place.label}
                     </option>
                   ))}
                 </select>
               </label>
-              <label>
-                Date / type
-                <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
+            )}
+            <label>
+              Status
+              <select
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
+                <option value="all">All notices</option>
+                <option value="unread">Unread</option>
+                <option value="saved">Saved</option>
+              </select>
+            </label>
+          </div>
+        )}
+        <div className="feed-results">
+          <p
+            role="status"
+            aria-label="Notice results"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {dashboard
+              ? `${filtered.length} ${filtered.length === 1 ? "update" : "updates"}${nearby ? " in your area" : " across Paris"}`
+              : `Showing ${Math.min(filtered.length, limit)} of ${filtered.length} notices`}
+          </p>
+          {hasFilters && (
+            <button className="text-button" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
+          <Link href="/sources" className="coverage-link">
+            <ShieldCheck size={14} />
+            {p.demo
+              ? "Sample preview · not live information"
+              : verifiedAt
+                ? `Latest verification ${formatDate(verifiedAt)} ET`
+                : "Coverage is still growing"}
+          </Link>
+        </div>
+      </section>
+      {dashboard ? (
+        <div className="neighbourhood-layout">
+          <div className="today-main">
+            <section
+              className="since-visit"
+              aria-labelledby="since-visit-title"
+            >
+              <div className="since-visit-heading">
+                <Sparkles size={20} />
+                <div>
+                  <h2 id="since-visit-title">New since your last visit</h2>
+                  <p>
+                    {!p.ready
+                      ? "Loading your visit history…"
+                      : !p.visitHistoryAvailable
+                        ? "Visit history is unavailable in this browser. You can still explore every update below."
+                        : !p.lastVisitAt
+                          ? "Your first look around. On your next visit, newly published and source-updated notices will appear here."
+                          : groups.new.length
+                            ? `${groups.new.length} verified ${groups.new.length === 1 ? "update" : "updates"} since ${formatDate(p.lastVisitAt)} ET`
+                            : "No newly published or source-updated notices in this view since your last visit. Coverage is limited."}
+                  </p>
+                </div>
+                {p.lastVisitAt && (
+                  <span className="new-count">{groups.new.length}</span>
+                )}
+              </div>
+              {groups.new.length > 0 && (
+                <div className="today-cards">
+                  {groups.new
+                    .slice(
+                      0,
+                      expandedGroups.includes("new") ? groups.new.length : 4,
+                    )
+                    .map(renderCard)}
+                </div>
+              )}
+              {groups.new.length > 4 && !expandedGroups.includes("new") && (
+                <button
+                  className="section-more"
+                  onClick={() => setExpandedGroups([...expandedGroups, "new"])}
                 >
-                  <option value="all">Any time</option>
-                  <option value="today">Today</option>
-                  <option value="week">This week</option>
-                  {mode === "events" && (
-                    <>
-                      <option value="weekend">Weekend</option>
-                      <option value="family">Family</option>
-                      <option value="free">Free</option>
-                      <option value="downtown">Downtown</option>
-                    </>
-                  )}
-                </select>
-              </label>
-              <label>
-                Importance
-                <select
-                  value={importance}
-                  onChange={(e) => setImportance(e.target.value)}
+                  Show all {groups.new.length} new updates{" "}
+                  <ArrowRight size={15} />
+                </button>
+              )}
+            </section>
+            {renderGroup(
+              "change",
+              "Changes around you",
+              "Roads, services and the things that affect your day.",
+              "No current road or service changes in this view. Check official sources before travelling.",
+            )}
+            {renderGroup(
+              "event",
+              "Things to do",
+              "Dates and details from the original event announcement.",
+              "No current events in this view. Try All Paris or check the community calendar in Services.",
+            )}
+            {renderGroup(
+              "business",
+              "Local openings",
+              "New places, with a source you can check.",
+              "No verified local opening announcements in this view yet. Know of one? Share the source for review.",
+            )}
+            {renderGroup(
+              "community",
+              "Around the neighbourhood",
+              "Planning, recreation and other useful local news.",
+              "No other current community updates in this view.",
+            )}
+            {!filtered.length && hasFilters && (
+              <EmptyState
+                title="No matching notices."
+                description="Clear your filters or try a different street or topic."
+              />
+            )}
+            <Link className="explore-all" href="/app/feed">
+              Explore all local updates <ArrowRight size={17} />
+            </Link>
+          </div>
+          <aside className="neighbourhood-rail">
+            <section className="neighbourhood-map-card">
+              <SectionHeading
+                title="Around your area"
+                href="/map"
+                label="Open map"
+              />
+              <div className="preview-map">
+                <MapPanel
+                  notices={mapNotices}
+                  locations={areaLocations}
+                  radius={nearby ? p.preferences.radius_km : 0}
+                />
+              </div>
+              <p>
+                {mappedCount}{" "}
+                {mappedCount === 1 ? "update has" : "updates have"} a map
+                location. Your saved places stay private.
+              </p>
+            </section>
+            <section className="neighbourhood-deadlines">
+              <SectionHeading
+                title="Coming up"
+                href="/deadlines"
+                label="All deadlines"
+              />
+              <p className="rail-intro">A heads-up for the next seven days.</p>
+              {comingDeadlines.slice(0, 3).map((deadline) => (
+                <DeadlineCard key={deadline.id} deadline={deadline} />
+              ))}
+              {!comingDeadlines.length && (
+                <p className="rail-empty">
+                  No upcoming deadlines in this view. Check original sources for
+                  other due dates.
+                </p>
+              )}
+            </section>
+            <section className="neighbourhood-share">
+              <span className="rail-symbol">
+                <Plus size={22} />
+              </span>
+              <h2>Know something local?</h2>
+              <p>
+                An opening, an event, a change on your street. Send the original
+                source for a check before it goes live.
+              </p>
+              <Link href="/share-update" className="button primary">
+                Share an update <ArrowRight size={16} />
+              </Link>
+            </section>
+            <Link className="neighbourhood-storm" href="/storm">
+              <CloudLightning size={22} />
+              <div>
+                <strong>Weather taking a turn?</strong>
+                <span>
+                  Official storm & outage tools <ArrowUpRight size={14} />
+                </span>
+              </div>
+            </Link>
+            <Link className="rail-settings" href="/notifications">
+              Browser alerts · Check this device <ArrowUpRight size={14} />
+            </Link>
+            {p.profile && ["editor", "admin"].includes(p.profile.role) && (
+              <Link className="rail-settings" href="/admin/review">
+                Editorial review <ArrowRight size={14} />
+              </Link>
+            )}
+          </aside>
+        </div>
+      ) : (
+        <div className={`explore-results ${map ? "with-map" : ""}`}>
+          {map && (
+            <section className="explore-map" aria-label="Map view">
+              <div className="large-map">
+                <MapPanel
+                  notices={mapNotices}
+                  locations={areaLocations}
+                  radius={nearby ? p.preferences.radius_km : 0}
+                  selectedNoticeId={selectedNotice}
+                  onSelectNotice={setSelectedNotice}
+                />
+              </div>
+              <p className="map-caption">
+                {mappedCount} of {filtered.length} updates have a map location.
+                All matching updates are in the list.
+                {nearby
+                  ? " Your saved places and radius are shown only to you."
+                  : ""}
+              </p>
+              <div className="map-legend">
+                <span className="legend-change">Roads & services</span>
+                <span className="legend-event">Events</span>
+                <span className="legend-business">Local openings</span>
+                <span className="legend-community">Community</span>
+              </div>
+            </section>
+          )}
+          <div>
+            <div className="notice-list explore-notice-list">
+              {filtered.slice(0, limit).map((match) => (
+                <div
+                  key={match.notice.id}
+                  className={
+                    selectedNotice === match.notice.id
+                      ? "map-selected-notice"
+                      : ""
+                  }
                 >
-                  <option value="all">All importance</option>
-                  <option value="important">Important & urgent</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </label>
-              <label>
-                Sort
-                <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                  <option value="relevant">Relevant</option>
-                  <option value="newest">Newest</option>
-                  <option value="closest">Closest</option>
-                </select>
-              </label>
-              {personal && (
-                <>
-                  <label>
-                    Location
-                    <select
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                    >
-                      <option value="all">All locations</option>
-                      {p.locations.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Status
-                    <select
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value)}
-                    >
-                      <option value="all">All notices</option>
-                      <option value="unread">Unread</option>
-                      <option value="saved">Saved</option>
-                    </select>
-                  </label>
-                </>
+                  {map &&
+                    match.notice.latitude !== null &&
+                    match.notice.longitude !== null && (
+                      <button
+                        className="show-on-map"
+                        onClick={() => setSelectedNotice(match.notice.id)}
+                        aria-label={`Show ${match.notice.title} on map`}
+                      >
+                        <MapPin size={14} />
+                        Show on map
+                      </button>
+                    )}
+                  {renderCard(match)}
+                </div>
+              ))}
+              {!filtered.length && (
+                <EmptyState
+                  title={
+                    hasFilters
+                      ? "No matching notices."
+                      : mode === "saved"
+                        ? "No saved notices yet."
+                        : "No current notices in this feed."
+                  }
+                  description={
+                    hasFilters
+                      ? "Clear your filters or try a different street or topic."
+                      : mode === "saved"
+                        ? "Use the bookmark button on a notice to keep it here for later."
+                        : "Try All Paris or check original sources for the latest information."
+                  }
+                />
               )}
             </div>
-          )}
-          <div className="feed-results">
-            <p
-              role="status"
-              aria-label="Notice results"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              Showing{" "}
-              {Math.min(filtered.length, dashboard && !expanded ? 6 : limit)} of{" "}
-              {filtered.length} notices
-            </p>
-            {hasFilters && (
-              <button
-                type="button"
-                className="button outline small"
-                onClick={clearFilters}
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-          {(map || mode === "personal-map") && (
-            <div className="large-map">
-              <MapPanel
-                notices={filtered.slice(0, 100).map((m) => m.notice)}
-                locations={personal ? p.locations : undefined}
-                radius={personal ? p.preferences.radius_km : 0}
-              />
-              <div className="map-caption">
-                Notice locations · select a marker for details
-              </div>
-            </div>
-          )}
-          <div className="notice-list">
-            {filtered.slice(0, dashboard && !expanded ? 6 : limit).map((m) => (
-              <NoticeCard
-                key={m.notice.id}
-                notice={m.notice}
-                source={sources.find((s) => s.id === m.notice.source_id)}
-                match={hasArea ? m : undefined}
-              />
-            ))}
-            {!filtered.length && (
-              <EmptyState
-                title={
-                  hasFilters
-                    ? "No matching notices."
-                    : mode === "saved"
-                      ? "No saved notices yet."
-                      : "No current notices in this feed."
-                }
-                description={
-                  hasFilters
-                    ? "Clear your filters or try a different street or topic."
-                    : mode === "saved"
-                      ? "Use the bookmark button on a notice to keep it here for later."
-                      : "There are no current notices to show. Check the original sources for the latest information."
-                }
-              />
-            )}
-          </div>
-          {dashboard && !expanded ? (
-            <button onClick={() => setExpanded(true)} className="feed-more">
-              Explore the full feed <ArrowRight size={16} />
-            </button>
-          ) : (
-            filtered.length > limit && (
+            {filtered.length > limit && (
               <button
                 className="button outline load-more"
                 onClick={() => setLimit(limit + 12)}
               >
                 Load more updates
               </button>
-            )
-          )}
+            )}
+          </div>
         </div>
-        {dashboard && (
-          <aside className="right-rail">
-            <section className="map-card">
-              <SectionHeading title="Around the corner" href="/map" label="" />
-              <div className="preview-map">
-                <MapPanel
-                  notices={filtered.slice(0, 20).map((m) => m.notice)}
-                />
-              </div>
-              <div className="map-card-bottom">
-                <span>Paris & your neighbourhood</span>
-                <Link href="/map">
-                  Open map <ArrowUpRight size={14} />
-                </Link>
-              </div>
-            </section>
-            <section className="rail-deadlines">
-              <SectionHeading
-                title="Deadlines coming up"
-                href="/deadlines"
-                label="All"
-              />
-              <p className="muted small-text">
-                A heads-up, before it’s too late.
-              </p>
-              {comingDeadlines.slice(0, 3).map((d) => (
-                <DeadlineCard key={d.id} deadline={d} />
-              ))}
-              {!comingDeadlines.length && (
-                <p className="rail-empty">
-                  No upcoming deadlines in the next 7 days in this feed. Check
-                  original sources for other due dates.
-                </p>
-              )}
-            </section>
-            <Link className="storm-link" href="/storm">
-              <CloudLightning size={23} />
-              <div>
-                <strong>When the weather changes.</strong>
-                <p>Official storm, road & outage resources, together.</p>
-                <span>
-                  Storm & disruption hub <ArrowRight size={14} />
-                </span>
-              </div>
-            </Link>
-            <section className="setup-note">
-              <ShieldCheck size={20} />
-              <h3>Your area, your choice</h3>
-              <p>
-                {p.guest
-                  ? "Browse and save places without an account. Guest choices stay in this browser and aren’t automatically copied when you sign in."
-                  : "Your saved places help rank this feed. Review your area and interests in settings; browser alerts need a separate opt-in on each device."}
-              </p>
-              <Link className="text-link" href="/app/settings">
-                Your settings <ArrowRight size={14} />
-              </Link>
-              {p.profile && ["editor", "admin"].includes(p.profile.role) && (
-                <Link className="text-link" href="/admin/review">
-                  Editorial review <ArrowRight size={14} />
-                </Link>
-              )}
-            </section>
-          </aside>
-        )}
-      </div>
+      )}
       {dashboard && (
-        <nav className="resident-shortcuts" aria-label="Resident essentials">
+        <nav
+          className="neighbourhood-shortcuts"
+          aria-label="Resident essentials"
+        >
           <Link href="/services">
-            <ShieldCheck size={20} />
-            <span className="shortcut-copy">
-              <strong>Find a service</strong>
-              <small>Waste, transit, library and more</small>
-            </span>
+            <ShieldCheck size={21} />
+            <div>
+              <strong>Everyday services</strong>
+              <span>Waste, transit, library and more</span>
+            </div>
             <ArrowUpRight size={16} />
           </Link>
           <Link href="/deadlines">
-            <CalendarDays size={20} />
-            <span className="shortcut-copy">
-              <strong>Check upcoming deadlines</strong>
-              <small>Keep due dates in view</small>
-            </span>
+            <CalendarDays size={21} />
+            <div>
+              <strong>Keep a date in mind</strong>
+              <span>Deadlines and calendar reminders</span>
+            </div>
             <ArrowUpRight size={16} />
           </Link>
           <Link href="/new-to-paris">
-            <MapPin size={20} />
-            <span className="shortcut-copy">
-              <strong>New to Paris? Start here</strong>
-              <small>A practical first-week checklist</small>
-            </span>
+            <MapPin size={21} />
+            <div>
+              <strong>New to Paris?</strong>
+              <span>Your practical first-week guide</span>
+            </div>
             <ArrowUpRight size={16} />
           </Link>
         </nav>
       )}
     </div>
-  );
-}
-
-function BellIcon() {
-  return <Bell size={15} aria-hidden="true" />;
-}
-
-function BriefingItem({
-  title,
-  notice,
-  href,
-  empty,
-}: {
-  title: string;
-  notice?: Notice;
-  href: string;
-  empty: string;
-}) {
-  return (
-    <section className="briefing-item">
-      <div>
-        <h3>{title}</h3>
-        <Link href={href} aria-label={`View ${title}`}>
-          <ArrowUpRight size={18} />
-        </Link>
-      </div>
-      {notice ? (
-        <>
-          <Link className="briefing-title" href={`/notice/${notice.slug}`}>
-            {notice.title}
-          </Link>
-          <p>
-            {noticeDateLabel(notice)}
-            {notice.is_sample ? " · Sample data" : ""}
-          </p>
-          <small>
-            {notice.address_text ||
-              notice.affected_area_text ||
-              "Paris, Ontario"}
-          </small>
-        </>
-      ) : (
-        <p>{empty}</p>
-      )}
-    </section>
   );
 }

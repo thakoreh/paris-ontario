@@ -1,26 +1,33 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("resident discovery UI", () => {
-  test("homepage leads with search and resident tasks", async ({ page }) => {
+  test("homepage keeps search and resident tasks after the local briefing", async ({
+    page,
+  }) => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: "What do you need today?" }),
+      page.getByRole("heading", { name: "Today in Paris", exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("searchbox", { name: "Search local updates" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Find a service/ })).toHaveAttribute(
-      "href",
-      "/services",
-    );
     await expect(
-      page.getByRole("link", { name: /Check upcoming deadlines/ }),
+      page.getByRole("searchbox", { name: "Search local updates" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Everyday services/ }),
+    ).toHaveAttribute("href", "/services");
+    await expect(
+      page.getByRole("link", { name: /Keep a date in mind/ }),
     ).toHaveAttribute("href", "/deadlines");
 
-    await page.getByRole("button", { name: "This week", exact: true }).click();
-    await expect(page.getByRole("button", { name: "This week", exact: true })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await page
+      .getByRole("button", { name: "More filters", exact: true })
+      .click();
+    await page
+      .getByRole("combobox", { name: "Date / type", exact: true })
+      .selectOption("week");
+    await expect(
+      page.getByRole("combobox", { name: "Date / type", exact: true }),
+    ).toHaveValue("week");
   });
 
   test("resource hub offers bounded task shortcuts", async ({ page }) => {
@@ -29,21 +36,41 @@ test.describe("resident discovery UI", () => {
     await expect(
       page.getByRole("heading", { name: "What are you looking for?" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Waste & recycling", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Waste & recycling", exact: true }).click();
-    await expect(page.getByRole("searchbox", { name: "Find a guide" })).toHaveValue(/waste recycling/);
-    await expect(page.getByRole("heading", { name: /Garbage, recycling & disposal/ })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Waste & recycling", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Waste & recycling", exact: true })
+      .click();
+    await expect(
+      page.getByRole("searchbox", { name: "Find a guide" }),
+    ).toHaveValue(/waste recycling/);
+    await expect(
+      page.getByRole("heading", { name: /Garbage, recycling & disposal/ }),
+    ).toBeVisible();
   });
 
-  test("mobile navigation keeps map and resident tools reachable", async ({ page }) => {
+  test("mobile navigation keeps map and resident tools reachable", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
-    const navigation = page.getByRole("navigation", { name: "Mobile navigation" });
-    await expect(navigation.getByRole("link", { name: "Map", exact: true })).toBeVisible();
-    await expect(navigation.getByRole("link", { name: "Services", exact: true })).toBeVisible();
-    await expect(navigation.getByRole("link", { name: "Saved", exact: true })).toBeVisible();
-    await navigation.getByRole("link", { name: "Map", exact: true }).click();
+    const navigation = page.getByRole("navigation", {
+      name: "Mobile navigation",
+    });
+    await expect(
+      navigation.getByRole("link", { name: "Explore", exact: true }),
+    ).toBeVisible();
+    await expect(
+      navigation.getByRole("link", { name: "Share", exact: true }),
+    ).toBeVisible();
+    await expect(
+      navigation.getByRole("link", { name: "My area", exact: true }),
+    ).toBeVisible();
+    await navigation
+      .getByRole("link", { name: "Explore", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/map$/);
   });
 });

@@ -12,9 +12,10 @@ import {
   LocationsPage,
   LocationForm,
   PreferencesForm,
-  Onboarding,
   SettingsPage,
 } from "@/components/account";
+import { MyArea } from "@/components/my-area";
+import { CommunitySubmissionForm, SubmissionReviewQueue } from "@/components/community-submission-form";
 import { Admin } from "@/components/admin";
 import { ParisOntarioResourceHub } from "@/components/resource-hub";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,8 @@ function isKnownContentRoute(path: string[]) {
       "app/map",
       "app/saved",
       "app/deadlines",
+      "onboarding",
+      "app/area",
     ].includes(route) ||
     ((path[0] === "notice" || path[0] === "deadline") && path.length === 2)
   );
@@ -62,6 +65,7 @@ export async function generateMetadata({
     "forgot-password",
     "reset-password",
     "onboarding",
+    "share-update",
   ].includes(path[0]);
   if (route === "_not-found") return privateRouteMetadata("Update not found");
   if (privateRoute) return privateRouteMetadata("Your Paris Pulse");
@@ -173,7 +177,8 @@ export default async function Page({
   const route = path.join("/");
   if (["login", "signup", "forgot-password", "reset-password"].includes(route))
     return <AuthForm mode={route} />;
-  if (route === "onboarding") return <Onboarding />;
+  if (route === "share-update") return <CommunitySubmissionForm />;
+  if (route === "admin/submissions") return <SubmissionReviewQueue />;
   if (route === "_not-found")
     return (
       <div className="page-wrap">
@@ -229,6 +234,11 @@ export default async function Page({
       </AccountGate>
     );
   if (!isKnownContentRoute(path)) notFound();
+  if (route === "onboarding" || route === "app/area") {
+    const data = await publicData();
+    return <AccountGate><MyArea notices={data.notices} unavailable={!!data.error} /></AccountGate>;
+  }
+
   if (route === "paris-ontario") return <ParisOntarioResourceHub />;
   if (path[0] === "notice" && path.length === 2) {
     const notice = await noticeBySlug(path[1]);

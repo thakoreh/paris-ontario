@@ -5,7 +5,7 @@ import { community } from "@/config/community";
 import { categories } from "@/types";
 import { usePersonal } from "./provider";
 
-export function BrowserNotifications() {
+export function BrowserNotifications({ embedded = false }: { embedded?: boolean }) {
   const personal = usePersonal();
   const [supported, setSupported] = useState(false);
   const [checkingBrowser, setCheckingBrowser] = useState(true);
@@ -201,9 +201,9 @@ export function BrowserNotifications() {
     }
   }
   return (
-    <div className="page-wrap narrow">
+    <div className={embedded ? "embedded-notifications" : "page-wrap narrow"}>
       <span className="eyebrow">YOUR BROWSER, YOUR CHOICE</span>
-      <h1>Browser notifications</h1>
+      {embedded ? <h2>Browser notifications</h2> : <h1>Browser notifications</h1>}
       <p className="page-intro">
         Opt in to editor-selected, verified local notices that match your saved
         places, radius, interests and minimum importance. Editors choose when to

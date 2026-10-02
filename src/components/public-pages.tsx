@@ -20,6 +20,7 @@ export function StormPage({
   const active = notices.filter(
     (n) =>
       ["storm", "outage", "emergency", "roads"].includes(n.category) &&
+      n.verification_status === "verified" &&
       !isExpired(n),
   );
   return (
@@ -206,10 +207,11 @@ export function AboutPage({ privacy = false }: { privacy?: boolean }) {
           </p>
           <h2>Your locations stay private</h2>
           <p>
-            Saved addresses are used to calculate relevance. Public maps show
-            notice locations only. We do not sell precise location data. Private
-            records are protected with row-level security; guest preferences
-            stay in your browser.
+            Saved addresses are used to calculate relevance. Your own map can
+            show your places and radius, but they are not published to other
+            residents. We do not sell precise location data. Private records are
+            protected with row-level security; guest preferences stay in your
+            browser.
           </p>
           <h2>External services</h2>
           <p>
@@ -257,8 +259,9 @@ export function AboutPage({ privacy = false }: { privacy?: boolean }) {
           <h2>Independent, with official sources first</h2>
           <p>
             We are not a County service, newspaper or social network. There are
-            no comments, likes or anonymous claims. We curate information and
-            keep its source visible.
+            no comments or likes. Residents can suggest a local update without
+            an account. Suggestions are checked against an original public
+            source before publication; sending one does not publish it.
           </p>
           <h2>How updates are published</h2>
           <p>
@@ -266,7 +269,7 @@ export function AboutPage({ privacy = false }: { privacy?: boolean }) {
             published. Sources are checked manually until a reliable, reviewable
             integration is in place.
           </p>
-          <Link href="/onboarding" className="button primary">
+          <Link href="/app/area" className="button primary">
             Find your local Pulse <ArrowUpRight size={16} />
           </Link>
         </>

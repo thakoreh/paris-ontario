@@ -4,60 +4,67 @@ import { useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   Activity,
-  ArrowUpRight,
+  ArrowRight,
   Bell,
   Bookmark,
   CalendarDays,
-  ChevronDown,
   CloudLightning,
   Compass,
   Home,
   Map,
   MapPin,
   Menu,
-  X,
-  Newspaper,
+  Plus,
   Settings,
   ShieldCheck,
-  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { usePersonal } from "./provider";
-const main = [
+import "./neighbourhood.css";
+
+const destinations = [
+  ["/today", "Today", Home],
+  ["/map", "Explore", Compass],
+  ["/share-update", "Share", Plus],
+  ["/app/area", "My area", MapPin],
+] as const;
+const allPages = [
   ["/today", "Today in Paris", Home],
   ["/map", "Explore the map", Map],
-  ["/events", "Events & activities", Compass],
+  ["/events", "Events & activities", CalendarDays],
+  ["/deadlines", "Upcoming deadlines", CalendarDays],
   ["/storm", "Storm & disruption", CloudLightning],
   ["/services", "Everyday services", ShieldCheck],
-] as const;
-const resources = [
-  ["/deadlines", "Upcoming deadlines", CalendarDays],
-  ["/paris-ontario", "Paris resource guide", Compass],
   ["/new-to-paris", "New to Paris", Home],
-] as const;
-const personal = [
-  ["/app", "My overview", SlidersHorizontal],
+  ["/paris-ontario", "Paris resource guide", Compass],
   ["/app/saved", "Saved notices", Bookmark],
-] as const;
-const settings = [
   ["/app/locations", "My locations", MapPin],
   ["/app/alerts", "Alert preferences", Bell],
   ["/notifications", "Browser notifications", Bell],
+  ["/app/settings", "Account settings", Settings],
 ] as const;
-
-function isCurrentPath(path: string, href: string) {
-  return (
-    path === href ||
-    (href === "/today" && path === "/app/feed") ||
-    (href === "/map" && path === "/app/map")
-  );
+function isCurrent(path: string, href: string) {
+  if (href === "/today") return ["/", "/today", "/app"].includes(path);
+  if (href === "/map")
+    return ["/map", "/app/map", "/app/feed", "/events"].includes(path);
+  if (href === "/app/area")
+    return [
+      "/app/area",
+      "/onboarding",
+      "/app/locations",
+      "/app/locations/new",
+      "/app/alerts",
+      "/notifications",
+      "/app/settings",
+    ].includes(path);
+  return href === path;
 }
-
-function MobilePageMenu({ path }: { path: string }) {
+function PageMenu({ path }: { path: string }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   return (
     <div
-      className="mobile-page-menu"
+      className="page-menu"
       onKeyDown={(event) => {
         if (event.key === "Escape" && open) {
           setOpen(false);
@@ -68,243 +75,189 @@ function MobilePageMenu({ path }: { path: string }) {
       <button
         ref={toggle}
         type="button"
-        className="button outline small"
+        className="button outline"
         aria-label="Browse all pages"
         aria-expanded={open}
         aria-controls="all-pages-menu"
         onClick={() => setOpen(!open)}
       >
-        {open ? <X size={18} /> : <Menu size={18} />} Menu
+        {open ? <X size={18} /> : <Menu size={18} />} <span>Menu</span>
       </button>
       <nav id="all-pages-menu" aria-label="All pages" hidden={!open}>
-        <p className="nav-label">AROUND YOU</p>
-        {[...main, ...resources].map(([href, label, Icon]) => (
+        <p className="nav-label">LOCAL TOOLS & YOUR SETTINGS</p>
+        {allPages.map(([href, label, Icon]) => (
           <Link
             href={href}
             key={href}
-            aria-current={isCurrentPath(path, href) ? "page" : undefined}
+            aria-current={
+              path === href ||
+              (href === "/today" && ["/", "/app"].includes(path)) ||
+              (href === "/map" && path === "/app/map")
+                ? "page"
+                : undefined
+            }
             onClick={() => setOpen(false)}
           >
-            <Icon size={19} />
+            <Icon size={18} />
             {label}
           </Link>
         ))}
-        <p className="nav-label">YOUR PULSE</p>
-        {[...personal, ...settings].map(([href, label, Icon]) => (
-          <Link
-            href={href}
-            key={href}
-            aria-current={isCurrentPath(path, href) ? "page" : undefined}
-            onClick={() => setOpen(false)}
-          >
-            <Icon size={19} />
-            {label}
-          </Link>
-        ))}
-        <Link href="/app/settings" onClick={() => setOpen(false)}>
-          <Settings size={19} />
-          Account settings
-        </Link>
       </nav>
     </div>
   );
 }
-
-export function Shell({ children }: { children: React.ReactNode }) {
-  const path = usePathname();
+export function AreaContextBar() {
   const p = usePersonal();
-  const currentPath = path || "/";
-  const isCurrent = (href: string) => isCurrentPath(currentPath, href);
-  const mobileHomeHref =
-    currentPath === "/app" || currentPath.startsWith("/app/") ? "/app" : "/";
+  const hasPlaces = p.locations.length > 0;
+  const nearby = hasPlaces && p.areaScope !== "all";
+  const label = p.locations.length === 1 ? p.locations[0].label : "My places";
   return (
-    <>
+    <section className="area-context" aria-label="Your feed area">
+      <div className="area-context-label">
+        <MapPin size={19} />
+        <div>
+          <strong>
+            {!p.ready
+              ? "Loading your area…"
+              : nearby
+                ? label
+                : "Paris, Ontario"}
+          </strong>
+          <span>
+            {nearby
+              ? p.preferences.radius_km === 0
+                ? "All Paris radius"
+                : `${p.preferences.radius_km} km radius`
+              : "Exploring all Paris"}
+          </span>
+        </div>
+      </div>
+      {hasPlaces && (
+        <div
+          className="area-scope-control"
+          role="group"
+          aria-label="Area scope"
+        >
+          <button
+            aria-pressed={nearby}
+            onClick={() => p.setAreaScope("nearby")}
+          >
+            My area
+          </button>
+          <button aria-pressed={!nearby} onClick={() => p.setAreaScope("all")}>
+            All Paris
+          </button>
+        </div>
+      )}
+      <Link className="area-edit" href="/app/area">
+        {hasPlaces ? "Edit area & interests" : "Set my area"}
+        <ArrowRight size={15} />
+      </Link>
+      <span className="area-privacy">
+        <ShieldCheck size={13} />
+        Your places aren’t public
+      </span>
+    </section>
+  );
+}
+export function Shell({ children }: { children: React.ReactNode }) {
+  const path = usePathname() || "/";
+  const p = usePersonal();
+  const showArea = [
+    "/",
+    "/today",
+    "/map",
+    "/events",
+    "/app",
+    "/app/feed",
+    "/app/map",
+    "/app/saved",
+  ].includes(path);
+  return (
+    <div className="neighbourhood-shell">
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <aside className="sidebar">
-        <Link className="brand" href="/">
-          <span className="brand-icon">
-            <Activity size={24} />
-          </span>
-          paris<span className="brand-light">pulse</span>
-          <span className="brand-dot">.</span>
-        </Link>
-        <div className="community-switch">
-          <MapPin size={17} />
-          <div>
-            <strong>Paris, Ontario</strong>
-            <small>Your community, connected</small>
-          </div>
-        </div>
-        <span className="nav-label">AROUND YOU</span>
-        <nav aria-label="Main navigation">
-          {main.map(([href, label, Icon]) => (
-            <Link
-              className={isCurrent(href) ? "active" : ""}
-              href={href}
-              key={href}
-              aria-current={isCurrent(href) ? "page" : undefined}
-            >
-              <Icon size={19} />
-              {label}
-            </Link>
-          ))}
-        </nav>
-        <details
-          className="nav-group"
-          open={resources.some(([href]) => isCurrent(href)) || undefined}
-        >
-          <summary>
-            More local tools <ChevronDown size={15} />
-          </summary>
-          <nav aria-label="Local resources">
-            {resources.map(([href, label, Icon]) => (
-              <Link
-                key={href}
-                href={href}
-                aria-current={isCurrent(href) ? "page" : undefined}
-              >
-                <Icon size={18} />
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </details>
-        <span className="nav-label personal-label">YOUR PULSE</span>
-        <nav aria-label="Personal navigation">
-          {personal.map(([href, label, Icon]) => {
-            const I = Icon as typeof Home;
-            return (
-              <Link
-                href={href as string}
-                key={href as string}
-                className={isCurrent(href as string) ? "active" : ""}
-                aria-current={isCurrent(href as string) ? "page" : undefined}
-              >
-                <I size={19} />
-                {label as string}
-              </Link>
-            );
-          })}
-        </nav>
-        <details
-          className="nav-group"
-          open={settings.some(([href]) => isCurrent(href)) || undefined}
-        >
-          <summary>
-            Your area & alerts <ChevronDown size={15} />
-          </summary>
-          <nav aria-label="Area and alert settings">
-            {settings.map(([href, label, Icon]) => (
-              <Link
-                key={href}
-                href={href}
-                aria-current={isCurrent(href) ? "page" : undefined}
-              >
-                <Icon size={18} />
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </details>
-        <div className="sidebar-bottom">
-          <div className="independent">
-            <ShieldCheck size={22} />
-            <strong>
-              Local information.
-              <br />
-              Straight from the source.
-            </strong>
-            <p>Independent. Useful. Always transparent.</p>
-            <Link href="/sources">
-              Meet our sources <ArrowUpRight size={14} />
-            </Link>
-          </div>
-          <Link className="account" href="/app/settings">
-            <span className="avatar">{p.profile ? "P" : "↗"}</span>
-            <span>
-              <strong>
-                {p.profile ? p.profile.full_name : "Make it yours"}
-              </strong>
-              <small>
-                {p.profile ? "Manage your account" : "Saved in this browser"}
-              </small>
-            </span>
-            <Settings size={17} />
-          </Link>
-        </div>
-      </aside>
       <div className="site-body">
-        <header className="topbar">
-          <MobilePageMenu key={currentPath} path={currentPath} />
-          <span className="topbar-label">
-            Local information. Straight from the source.
-          </span>
-          <Link href="/sources" className="top-source">
-            <ShieldCheck size={15} /> Source transparency
+        <header className="topbar neighbourhood-topbar">
+          <Link className="brand" href="/today" aria-label="Paris Pulse home">
+            <span className="brand-icon">
+              <Activity size={22} />
+            </span>
+            paris<span className="brand-light">pulse</span>
+            <span className="brand-dot">.</span>
           </Link>
-          <Link href="/app" className="button primary small">
-            My Pulse
-            <ArrowUpRight size={15} />
-          </Link>
+          <nav className="primary-navigation" aria-label="Main navigation">
+            {destinations.map(([href, label, Icon]) => (
+              <Link
+                key={href}
+                href={href}
+                aria-current={isCurrent(path, href) ? "page" : undefined}
+              >
+                <Icon size={17} />
+                {label}
+              </Link>
+            ))}
+          </nav>
+          <div className="header-tools">
+            <Link
+              className="button outline saved-entry"
+              href="/app/saved"
+              aria-label="Saved notices"
+            >
+              <Bookmark size={19} />
+              <span>Saved</span>
+            </Link>
+            <PageMenu key={path} path={path} />
+          </div>
         </header>
         {p.demo && process.env.NEXT_PUBLIC_PARIS_PULSE_TEST_MODE !== "1" && (
           <div className="demo-banner">
             <span>
-              <strong>Sample data</strong> You’re exploring a demo. Notices and
+              <strong>Sample data</strong>You’re exploring a demo. Notices and
               deadlines are fictional.
             </span>
-            <Link href="/about">
-              How it works <ArrowUpRight size={12} />
-            </Link>
+            <Link href="/about">How it works</Link>
           </div>
         )}
+        {showArea && <AreaContextBar />}
         <main id="main">{children}</main>
         <footer>
-          <span>
-            © {new Date().getFullYear()} Paris Pulse · Made for life around
-            here.
-          </span>
+          <div className="footer-intro">
+            <strong>Paris Pulse</strong>
+            <span>Useful local information. Original sources. Your area.</span>
+          </div>
           <div>
             <Link href="/services">Services</Link>
+            <Link href="/deadlines">Deadlines</Link>
             <Link href="/new-to-paris">New to Paris</Link>
-            <Link href="/notifications">Notifications</Link>
-            <Link href="/about">About</Link>
             <Link href="/sources">Sources</Link>
+            <Link href="/about">About</Link>
             <Link href="/editorial-policy">Editorial policy</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
             <Link href="/contact">Contact</Link>
           </div>
           <p>
-            Information can change. Verify important details with the original
-            source. Paris Pulse is not an official County of Brant service.
+            © {new Date().getFullYear()} Paris Pulse. Information can change.
+            Verify important details with the original source. Paris Pulse is
+            not an official County of Brant service or an emergency warning
+            service.
           </p>
         </footer>
       </div>
       <nav className="mobile-nav" aria-label="Mobile navigation">
-        {[
-          [mobileHomeHref, "Home", Home],
-          ["/today", "Feed", Newspaper],
-          ["/map", "Map", Map],
-          ["/services", "Services", Compass],
-          ["/app/saved", "Saved", Bookmark],
-        ].map(([href, label, Icon]) => {
-          const I = Icon as typeof Home;
-          return (
-            <Link
-              className={isCurrent(href as string) ? "active" : ""}
-              key={href as string}
-              href={href as string}
-              aria-current={isCurrent(href as string) ? "page" : undefined}
-            >
-              <I size={21} />
-              <span>{label as string}</span>
-            </Link>
-          );
-        })}
+        {destinations.map(([href, label, Icon]) => (
+          <Link
+            key={href}
+            href={href}
+            aria-current={isCurrent(path, href) ? "page" : undefined}
+          >
+            <Icon size={21} />
+            <span>{label}</span>
+          </Link>
+        ))}
       </nav>
-    </>
+    </div>
   );
 }
