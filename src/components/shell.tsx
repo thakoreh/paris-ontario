@@ -25,16 +25,20 @@ import { usePersonal } from "./provider";
 const main = [
   ["/today", "Today in Paris", Home],
   ["/map", "Explore the map", Map],
-  ["/deadlines", "Upcoming deadlines", CalendarDays],
-  ["/storm", "Storm & disruption", CloudLightning],
   ["/events", "Events & activities", Compass],
-  ["/paris-ontario", "Paris resource guide", Compass],
+  ["/storm", "Storm & disruption", CloudLightning],
   ["/services", "Everyday services", ShieldCheck],
+] as const;
+const resources = [
+  ["/deadlines", "Upcoming deadlines", CalendarDays],
+  ["/paris-ontario", "Paris resource guide", Compass],
   ["/new-to-paris", "New to Paris", Home],
 ] as const;
 const personal = [
   ["/app", "My overview", SlidersHorizontal],
   ["/app/saved", "Saved notices", Bookmark],
+] as const;
+const settings = [
   ["/app/locations", "My locations", MapPin],
   ["/app/alerts", "Alert preferences", Bell],
   ["/notifications", "Browser notifications", Bell],
@@ -74,7 +78,7 @@ function MobilePageMenu({ path }: { path: string }) {
       </button>
       <nav id="all-pages-menu" aria-label="All pages" hidden={!open}>
         <p className="nav-label">AROUND YOU</p>
-        {main.map(([href, label, Icon]) => (
+        {[...main, ...resources].map(([href, label, Icon]) => (
           <Link
             href={href}
             key={href}
@@ -86,7 +90,7 @@ function MobilePageMenu({ path }: { path: string }) {
           </Link>
         ))}
         <p className="nav-label">YOUR PULSE</p>
-        {personal.map(([href, label, Icon]) => (
+        {[...personal, ...settings].map(([href, label, Icon]) => (
           <Link
             href={href}
             key={href}
@@ -132,7 +136,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <strong>Paris, Ontario</strong>
             <small>Your community, connected</small>
           </div>
-          <ChevronDown size={14} />
         </div>
         <span className="nav-label">AROUND YOU</span>
         <nav aria-label="Main navigation">
@@ -145,10 +148,29 @@ export function Shell({ children }: { children: React.ReactNode }) {
             >
               <Icon size={19} />
               {label}
-              {href === "/storm" && <span className="nav-dot" />}
             </Link>
           ))}
         </nav>
+        <details
+          className="nav-group"
+          open={resources.some(([href]) => isCurrent(href)) || undefined}
+        >
+          <summary>
+            More local tools <ChevronDown size={15} />
+          </summary>
+          <nav aria-label="Local resources">
+            {resources.map(([href, label, Icon]) => (
+              <Link
+                key={href}
+                href={href}
+                aria-current={isCurrent(href) ? "page" : undefined}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </details>
         <span className="nav-label personal-label">YOUR PULSE</span>
         <nav aria-label="Personal navigation">
           {personal.map(([href, label, Icon]) => {
@@ -158,9 +180,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 href={href as string}
                 key={href as string}
                 className={isCurrent(href as string) ? "active" : ""}
-                aria-current={
-                  isCurrent(href as string) ? "page" : undefined
-                }
+                aria-current={isCurrent(href as string) ? "page" : undefined}
               >
                 <I size={19} />
                 {label as string}
@@ -168,6 +188,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        <details
+          className="nav-group"
+          open={settings.some(([href]) => isCurrent(href)) || undefined}
+        >
+          <summary>
+            Your area & alerts <ChevronDown size={15} />
+          </summary>
+          <nav aria-label="Area and alert settings">
+            {settings.map(([href, label, Icon]) => (
+              <Link
+                key={href}
+                href={href}
+                aria-current={isCurrent(href) ? "page" : undefined}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </details>
         <div className="sidebar-bottom">
           <div className="independent">
             <ShieldCheck size={22} />
@@ -199,7 +239,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <header className="topbar">
           <MobilePageMenu key={currentPath} path={currentPath} />
           <span className="topbar-label">
-            <span className="live-dot" /> A little more in the know.
+            Local information. Straight from the source.
           </span>
           <Link href="/sources" className="top-source">
             <ShieldCheck size={15} /> Source transparency
@@ -257,9 +297,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               className={isCurrent(href as string) ? "active" : ""}
               key={href as string}
               href={href as string}
-              aria-current={
-                isCurrent(href as string) ? "page" : undefined
-              }
+              aria-current={isCurrent(href as string) ? "page" : undefined}
             >
               <I size={21} />
               <span>{label as string}</span>

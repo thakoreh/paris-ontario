@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 
-export type TrustPageKind = "editorial-policy" | "privacy" | "terms" | "contact";
+export type TrustPageKind =
+  "editorial-policy" | "privacy" | "terms" | "contact";
 
 function SupportContact() {
   const email = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
@@ -12,7 +13,11 @@ function SupportContact() {
         then, do not rely on Paris Pulse for account or time-sensitive support.
       </p>
     );
-  return <a className="text-link" href={`mailto:${email}`}>{email}</a>;
+  return (
+    <a className="text-link" href={`mailto:${email}`}>
+      {email}
+    </a>
+  );
 }
 
 export function TrustPage({ kind }: { kind: TrustPageKind }) {
@@ -59,8 +64,8 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
           <p>
             Saved locations are used only to personalize relevance. Public maps
             show notice locations, never a resident’s saved place. Guest data
-            remains in this browser; signed-in data is protected by account-level
-            access controls.
+            remains in this browser; signed-in data is protected by
+            account-level access controls.
           </p>
           <h2>Service providers</h2>
           <p>
@@ -69,21 +74,40 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
             opt in and a production delivery provider is enabled.
           </p>
           <h2>Address search</h2>
-          <p>When you type an address in the location search, the query is sent through our server to Photon (Komoot), a public geocoder using OpenStreetMap data. Suggestions can be approximate. You can instead place a pin manually. Map tiles are supplied by OpenStreetMap.</p>
+          <p>
+            When you type an address in the location search, the query is sent
+            through our server to Photon (Komoot), a public geocoder using
+            OpenStreetMap data. Suggestions can be approximate. You can instead
+            place a pin manually. Map tiles are supplied by OpenStreetMap.
+          </p>
           <h2>Browser notifications</h2>
           <p>
             If you enable browser notifications, we store your push endpoint and
             encryption keys with your account in Supabase. Your browser’s push
             provider delivers encrypted notification payloads. Editors may send
-            verified community-wide notices; these are not emergency alerts or
-            personalized location matches. Delivery records help prevent duplicate
-            sends. Disabling a subscription removes its endpoint, keys and linked
-            delivery records. You can also revoke browser permission.
+            verified notices that match your saved places, radius, selected
+            interests and minimum importance. Notices without a verified map
+            position require an explicit All Paris radius. Your saved places are
+            used for matching and are not included in notification payloads.
+            Account Push preferences and quiet hours are checked before each
+            send. Quiet hours use Paris, Ontario time (America/Toronto); sends
+            are skipped, not queued. Delivery records help prevent duplicate
+            sends. Turning off Push in Settings stops future sends to all your
+            devices. Disabling a subscription removes its endpoint, keys and
+            linked delivery records when server cleanup succeeds. You can also
+            revoke browser permission. These are not emergency alerts; delivery
+            is not guaranteed.
           </p>
-          <p><Link className="text-link" href="/notifications">Manage browser notifications</Link></p>
+          <p>
+            <Link className="text-link" href="/notifications">
+              Manage browser notifications
+            </Link>
+          </p>
           <h2>Newcomer checklist</h2>
-          <p>Checklist progress is saved only in this browser. Use Reset checklist
-            on the newcomer page or clear browser data to remove it.</p>
+          <p>
+            Checklist progress is saved only in this browser. Use Reset
+            checklist on the newcomer page or clear browser data to remove it.
+          </p>
           <h2>Your choices</h2>
           <p>
             You can update or clear browser-stored guest data in Settings. Use
@@ -153,9 +177,13 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
       </div>
       {content.sections}
       <p>
-        <Link className="text-link" href="/sources">Review our sources</Link>
+        <Link className="text-link" href="/sources">
+          Review our sources
+        </Link>
         {" · "}
-        <Link className="text-link" href="/editorial-policy">Read the editorial policy</Link>
+        <Link className="text-link" href="/editorial-policy">
+          Read the editorial policy
+        </Link>
       </p>
     </div>
   );

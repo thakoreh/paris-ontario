@@ -2467,3 +2467,33 @@ footer p {
     font-size: 12px;
   }
 }
+
+/* Resident navigation: fewer first-level choices, all routes remain reachable. */
+.sidebar { overflow-y: auto; padding-top: 25px; }
+.sidebar .brand { margin-bottom: 24px; }
+.sidebar .community-switch { margin-bottom: 20px; }
+.sidebar .community-switch strong { font-size: 14px; }
+.sidebar .community-switch small { font-size: 12px; }
+.sidebar nav a { min-height: 44px; font-size: 14px; padding: 9px 10px; }
+.sidebar .nav-label { font-size: 11px; letter-spacing: 1px; }
+.sidebar .personal-label { margin-top: 20px; }
+.nav-group { margin-top: 8px; }
+.nav-group summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding: 10px; min-height: 44px; font-size: 13px; color: var(--muted); list-style: none; }
+.nav-group summary::-webkit-details-marker { display: none; }
+.nav-group[open] > summary svg { transform: rotate(180deg); }
+.nav-group a[aria-current="page"] { background: #edf3e9; font-weight: 600; }
+.sidebar-bottom { padding-top: 20px; }
+.sidebar-bottom .independent { padding: 13px; }
+.sidebar-bottom .independent p, .sidebar-bottom .independent a, .account small { font-size: 12px; }
+.top-source, .topbar-label { font-size: 12px; }
+.topbar .button { min-height: 40px; font-size: 13px; }
+footer, footer p { font-size: 12px; line-height: 1.7; }
+footer > div { flex-wrap: wrap; row-gap: 10px; }
+footer > div a { display: inline-flex; align-items: center; min-height: 32px; }
+@media (max-width: 760px) {
+  .topbar { padding-inline: 16px; gap: 10px; }
+  .topbar-label { font-size: 0; }
+  .topbar-label:after { font-size: 21px; }
+  .topbar > .button { min-height: 44px; font-size: 12px; padding-inline: 10px; }
+  .mobile-nav a { min-height: 52px; font-size: 12px; }
+}

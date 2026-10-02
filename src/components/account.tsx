@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -25,7 +25,10 @@ import {
   type Preferences,
 } from "@/types";
 import { MapPanel } from "./map-panel";
-import { AddressAutocomplete, type AddressSuggestion } from "./address-autocomplete";
+import {
+  AddressAutocomplete,
+  type AddressSuggestion,
+} from "./address-autocomplete";
 import { Button } from "./ui/button";
 import { locationSchema } from "@/lib/validation";
 const authSchema = z.object({
@@ -38,7 +41,10 @@ export function AuthForm({ mode }: { mode: string }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("error") === "confirmation")
+    if (
+      new URLSearchParams(window.location.search).get("error") ===
+      "confirmation"
+    )
       setMessage(
         "That confirmation link is invalid or expired. Request a new confirmation email and try again.",
       );
@@ -109,7 +115,7 @@ export function AuthForm({ mode }: { mode: string }) {
         </h1>
         <p>Keep up with the changes around the places you care about.</p>
         <div>
-          <ShieldCheck /> Your saved addresses are private.
+          <ShieldCheck /> Your saved places aren’t public.
           <br />
           We never sell precise location data.
         </div>
@@ -386,7 +392,10 @@ export function LocationsPage() {
           <span className="eyebrow">YOUR PULSE</span>
           <h1>Your places, privately saved.</h1>
           <p>
-            We use these places to find relevant changes. Only you can see them.
+            Your places aren’t public. We use them to find relevant changes.
+            Typed address searches are processed by Photon (Komoot). You can
+            adjust the map pin manually.{" "}
+            <Link href="/privacy">Privacy details</Link>
           </p>
         </div>
         <Link className="button primary" href="/app/locations/new">
@@ -447,7 +456,10 @@ export function PreferencesForm({
       {show(1) && (
         <section className="preference-section">
           <h2>What matters to you?</h2>
-          <p>Your interests help us prioritize your feed.</p>
+          <p>
+            Your interests help us prioritize your feed and match browser
+            alerts. Select at least one interest to receive push notifications.
+          </p>
           <div className="interest-grid">
             {categories.map((c) => (
               <label
@@ -480,7 +492,11 @@ export function PreferencesForm({
       {show(2) && (
         <section className="preference-section">
           <h2>How close to home?</h2>
-          <p>3 km is a useful starting point. You can change it anytime.</p>
+          <p>
+            Match notices around any of your saved places. 3 km is a useful
+            starting point. Notices without a verified map position are eligible
+            for push only if you explicitly choose All Paris.
+          </p>
           <div className="radius-options">
             {[0.5, 1, 3, 5, 0].map((r) => (
               <button
@@ -517,35 +533,36 @@ export function PreferencesForm({
         <section className="preference-section">
           <h2>Updates on your terms.</h2>
           <p>
-            Daily email is the default. Your preferences are saved; scheduled
-            delivery is not enabled in this MVP.
+            Browser alerts are sent when editors select a matching verified
+            notice. Email, digest, instant-alert and reminder preferences below
+            are saved for future use; their scheduled delivery is not enabled.
           </p>
           {(
             [
               [
                 "daily_digest_enabled",
                 "Daily digest",
-                "One useful summary of what changed.",
+                "Saved for future daily delivery; not currently sent.",
               ],
               [
                 "weekly_digest_enabled",
                 "Weekly digest",
-                "A wider look at your week.",
+                "Saved for future weekly delivery; not currently sent.",
               ],
               [
                 "instant_enabled",
                 "Important instant alerts",
-                "Only significant official disruptions. Events stay in digests.",
+                "Future automated alerts; not currently sent. This does not control editor-selected browser alerts.",
               ],
               [
                 "deadline_reminders_enabled",
                 "Deadline reminders",
-                "Give yourself a little heads-up.",
+                "Reminder choices are saved; scheduled reminders are not currently sent.",
               ],
               [
                 "email_enabled",
                 "Email updates",
-                "Requires an account for future email delivery. Browsing and personalization stay available without one.",
+                "Saved for future email delivery. No scheduled email alerts are currently sent.",
               ],
             ] as const
           ).map(([key, title, description]) => (
@@ -565,10 +582,34 @@ export function PreferencesForm({
           <label className="toggle-row">
             <span>
               <strong>Push notifications</strong>
-              <small>Coming later. Browser push is not enabled.</small>
+              <small>
+                Master delivery preference for all your subscribed devices. Save
+                to apply. Turning this off stops future sends; it does not
+                remove browser subscriptions. This switch never prompts for
+                browser permission.
+              </small>
             </span>
-            <input type="checkbox" disabled checked={false} readOnly />
+            <input
+              type="checkbox"
+              role="switch"
+              checked={v.push_enabled}
+              disabled={p.guest && !v.push_enabled}
+              onChange={(e) => setV({ ...v, push_enabled: e.target.checked })}
+            />
           </label>
+          <p>
+            {p.guest
+              ? "Sign in and save a place and interests to enable browser alerts. Guest preferences do not enable delivery."
+              : "Delivery also requires at least one saved place, selected interests and a browser subscription. Enabling Push resumes matching sends to existing subscribed devices."}{" "}
+            <Link className="text-link" href="/notifications">
+              Set up browser notifications
+            </Link>
+          </p>
+          <p>
+            Quiet hours use Paris, Ontario time (America/Toronto). Sends during
+            quiet hours are skipped, not queued. Set both times or clear both;
+            matching start and end times pause delivery all day.
+          </p>
           <div className="two-grid">
             <label>
               Quiet hours start

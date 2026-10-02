@@ -11,9 +11,8 @@ import {
   SlidersHorizontal,
   Map as MapIcon,
   List,
-  Activity,
-  Bell,
   CalendarDays,
+  Bell,
 } from "lucide-react";
 import type { Notice, Deadline, Source } from "@/types";
 import { categories, categoryLabels } from "@/types";
@@ -28,7 +27,15 @@ import {
 import { usePersonal } from "./provider";
 import { NoticeCard, DeadlineCard, SectionHeading, EmptyState } from "./cards";
 import { MapPanel } from "./map-panel";
+import {
+  isThisWeekend,
+  latestVerification,
+  noticeDateLabel,
+} from "@/lib/resident-briefing";
+import { formatDate } from "@/lib/utils";
+import { defaultPreferences } from "@/config/community";
 import "./resident-guide.css";
+import "./resident-dashboard.css";
 
 const quickFilters = [
   { label: "All updates", category: "all", period: "all" },
@@ -57,8 +64,11 @@ export function Feed({
   const [status, setStatus] = useState(mode === "saved" ? "saved" : "all");
   const [filters, setFilters] = useState(false);
   const [map, setMap] = useState(mode === "map");
-  const personal = ["app", "feed", "saved", "personal-map"].includes(mode);
   const home = mode === "home";
+  const personal =
+    ["app", "feed", "saved", "personal-map"].includes(mode) ||
+    (home && p.locations.length > 0);
+  const hasArea = personal && p.locations.length > 0;
   const dashboard = ["home", "today", "app"].includes(mode);
   const [limit, setLimit] = useState(12);
   const [expanded, setExpanded] = useState(false);
@@ -94,7 +104,7 @@ export function Feed({
                     (l) => location === "all" || l.id === location,
                   )
                 : [],
-              p.preferences,
+              personal ? p.preferences : defaultPreferences,
               new Date(),
               deadlines,
             ),
@@ -145,10 +155,7 @@ export function Feed({
       if (period === "free" && !n.tags_json.includes("free")) return false;
       if (period === "downtown" && !n.tags_json.includes("downtown"))
         return false;
-      if (period === "weekend") {
-        const day = new Date(n.start_at || n.published_at).getDay();
-        if (day !== 0 && day !== 6) return false;
-      }
+      if (period === "weekend" && !isThisWeekend(n)) return false;
       return true;
     })
     .sort((a, b) =>
@@ -158,11 +165,31 @@ export function Feed({
           ? (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity)
           : 0,
     );
-  const important = filtered.filter((m) =>
-    ["important", "urgent"].includes(m.notice.severity),
+  const briefingMatches = matches.filter(
+    (m) => !personal || !p.dismissed.includes(m.notice.id),
   );
+  const lead = briefingMatches[0];
+  const weekend = briefingMatches.find((m) => isThisWeekend(m.notice));
+  const disruption = briefingMatches.find((m) =>
+    [
+      "roads",
+      "construction",
+      "storm",
+      "outage",
+      "emergency",
+      "transit",
+    ].includes(m.notice.category),
+  );
+  const verifiedAt = latestVerification(briefingMatches.map((m) => m.notice));
+  const comingDeadlines = upcomingDeadlines(deadlines)
+    .filter((d) => !personal || relevantDeadline(d, p.locations, p.preferences))
+    .sort((a, b) => +new Date(a.deadline_at) - +new Date(b.deadline_at));
+  const areaLabel =
+    p.locations.length === 1 ? p.locations[0].label : "your saved places";
   const title = home
-    ? "Know what changed\naround you."
+    ? hasArea
+      ? "Your neighbourhood, in focus."
+      : "Closer to what matters."
     : mode === "app"
       ? "Your neighbourhood, in focus."
       : mode === "events"
@@ -175,121 +202,121 @@ export function Feed({
               ? "Your local feed."
               : "Today in Paris";
   return (
-    <div className="page-wrap">
-      <div className="page-heading">
+    <div
+      className={`page-wrap resident-feed ${dashboard ? "resident-dashboard" : ""}`}
+    >
+      <div className="page-heading resident-heading">
         <div>
           <div className="eyebrow">
-            <span className="live-dot" />
-            {home
-              ? "LOCAL LIFE. LESS NOISE."
-              : new Date()
-                  .toLocaleDateString("en-CA", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                    timeZone: "America/Toronto",
-                  })
-                  .toUpperCase()}
-            <span className="heading-place">PARIS, ONTARIO</span>
+            <span>PARIS, ONTARIO</span>
+            <span className="heading-place">
+              {new Date().toLocaleDateString("en-CA", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                timeZone: "America/Toronto",
+              })}
+            </span>
           </div>
-          <h1 className={home ? "hero-title" : ""}>{title}</h1>
+          <h1 className={dashboard ? "hero-title" : ""}>{title}</h1>
           <p>
-            {home
-              ? "Roads, construction, development, recreation, events and important local updates for Paris, Ontario — personalized to where you live."
-              : personal
-                ? "The changes that matter, around the places you care about."
-                : "The updates that matter. The places you know. All in one place."}
+            {hasArea
+              ? "Local changes, ranked around your places and interests."
+              : "Road changes, useful updates and things to do. Start with Paris, then make it yours."}
           </p>
         </div>
-        {!home && (
-          <Link href="/app/locations" className="button outline">
-            <MapPin size={16} />
-            {p.locations[0]?.label || "Personalize my area"}
-            <SlidersHorizontal size={14} />
-          </Link>
-        )}
+        <Link
+          href={hasArea ? "/app/locations" : "/onboarding"}
+          className="button primary"
+        >
+          <MapPin size={17} /> {hasArea ? "Manage my area" : "Set my area"}
+          <ArrowRight size={16} />
+        </Link>
       </div>
-      {home && (
-        <div className="hero-actions">
-          <Link href="/onboarding" className="button primary">
-            Check what changed near me <ArrowRight size={17} />
-          </Link>
-          <Link href="/today" className="button outline">
-            See today in Paris
-          </Link>
-          <span>
-            <ShieldCheck size={15} /> Independent. Source-first. Free to
-            explore.
-          </span>
-        </div>
-      )}
       {dashboard && (
-        <nav className="resident-shortcuts" aria-label="Resident essentials">
-          <Link href="/services">
-            <span className="shortcut-icon">
-              <ShieldCheck size={20} />
-            </span>
-            <span className="shortcut-copy">
-              <strong>Find a service</strong>
-              <small>Waste, transit, library and more</small>
-            </span>
-            <ArrowUpRight size={16} />
-          </Link>
-          <Link href="/deadlines">
-            <span className="shortcut-icon warm">
-              <CalendarDays size={20} />
-            </span>
-            <span className="shortcut-copy">
-              <strong>Check upcoming deadlines</strong>
-              <small>Keep due dates in view</small>
-            </span>
-            <ArrowUpRight size={16} />
-          </Link>
-          <Link href="/new-to-paris">
-            <span className="shortcut-icon cool">
-              <MapPin size={20} />
-            </span>
-            <span className="shortcut-copy">
-              <strong>New to Paris? Start here</strong>
-              <small>A practical first-week checklist</small>
-            </span>
-            <ArrowUpRight size={16} />
-          </Link>
-        </nav>
-      )}
-      {dashboard && (
-        <div className="overview-strip">
-          <Link href="/today">
-            <span className="stat-icon">
-              <Activity size={19} />
-            </span>
+        <>
+          <div className="area-summary" aria-label="Your feed area">
             <div>
-              <strong>{notices.filter((n) => !isExpired(n)).length}</strong>
-              <span>local updates</span>
+              <MapPin size={17} />
+              <strong>
+                {hasArea ? `Near ${areaLabel}` : "Exploring all Paris"}
+              </strong>
+              <span>
+                {hasArea
+                  ? p.preferences.radius_km === 0
+                    ? "All Paris"
+                    : `${p.preferences.radius_km} km radius`
+                  : "No address needed to browse"}
+              </span>
+              {hasArea && (
+                <Link href="/app/alerts">
+                  {p.preferences.categories_json.length} interests · Edit
+                </Link>
+              )}
             </div>
-            <small>{p.demo ? "Sample feed" : "Published notices"}</small>
-          </Link>
-          <Link href="/deadlines">
-            <span className="stat-icon amber">
-              <Bell size={19} />
-            </span>
-            <div>
-              <strong>{upcomingDeadlines(deadlines).length}</strong>
-              <span>deadlines in the next 7 days</span>
+            <Link href="/notifications">
+              <BellIcon /> Browser alerts · Check this device{" "}
+              <ArrowUpRight size={14} />
+            </Link>
+          </div>
+          <section
+            className="resident-briefing"
+            aria-labelledby="briefing-title"
+          >
+            <div className="briefing-heading">
+              <h2 id="briefing-title">
+                {hasArea
+                  ? "Your local briefing"
+                  : mode === "today"
+                    ? "The local briefing"
+                    : "Today in Paris"}
+              </h2>
+              <p>
+                {p.demo
+                  ? "Sample preview · not live local information"
+                  : verifiedAt
+                    ? `Latest notice verified ${formatDate(verifiedAt)} ET`
+                    : "No verification time available for this feed"}
+              </p>
             </div>
-            <small>A little heads-up</small>
-          </Link>
-          <Link href="/sources">
-            <span className="stat-icon blue">
-              <ShieldCheck size={19} />
-            </span>
-            <div>
-              <strong>{sources.length}</strong>
-              <span>source references</span>
+            <div className="briefing-grid">
+              <div className="briefing-lead">
+                {lead ? (
+                  <NoticeCard
+                    notice={lead.notice}
+                    source={sources.find((s) => s.id === lead.notice.source_id)}
+                    match={hasArea ? lead : undefined}
+                  />
+                ) : (
+                  <div className="briefing-empty">
+                    <h3>No current notices in this feed</h3>
+                    <p>
+                      Coverage is limited. Check original sources for the latest
+                      information.
+                    </p>
+                    <Link className="text-link" href="/sources">
+                      Browse sources <ArrowRight size={14} />
+                    </Link>
+                  </div>
+                )}
+              </div>
+              <div className="briefing-side">
+                <BriefingItem
+                  title="This weekend"
+                  notice={weekend?.notice}
+                  href="/events"
+                  empty="No dated events for this weekend in this feed."
+                />
+                <BriefingItem
+                  title="Roads & disruptions"
+                  notice={disruption?.notice}
+                  href="/storm"
+                  empty="No current disruption notices in this feed. Check official live tools before travelling."
+                />
+              </div>
             </div>
-            <small>Know where it comes from</small>
-          </Link>
-        </div>
+          </section>
+        </>
       )}
       {dashboard && (
         <section className="discovery-panel" aria-labelledby="discovery-title">
@@ -298,7 +325,10 @@ export function Feed({
               <span className="eyebrow">FIND SOMETHING LOCAL</span>
               <h2 id="discovery-title">What do you need today?</h2>
             </div>
-            <p>Search updates, streets or topics, then narrow the list in one tap.</p>
+            <p>
+              Search updates, streets or topics, then narrow the list in one
+              tap.
+            </p>
           </div>
           <div className="feed-toolbar discovery-toolbar">
             <div className="search-field">
@@ -331,7 +361,11 @@ export function Feed({
               {map ? <List size={18} /> : <MapIcon size={18} />}
             </button>
           </div>
-          <div className="quick-filter-row" role="group" aria-label="Quick filters">
+          <div
+            className="quick-filter-row"
+            role="group"
+            aria-label="Quick filters"
+          >
             {quickFilters.map((filter) => {
               const selected =
                 category === filter.category && period === filter.period;
@@ -356,55 +390,13 @@ export function Feed({
       )}
       <div className={dashboard ? "content-grid" : "full-content"}>
         <div className="feed-column">
-          {dashboard && (
-            <>
-              <SectionHeading
-                title={personal ? "Needs attention" : "Worth knowing today"}
-                note={
-                  p.demo
-                    ? "A preview of important local updates — all sample data."
-                    : "Important changes from published sources."
-                }
-              />
-              <div className="attention-grid">
-                {important.slice(0, 2).map((m) => (
-                  <Link
-                    key={m.notice.id}
-                    href={`/notice/${m.notice.slug}`}
-                    className={`attention-card ${m.notice.category === "emergency" ? "warm" : ""}`}
-                  >
-                    <div className="attention-top">
-                      <span>
-                        <CloudLightning size={15} />
-                        {m.notice.is_sample
-                          ? "SAMPLE DATA"
-                          : "IMPORTANT UPDATE"}
-                      </span>
-                      <ArrowUpRight size={18} />
-                    </div>
-                    <h3>{m.notice.title}</h3>
-                    <p>{m.notice.summary}</p>
-                    <div className="attention-bottom">
-                      <span>
-                        {
-                          sources.find((s) => s.id === m.notice.source_id)
-                            ?.organization
-                        }
-                      </span>
-                      <span>
-                        View update <ArrowRight size={13} />
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
           <SectionHeading
             title={
               dashboard
                 ? personal
-                  ? "What changed near Home"
+                  ? hasArea
+                    ? `Updates near ${areaLabel}`
+                    : "Updates across Paris"
                   : "The latest around you"
                 : mode === "saved"
                   ? "Saved for later"
@@ -590,8 +582,7 @@ export function Feed({
                 radius={personal ? p.preferences.radius_km : 0}
               />
               <div className="map-caption">
-                <span className="live-dot" /> Notice locations · select a marker
-                for details
+                Notice locations · select a marker for details
               </div>
             </div>
           )}
@@ -601,7 +592,7 @@ export function Feed({
                 key={m.notice.id}
                 notice={m.notice}
                 source={sources.find((s) => s.id === m.notice.source_id)}
-                match={personal ? m : undefined}
+                match={hasArea ? m : undefined}
               />
             ))}
             {!filtered.length && (
@@ -611,7 +602,7 @@ export function Feed({
                     ? "No matching notices."
                     : mode === "saved"
                       ? "No saved notices yet."
-                      : "You’re all caught up."
+                      : "No current notices in this feed."
                 }
                 description={
                   hasFilters
@@ -648,9 +639,7 @@ export function Feed({
                 />
               </div>
               <div className="map-card-bottom">
-                <span>
-                  <span className="live-dot" /> Paris & your neighbourhood
-                </span>
+                <span>Paris & your neighbourhood</span>
                 <Link href="/map">
                   Open map <ArrowUpRight size={14} />
                 </Link>
@@ -665,16 +654,15 @@ export function Feed({
               <p className="muted small-text">
                 A heads-up, before it’s too late.
               </p>
-              {deadlines
-                .filter(
-                  (d) =>
-                    !personal ||
-                    relevantDeadline(d, p.locations, p.preferences),
-                )
-                .slice(0, 3)
-                .map((d) => (
-                  <DeadlineCard key={d.id} deadline={d} />
-                ))}
+              {comingDeadlines.slice(0, 3).map((d) => (
+                <DeadlineCard key={d.id} deadline={d} />
+              ))}
+              {!comingDeadlines.length && (
+                <p className="rail-empty">
+                  No upcoming deadlines in the next 7 days in this feed. Check
+                  original sources for other due dates.
+                </p>
+              )}
             </section>
             <Link className="storm-link" href="/storm">
               <CloudLightning size={23} />
@@ -686,61 +674,99 @@ export function Feed({
                 </span>
               </div>
             </Link>
-            <div className="personalize-card">
-              <span className="eyebrow">A LITTLE MORE PERSONAL</span>
-              <h3>
-                Your street.
-                <br />
-                Your interests.
-                <br />
-                Your Pulse.
-              </h3>
+            <section className="setup-note">
+              <ShieldCheck size={20} />
+              <h3>Your area, your choice</h3>
               <p>
-                Save your places and we’ll help you find what matters nearby.
+                {p.guest
+                  ? "Browse and save places without an account. Guest choices stay in this browser and aren’t automatically copied when you sign in."
+                  : "Your saved places help rank this feed. Review your area and interests in settings; browser alerts need a separate opt-in on each device."}
               </p>
-              <Link href="/onboarding" className="button primary">
-                Make it mine <ArrowUpRight size={15} />
+              <Link className="text-link" href="/app/settings">
+                Your settings <ArrowRight size={14} />
               </Link>
-              <small>
-                <ShieldCheck size={13} /> Your locations stay private.
-              </small>
-            </div>
+              {p.profile && ["editor", "admin"].includes(p.profile.role) && (
+                <Link className="text-link" href="/admin/review">
+                  Editorial review <ArrowRight size={14} />
+                </Link>
+              )}
+            </section>
           </aside>
         )}
       </div>
-      {home && (
-        <section className="how-it-works">
-          <SectionHeading title="A simpler way to stay in the know." />
-          <div className="three-grid">
-            {[
-              [
-                "01",
-                "Save a place",
-                "Home, work, school. Start with the places that matter to you.",
-              ],
-              [
-                "02",
-                "Choose your interests",
-                "Traffic, planning, family activities. Set your radius and priorities.",
-              ],
-              [
-                "03",
-                "Get your local Pulse",
-                "See what changed, why it matters, and the original source.",
-              ],
-            ].map(([n, t, d]) => (
-              <div key={n}>
-                <span>{n}</span>
-                <h3>{t}</h3>
-                <p>{d}</p>
-              </div>
-            ))}
-          </div>
-          <Link href="/signup" className="text-link">
-            Create your local Pulse <ArrowRight size={16} />
+      {dashboard && (
+        <nav className="resident-shortcuts" aria-label="Resident essentials">
+          <Link href="/services">
+            <ShieldCheck size={20} />
+            <span className="shortcut-copy">
+              <strong>Find a service</strong>
+              <small>Waste, transit, library and more</small>
+            </span>
+            <ArrowUpRight size={16} />
           </Link>
-        </section>
+          <Link href="/deadlines">
+            <CalendarDays size={20} />
+            <span className="shortcut-copy">
+              <strong>Check upcoming deadlines</strong>
+              <small>Keep due dates in view</small>
+            </span>
+            <ArrowUpRight size={16} />
+          </Link>
+          <Link href="/new-to-paris">
+            <MapPin size={20} />
+            <span className="shortcut-copy">
+              <strong>New to Paris? Start here</strong>
+              <small>A practical first-week checklist</small>
+            </span>
+            <ArrowUpRight size={16} />
+          </Link>
+        </nav>
       )}
     </div>
+  );
+}
+
+function BellIcon() {
+  return <Bell size={15} aria-hidden="true" />;
+}
+
+function BriefingItem({
+  title,
+  notice,
+  href,
+  empty,
+}: {
+  title: string;
+  notice?: Notice;
+  href: string;
+  empty: string;
+}) {
+  return (
+    <section className="briefing-item">
+      <div>
+        <h3>{title}</h3>
+        <Link href={href} aria-label={`View ${title}`}>
+          <ArrowUpRight size={18} />
+        </Link>
+      </div>
+      {notice ? (
+        <>
+          <Link className="briefing-title" href={`/notice/${notice.slug}`}>
+            {notice.title}
+          </Link>
+          <p>
+            {noticeDateLabel(notice)}
+            {notice.is_sample ? " · Sample data" : ""}
+          </p>
+          <small>
+            {notice.address_text ||
+              notice.affected_area_text ||
+              "Paris, Ontario"}
+          </small>
+        </>
+      ) : (
+        <p>{empty}</p>
+      )}
+    </section>
   );
 }

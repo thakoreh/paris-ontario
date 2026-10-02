@@ -1,0 +1,387 @@
+/* Resident utility pass: preserve the existing green/serif identity. */
+.resident-dashboard .resident-heading {
+  margin-bottom: 18px;
+}
+.resident-dashboard .hero-title {
+  font-size: clamp(32px, 3.5vw, 46px);
+  line-height: 1.12;
+  margin: 10px 0;
+  letter-spacing: -1.5px;
+}
+.resident-heading .eyebrow {
+  font-size: 11px;
+  letter-spacing: 1px;
+  flex-wrap: wrap;
+}
+.resident-heading .heading-place {
+  display: inline;
+  text-transform: none;
+}
+.resident-heading p {
+  font-size: 15px;
+  max-width: 65ch;
+  line-height: 1.6;
+}
+.resident-heading > .button {
+  font-size: 14px;
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.area-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 13px 0;
+  border-block: 1px solid var(--line);
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+.area-summary > div,
+.area-summary > a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.area-summary > div > span {
+  color: var(--muted);
+}
+.area-summary a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: 28px;
+}
+.briefing-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.briefing-heading h2 {
+  font-size: 21px;
+}
+.briefing-heading p {
+  font-size: 12px;
+}
+.resident-briefing {
+  margin-bottom: 28px;
+}
+.briefing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(235px, 1fr);
+  gap: 20px;
+}
+.briefing-lead {
+  background: #fff;
+  border: 1px solid #d6e0d1;
+  border-radius: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.resident-feed .briefing-lead .notice-card {
+  border: 0;
+  border-radius: 0;
+  padding: 20px;
+  background: transparent;
+  height: 100%;
+}
+.briefing-lead .notice-card .category-icon {
+  display: none;
+}
+.resident-feed .briefing-lead .notice-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.resident-feed .briefing-lead .notice-summary {
+  -webkit-line-clamp: 3;
+}
+.briefing-side {
+  display: grid;
+  align-content: start;
+}
+.briefing-item {
+  padding: 0 0 14px;
+  min-width: 0;
+}
+.briefing-item + .briefing-item {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.briefing-item > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.briefing-item h3 {
+  font-size: 14px;
+}
+.briefing-item > div > a {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+.briefing-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.briefing-item p,
+.briefing-item small {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.briefing-empty {
+  padding: 24px;
+}
+.briefing-empty p {
+  margin: 10px 0;
+}
+.resident-feed .discovery-panel {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding: 24px 0 0;
+  margin-bottom: 22px;
+}
+.resident-feed .discovery-intro h2 {
+  font-size: 20px;
+}
+.resident-feed .discovery-intro p {
+  font-size: 14px;
+}
+.resident-feed .discovery-intro .eyebrow {
+  display: none;
+}
+.resident-feed .discovery-toolbar {
+  margin-top: 14px;
+}
+.resident-feed .search-field input {
+  font-size: 16px !important;
+}
+.resident-feed .button,
+.resident-feed .button.small {
+  min-height: 44px;
+  font-size: 14px;
+}
+.resident-feed .quick-filter-row button,
+.resident-feed .filter-tabs button {
+  min-height: 44px;
+  font-size: 13px;
+  padding: 8px 12px;
+}
+.resident-feed .filter-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+  padding-bottom: 12px;
+}
+.resident-feed .view-switch {
+  min-width: 44px;
+}
+.resident-feed .notice-card {
+  padding: 22px 18px;
+  gap: 12px;
+}
+.resident-feed .notice-title {
+  font-size: 17px;
+  line-height: 1.45;
+}
+.resident-feed .notice-summary {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.resident-feed .card-eyebrow,
+.resident-feed .notice-meta,
+.resident-feed .card-source,
+.resident-feed .reasons {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.resident-feed .sample-badge,
+.resident-feed .importance,
+.resident-feed .urgency {
+  font-size: 11px;
+}
+.notice-timing {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 13px;
+  margin: 8px 0;
+}
+.resident-feed .bookmark {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+}
+.resident-feed .section-heading p,
+.resident-feed .feed-results,
+.resident-feed .empty p {
+  font-size: 14px;
+}
+.resident-feed .right-rail .small-text,
+.resident-feed .rail-empty,
+.resident-feed .setup-note p {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.resident-feed .rail-empty {
+  padding-top: 12px;
+}
+.resident-feed .right-rail .section-heading h2 {
+  font-size: 18px;
+}
+.resident-feed .setup-note h3 {
+  margin: 10px 0;
+  font-size: 19px;
+  font-family: Georgia, "Times New Roman", serif;
+}
+.resident-feed .setup-note .text-link {
+  display: flex;
+  margin-top: 14px;
+  font-size: 14px;
+}
+.resident-feed .deadline-title {
+  font-size: 14px;
+}
+.resident-feed .deadline-meta,
+.resident-feed .map-card-bottom,
+.resident-feed .map-caption {
+  font-size: 12px;
+}
+.resident-feed .resident-shortcuts {
+  margin: 32px 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.resident-feed .resident-shortcuts strong {
+  font-size: 14px;
+}
+.resident-feed .resident-shortcuts small {
+  font-size: 13px;
+}
+.resident-feed .resident-shortcuts a {
+  padding: 14px;
+}
+.resident-feed .storm-link p,
+.resident-feed .storm-link span {
+  font-size: 13px;
+}
+.resident-feed .feed-more {
+  min-height: 44px;
+  font-size: 14px;
+}
+@media (max-width: 1100px) {
+  .briefing-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(220px, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .resident-feed.page-wrap {
+    padding: 22px 18px 38px;
+  }
+  .resident-heading .heading-place {
+    padding-left: 0;
+    margin-left: 0;
+    border: 0;
+    flex-basis: 100%;
+  }
+  .resident-heading p {
+    font-size: 14px;
+  }
+  .resident-heading > .button {
+    margin-top: 14px;
+  }
+  .area-summary {
+    margin-bottom: 20px;
+    gap: 6px;
+    padding: 10px 0;
+  }
+  .area-summary > a {
+    min-height: 36px;
+  }
+  .briefing-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .briefing-side {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+  }
+  .briefing-item + .briefing-item {
+    border-top: 0;
+    padding-top: 0;
+  }
+  .resident-feed .briefing-lead .notice-card {
+    padding: 16px;
+  }
+  .resident-feed .briefing-lead .notice-title {
+    font-size: 23px;
+  }
+  .resident-feed .notice-card {
+    padding: 18px 12px;
+    gap: 8px;
+  }
+  .resident-feed .notice-card > .category-icon {
+    display: none;
+  }
+  .resident-feed .notice-title {
+    font-size: 16px;
+  }
+  .resident-feed .card-source {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .resident-feed .card-source span + span {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .resident-feed .filter-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .resident-feed .discovery-intro p {
+    display: none;
+  }
+  .resident-feed .discovery-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .resident-feed .discovery-toolbar .search-field {
+    flex: 1 0 100%;
+  }
+  .resident-feed .briefing-heading p {
+    font-size: 12px;
+  }
+}
+@media (max-width: 380px) {
+  .briefing-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .resident-feed *,
+  .sidebar *,
+  .mobile-nav *,
+  .topbar * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .resident-feed a:hover {
+    transform: none !important;
+  }
+}

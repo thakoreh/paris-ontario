@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 import type { Notice, Deadline, Match, Source } from "@/types";
 import { categoryLabels } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { noticeDateLabel } from "@/lib/resident-briefing";
 import { calendarEvent, countdown } from "@/lib/calendar";
 import { usePersonal } from "./provider";
 const categoryIcons = {
@@ -67,12 +68,18 @@ export function NoticeCard({
         <div className="card-eyebrow">
           <span>{categoryLabels[n.category]}</span>
           <span>·</span>
-          <span>{formatDate(n.published_at).split(",")[0]}</span>
+          <span>Published {formatDate(n.published_at).split(",")[0]}</span>
           {n.is_sample && <SampleBadge />}
         </div>
         <Link href={`/notice/${n.slug}`} className="notice-title">
           {n.title}
         </Link>
+        {n.start_at && (
+          <p className="notice-timing">
+            <CalendarDays size={14} />
+            {noticeDateLabel(n)}
+          </p>
+        )}
         {!compact && <p className="notice-summary">{n.summary}</p>}
         <div className="notice-meta">
           <span>
