@@ -115,11 +115,37 @@ test("narrow screens and reduced motion keep the briefing readable", async ({
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await expect(page.locator(".briefing-lead .notice-card")).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  // A mobile browser may expand innerWidth to accommodate overflowing content.
+  // Compare with the requested layout viewport, not that expanded measurement.
+  const viewportWidth = page.viewportSize()!.width;
+  const layout = await page.evaluate(
+    (width) => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth,
+      overflowing: [...document.querySelectorAll("body *")]
+        .filter((el) => el.getBoundingClientRect().right > width)
+        .slice(0, 12)
+        .map((el) => ({
+          tag: el.tagName,
+          className: el.className,
+          right: el.getBoundingClientRect().right,
+        })),
+    }),
+    viewportWidth,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("resident-dashboard-320px.png"),
+    fullPage: true,
+  });
+  expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(
+    viewportWidth,
+  );
+  for (const control of await page.locator(".topbar .button").all()) {
+    const bounds = await control.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewportWidth);
+    expect(bounds!.height).toBeGreaterThanOrEqual(44);
+  }
   expect(
     await page
       .locator(".notice-summary")
@@ -132,10 +158,7 @@ test("narrow screens and reduced motion keep the briefing readable", async ({
       .first()
       .evaluate((el) => getComputedStyle(el).transitionDuration),
   ).toBe("0s");
-  await page.screenshot({
-    path: testInfo.outputPath("resident-dashboard-320px.png"),
-    fullPage: true,
-  });
+
   await page.getByRole("button", { name: "Browse all pages" }).click();
   await page.keyboard.press("Escape");
   await expect(

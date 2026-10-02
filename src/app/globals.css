@@ -2495,5 +2495,12 @@ footer > div a { display: inline-flex; align-items: center; min-height: 32px; }
   .topbar-label { font-size: 0; }
   .topbar-label:after { font-size: 21px; }
   .topbar > .button { min-height: 44px; font-size: 12px; padding-inline: 10px; }
+  .topbar .mobile-page-menu > .button { min-height: 44px; }
   .mobile-nav a { min-height: 52px; font-size: 12px; }
+}
+
+/* Keep all three header controls inside a 320px layout viewport. */
+@media (max-width: 380px) {
+  .topbar { padding-inline: 12px; gap: 8px; }
+  .topbar > .button > svg { display: none; }
 }

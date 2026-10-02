@@ -245,6 +245,9 @@
 .resident-feed .right-rail .section-heading h2 {
   font-size: 18px;
 }
+.resident-feed .setup-note {
+  padding: 20px;
+}
 .resident-feed .setup-note h3 {
   margin: 10px 0;
   font-size: 19px;
