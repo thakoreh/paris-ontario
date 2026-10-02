@@ -244,6 +244,10 @@ test("320px screens and reduced motion preserve all four resident destinations",
   ]) {
     await page.goto(path);
     await expect(page.locator("main h1")).toBeVisible();
+    if (path !== "/share-update") {
+      await expect(page.locator(".leaflet-container").first()).toBeVisible();
+      await expect(page.locator(".leaflet-control-zoom").first()).toBeVisible();
+    }
     await expectNoHorizontalOverflow(page);
     const navigation = page.getByRole("navigation", {
       name: "Mobile navigation",
@@ -256,6 +260,7 @@ test("320px screens and reduced motion preserve all four resident destinations",
     await page.screenshot({
       path: testInfo.outputPath(`neighbourhood-${screenshot}-320px.png`),
       fullPage: true,
+      animations: "disabled",
     });
   }
   await page.goto("/today");

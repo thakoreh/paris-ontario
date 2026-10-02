@@ -195,7 +195,7 @@ test("a failed submission preserves the draft and a deliberate retry can succeed
   await page
     .getByRole("button", { name: "Send for editor review", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "We could not save your update",
   );
   await expect(
@@ -234,7 +234,7 @@ test("a successful HTTP response without pending status never claims receipt", a
   await page
     .getByRole("button", { name: "Send for editor review", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "We could not confirm receipt",
   );
   await expect(
@@ -263,7 +263,7 @@ test("private access links and emergency submissions cannot enter the preview", 
   await page
     .getByRole("button", { name: "Review my update", exact: true })
     .click();
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "Use a public source page",
   );
   await expect(
@@ -282,6 +282,6 @@ test("the private editorial queue is inaccessible to an anonymous resident", asy
   ).toBeVisible();
   await expect(page.locator(".submission-review-item")).toHaveCount(0);
   const response = await request.get("/api/admin/submissions?status=pending");
-  expect(response.status()).toBe(403);
+  expect(response.status()).toBe(401);
   expect(await response.json()).not.toHaveProperty("submissions");
 });

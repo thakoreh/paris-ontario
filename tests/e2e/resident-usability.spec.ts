@@ -128,7 +128,9 @@ test("Explore preserves filters across List and Map and links a selected notice 
       .locator(".leaflet-popup-content")
       .getByRole("link", { name: title, exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".leaflet-popup")).toHaveCSS("opacity", "1");
   await page.screenshot({
+    animations: "disabled",
     path: testInfo.outputPath("neighbourhood-explore-map.png"),
     fullPage: true,
   });

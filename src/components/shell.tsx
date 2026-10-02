@@ -31,6 +31,7 @@ const destinations = [
 const allPages = [
   ["/today", "Today in Paris", Home],
   ["/map", "Explore the map", Map],
+  ["/app/feed", "Explore the list", Compass],
   ["/events", "Events & activities", CalendarDays],
   ["/deadlines", "Upcoming deadlines", CalendarDays],
   ["/storm", "Storm & disruption", CloudLightning],

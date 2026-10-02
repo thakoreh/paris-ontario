@@ -99,7 +99,10 @@ test("area setup goes from a confirmed place through preview and interests witho
   await expect(
     preview.getByRole("link", { name: fixtureNoticeTitle, exact: true }),
   ).toBeVisible();
+  await expect(preview.locator(".leaflet-container")).toBeVisible();
+  await expect(preview.locator(".leaflet-control-zoom")).toBeVisible();
   await page.screenshot({
+    animations: "disabled",
     path: testInfo.outputPath("neighbourhood-area-preview.png"),
     fullPage: true,
   });

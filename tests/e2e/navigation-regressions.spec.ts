@@ -3,14 +3,14 @@ import { expect, test } from "@playwright/test";
 test.describe("mobile navigation regressions", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("all-pages menu marks the feed alias as current", async ({ page }) => {
+  test("all-pages menu marks the Explore list as current", async ({ page }) => {
     await page.goto("/app/feed");
 
     await page.getByRole("button", { name: "Browse all pages" }).click();
 
     await expect(
       page.getByRole("navigation", { name: "All pages" }).getByRole("link", {
-        name: "Today in Paris",
+        name: "Explore the list",
       }),
     ).toHaveAttribute("aria-current", "page");
   });
