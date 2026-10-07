@@ -32,7 +32,7 @@ export const noticeSchema = z.object({
   affected_radius_km: z.number().min(0).max(100).nullable().optional(),
   address_text: z.string().max(300).optional(),
   affected_area_text: z.string().max(500).optional(),
-  expires_at: z.string().datetime().nullable(),
+  expires_at: z.string().datetime({ offset: true }).nullable(),
   is_sample: z.boolean(),
   verification_status: z.enum([
     "draft",
