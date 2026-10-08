@@ -61,18 +61,16 @@ export async function POST(request: Request) {
         },
         { status: 429 },
       );
-    const { error } = await admin
-      .from("push_subscriptions")
-      .upsert(
-        {
-          user_id: session.user.id,
-          endpoint: sub.endpoint,
-          p256dh: sub.keys.p256dh,
-          auth: sub.keys.auth,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "endpoint" },
-      );
+    const { error } = await admin.from("push_subscriptions").upsert(
+      {
+        user_id: session.user.id,
+        endpoint: sub.endpoint,
+        p256dh: sub.keys.p256dh,
+        auth: sub.keys.auth,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "endpoint" },
+    );
     if (error) throw error;
     return Response.json({ ok: true });
   } catch (error) {
@@ -107,13 +105,14 @@ export async function DELETE(request: Request) {
     const { endpoint } = parseUnsubscribeRequest(
       await readBoundedJson(request),
     );
-    const { error } = await session.db
+    const { data, error } = await session.db
       .from("push_subscriptions")
       .delete()
       .eq("user_id", session.user.id)
-      .eq("endpoint", endpoint);
+      .eq("endpoint", endpoint)
+      .select("id");
     if (error) throw error;
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, removed: data?.length || 0 });
   } catch {
     return Response.json(
       { error: "Unable to remove subscription." },

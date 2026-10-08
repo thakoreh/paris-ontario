@@ -17,11 +17,14 @@ import {
   Info,
   Bell,
   Download,
+  Store,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { Notice, Deadline, Match, Source } from "@/types";
 import { categoryLabels } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { localDateKey, noticeDateLabel } from "@/lib/resident-briefing";
+import { latestPublicChangeAt, noticeKind } from "@/lib/resident-experience";
 import { calendarEvent, countdown } from "@/lib/calendar";
 import { usePersonal } from "./provider";
 const categoryIcons = {
@@ -55,25 +58,86 @@ export function NoticeCard({
   compact?: boolean;
 }) {
   const p = usePersonal();
-  const Icon = categoryIcons[n.category];
+  const kind = noticeKind(n);
+  const Icon = kind === "business" ? Store : categoryIcons[n.category];
+  const eventDate =
+    kind === "event" && n.start_at && localDateKey(n.start_at)
+      ? new Date(n.start_at)
+      : null;
+  const publicChange = latestPublicChangeAt(n);
+  const updated =
+    publicChange &&
+    new Date(publicChange).getTime() > new Date(n.published_at).getTime();
+  const tags = n.tags_json.filter((tag) =>
+    ["free", "family", "downtown"].includes(tag.toLowerCase()),
+  );
   return (
     <article
-      className={`notice-card ${compact ? "compact" : ""} ${p.read.includes(n.id) ? "is-read" : ""}`}
+      className={`notice-card notice-${kind} ${compact ? "compact" : ""} ${p.read.includes(n.id) ? "is-read" : ""}`}
+      data-notice-id={n.id}
     >
-      <div className={`category-icon cat-${n.category}`}>
-        <Icon size={21} />
-      </div>
+      {eventDate ? (
+        <div className="event-date-badge" aria-label={noticeDateLabel(n)}>
+          <span>
+            {eventDate.toLocaleDateString("en-CA", {
+              month: "short",
+              timeZone: "America/Toronto",
+            })}
+          </span>
+          <strong>
+            {eventDate.toLocaleDateString("en-CA", {
+              day: "numeric",
+              timeZone: "America/Toronto",
+            })}
+          </strong>
+        </div>
+      ) : (
+        <div className={`category-icon cat-${n.category}`}>
+          <Icon size={21} />
+        </div>
+      )}
       <div className="notice-main">
         <div className="card-eyebrow">
-          <span>{categoryLabels[n.category]}</span>
+          <span>
+            {kind === "business" ? "Local opening" : categoryLabels[n.category]}
+          </span>
           <span>·</span>
-          <span>{formatDate(n.published_at).split(",")[0]}</span>
+          <span>
+            {updated ? "Source updated" : "Published"}{" "}
+            {formatDate(updated ? publicChange! : n.published_at).split(",")[0]}
+          </span>
           {n.is_sample && <SampleBadge />}
         </div>
         <Link href={`/notice/${n.slug}`} className="notice-title">
           {n.title}
         </Link>
         {!compact && <p className="notice-summary">{n.summary}</p>}
+        {(n.start_at || kind === "event") && (
+          <p className="notice-timing">
+            <CalendarDays size={15} />
+            {n.start_at && localDateKey(n.start_at)
+              ? noticeDateLabel(n)
+              : "Event date not listed · check the source"}
+          </p>
+        )}
+        {kind === "change" && n.affected_area_text && !compact && (
+          <p className="notice-impact">
+            <strong>Affected area</strong> {n.affected_area_text}
+          </p>
+        )}
+        {kind === "business" && !compact && (
+          <p className="notice-impact">
+            <strong>Opening details</strong> Check the original announcement for
+            dates and hours
+          </p>
+        )}
+        {kind === "event" && tags.length > 0 && (
+          <div className="notice-tags">
+            {tags.map((tag) => (
+              <span key={tag}>{tag}</span>
+            ))}
+          </div>
+        )}
         <div className="notice-meta">
           <span>
             <MapPin size={13} />
@@ -92,12 +156,15 @@ export function NoticeCard({
           <div className="card-source">
             <span>
               <ShieldCheck size={13} />
-              {source?.organization || "Original source"}
+              <a href={n.official_url} target="_blank" rel="noreferrer">
+                {source?.organization || "Original source"}
+                <ArrowUpRight size={13} />
+              </a>
             </span>
             <span>
               {n.is_sample
                 ? "Demo · not verified"
-                : n.verified_at
+                : n.verification_status === "verified" && n.verified_at
                   ? `Verified ${formatDate(n.verified_at)}`
                   : "Verification pending"}
             </span>

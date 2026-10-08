@@ -1,3 +1,14 @@
+## Personalized browser push (October 2, 2026)
+
+Browser push is opt-in and editor-selected. The server checks each subscribed account’s saved places, radius, selected categories, minimum importance, master Push preference and quiet hours before sending. Publishing a notice does **not** automatically send an alert. Editors send at most 20 eligible subscriptions per explicit batch, with a delivery ledger preventing repeats.
+
+- No saved place, no saved preferences, an empty category selection or Push off means no notice delivery. Existing subscriptions with `push_enabled=false` remain off until the resident explicitly enables personalized alerts.
+- A positive radius requires a valid notice map point and matches within the resident radius plus the notice’s affected radius. No city/text fallback is used for push. Only an explicit **All Paris** radius (0), with a saved place in the same community, permits coordinate-free notices.
+- Quiet hours use `America/Toronto`, including daylight-saving changes. Quiet-time notices are skipped, not queued. Missing one quiet-hour endpoint blocks delivery; equal endpoints mean quiet all day. No automatic retry is scheduled after quiet hours.
+- Turning off Push in settings stops future account-wide sends. “Disable on this browser” removes that device’s subscription. An already accepted provider message cannot be recalled. Saving settings alone never requests browser permission.
+- Private coordinates are read server-side for matching and excluded from editor responses and notification payloads. Only public notice title/summary/link/tag are delivered.
+- No new migration or secret is introduced. Existing core and Web Push migrations and existing VAPID/service configuration are prerequisites. Production account confirmation, real-device delivery and deployment remain separate acceptance gates in `NEXT_STEPS.md`.
+
 ## Optional sign-in (September 14, 2026)
 
 Residents can personalize `/app`, add places, save/read notices, store reminders and change preferences without an account. Guest data stays in this browser, including when Supabase is configured. Sign-in remains optional through Settings or `/login`; authenticated accounts use Supabase. Guest data is separate and is not automatically imported into an account. Editors still require an authorized login. Clear browser data in Settings removes the guest profile.
@@ -207,19 +218,19 @@ Before resident launch: verify signup/confirmation/password reset with the confi
 
 - No external credentials were supplied. Production Supabase Auth email delivery and a deployed Supabase instance have not been exercised; SQL policies and mutations were tested locally in PostgreSQL.
 - Demo content is fictional and rolling-dated. Production usefulness depends on regular human curation.
-- Geocoding is not connected; manual map/coordinate selection is fully functional.
+- Address search uses Photon/Komoot and discloses this processing. Manual map/coordinate placement is supported; typing an address still invokes search.
 - Source-specific automatic ingestion, retries, source-health probing and outbound notification scheduling are extension points, not active integrations.
 - Public repository responses currently cap notices/deadlines at 100 and editorial lists at 200. The UI progressively reveals results. Add database cursor pagination and server-side personalized ranking before large-scale multi-community use.
 - Multi-area notice storage exists in the schema; the current editor, map and Haversine feed use the primary notice point/area.
 - The SQL matcher uses coordinate/city fallback; client reasons additionally support street-text fallback. PostGIS and a shared database ranking RPC should replace duplicated matching implementations as the product scales.
-- No offline data cache or push delivery is installed. The app has a manifest and standalone/mobile layout.
+- No offline data cache is installed. Opt-in browser push is implemented as editor-triggered personalized batches; automatic dispatch is not installed. The app has a manifest and standalone/mobile layout.
 - Calendar export works; reminders persist but do not yet dispatch. Quiet hours are stored for the future scheduler.
 - Account deletion is operator-assisted, not an in-app self-service workflow. Supply a real support contact before launch.
 - No AI-generated factual data, billing, sponsored placements, social features or native apps.
 
 ## Roadmap
 
-**Phase 2:** reviewed live adapters; idempotent email scheduling with unsubscribe and quiet hours; address search; database pagination; PostGIS; push notifications; reviewed AI weekly summaries.
+**Phase 2:** reviewed live adapters; idempotent email scheduling with unsubscribe and quiet hours; address search; database pagination; PostGIS; automated personalized push dispatch; reviewed AI weekly summaries.
 
 **Phase 3:** Property & Permit Copilot, planning/property professional tier, family-provider availability and clearly labelled downtown merchant promotions.
 

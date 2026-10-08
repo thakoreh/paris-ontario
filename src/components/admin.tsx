@@ -5,6 +5,7 @@ import { Plus, ShieldCheck, Pencil, Copy, Search } from "lucide-react";
 import type { Notice, Deadline, Source } from "@/types";
 import { categories, categoryLabels } from "@/types";
 import { formatDate } from "@/lib/utils";
+import { localDateTimeInput, savedLocalDateTime } from "@/lib/admin-datetime";
 import { noticeSchema, duplicateScore } from "@/lib/validation";
 import { usePersonal } from "./provider";
 import { EmptyState } from "./cards";
@@ -120,6 +121,7 @@ export function Admin({ section }: { section: string }) {
           "deadlines",
           "sources",
           "review",
+          "submissions",
           "ingestion",
         ].map((s) => (
           <Link
@@ -414,17 +416,19 @@ function AdminEditor({
                   ? Number(f.get("longitude"))
                   : null;
                 if (table === "notices") {
-                  row.expires_at = f.get("expires_at")
-                    ? new Date(String(f.get("expires_at"))).toISOString()
-                    : null;
+                  row.expires_at = savedLocalDateTime(
+                    String(f.get("expires_at") || ""),
+                    initial.expires_at,
+                  );
                   row.affected_radius_km = f.get("affected_radius_km")
                     ? Number(f.get("affected_radius_km"))
                     : null;
                   noticeSchema.parse(row);
                 } else {
-                  row.deadline_at = new Date(
-                    String(f.get("deadline_at")),
-                  ).toISOString();
+                  row.deadline_at = savedLocalDateTime(
+                    String(f.get("deadline_at") || ""),
+                    initial.deadline_at,
+                  );
                   row.verified_at =
                     f.get("verified") === "on"
                       ? new Date().toISOString()
@@ -641,11 +645,7 @@ function AdminEditor({
                     <input
                       type="datetime-local"
                       name="expires_at"
-                      defaultValue={
-                        initial.expires_at
-                          ? String(initial.expires_at).slice(0, 16)
-                          : ""
-                      }
+                      defaultValue={localDateTimeInput(initial.expires_at)}
                     />
                   </label>
                 </>
@@ -657,10 +657,7 @@ function AdminEditor({
                       name="deadline_at"
                       type="datetime-local"
                       required
-                      defaultValue={String(initial.deadline_at || "").slice(
-                        0,
-                        16,
-                      )}
+                      defaultValue={localDateTimeInput(initial.deadline_at)}
                     />
                   </label>
                   <label className="check-row">

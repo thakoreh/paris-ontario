@@ -3,7 +3,12 @@ import webpush from "web-push";
 import { parsePushSubscription } from "./push-validation";
 import { serverClient } from "@/lib/supabase/server";
 
-export type NoticeNotification = { title: string; body: string; url: string };
+export type NoticeNotification = {
+  title: string;
+  body: string;
+  url: string;
+  tag?: string;
+};
 export type StoredPushSubscription = {
   id: string;
   endpoint: string;
@@ -38,6 +43,7 @@ export function buildNoticeNotification(notice: {
     title: `Paris Pulse: ${notice.title}`.slice(0, 120),
     body: (notice.summary || notice.title).slice(0, 250),
     url: `/notice/${encodeURIComponent(notice.slug)}`,
+    tag: `paris-pulse:${notice.slug}`,
   };
 }
 

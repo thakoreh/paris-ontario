@@ -21,6 +21,14 @@ describe("middleware public deadline eligibility", () => {
     vi.clearAllMocks();
   });
 
+  it.each(["/app/area", "/share-update", "/admin/submissions"])("allows the new registered route %s through to its page guard", async (path) => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const response = await createMiddleware()(new NextRequest(`http://localhost${path}`));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+  });
+
   it("uses the injected clock and strict greater-than query for deadline details", async () => {
     const now = new Date("2099-01-01T00:00:00.000Z");
     const query = {

@@ -8,6 +8,8 @@ import {
 } from "@/lib/push";
 
 import { isSameOrigin } from "@/lib/push-validation";
+import { isPushQuietTime, type PushPreferences } from "@/lib/push-eligibility";
+import { categories } from "@/types";
 export const runtime = "nodejs";
 const TEST_WINDOW_MS = 60_000;
 
@@ -29,6 +31,59 @@ export async function POST(request: Request) {
     return Response.json(
       { error: "Push notifications are not configured." },
       { status: 503 },
+    );
+
+  async function checkPreferences() {
+    const [preferenceResult, placeResult] = await Promise.all([
+      session!.db
+        .from("alert_preferences")
+        .select(
+          "push_enabled,categories_json,radius_km,minimum_severity,quiet_hours_start,quiet_hours_end",
+        )
+        .eq("user_id", session!.user.id)
+        .is("location_id", null)
+        .maybeSingle(),
+      session!.db
+        .from("locations")
+        .select("id")
+        .eq("user_id", session!.user.id)
+        .limit(1),
+    ]);
+    if (preferenceResult.error || placeResult.error)
+      return {
+        error: "Unable to check notification preferences.",
+        status: 500,
+      };
+    const preferences = preferenceResult.data as PushPreferences | null;
+    if (
+      !preferences ||
+      preferences.push_enabled !== true ||
+      !placeResult.data?.length ||
+      !Array.isArray(preferences.categories_json) ||
+      !preferences.categories_json.some((category) =>
+        categories.includes(category),
+      ) ||
+      !Number.isFinite(preferences.radius_km) ||
+      preferences.radius_km < 0
+    )
+      return {
+        error:
+          "Save a place and interests, then enable personalized browser alerts before testing.",
+        status: 409,
+      };
+    if (isPushQuietTime(preferences, new Date()))
+      return {
+        error:
+          "Quiet hours are active or incomplete. Try again outside quiet hours or update your preferences.",
+        status: 409,
+      };
+    return null;
+  }
+  const initialBlock = await checkPreferences();
+  if (initialBlock)
+    return Response.json(
+      { error: initialBlock.error },
+      { status: initialBlock.status },
     );
 
   const { data, error } = await session.db
@@ -88,6 +143,24 @@ export async function POST(request: Request) {
   let sent = 0;
   let failed = 0;
   for (const subscription of claimed) {
+    const blocked = await checkPreferences();
+    if (blocked)
+      return Response.json(
+        { error: blocked.error, sent, failed },
+        { status: blocked.status },
+      );
+    const current = await session.db
+      .from("push_subscriptions")
+      .select("id")
+      .eq("id", subscription.id)
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+    if (current.error)
+      return Response.json(
+        { error: "Unable to recheck this device subscription.", sent, failed },
+        { status: 500 },
+      );
+    if (!current.data) continue;
     try {
       await sendPush(subscription, buildTestNotification());
       sent += 1;

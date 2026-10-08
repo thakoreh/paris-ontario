@@ -78,10 +78,15 @@ export async function POST(request: Request) {
         ...input,
         community_id: community.id,
         city: community.name,
-        slug:
-          input.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") +
-          "-" +
-          (id || crypto.randomUUID()).slice(0, 8),
+        // Published URLs are stable: only new notices receive a slug.
+        ...(!id
+          ? {
+              slug:
+                input.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") +
+                "-" +
+                crypto.randomUUID().slice(0, 8),
+            }
+          : {}),
         verified_at:
           input.verification_status === "verified" && !input.is_sample
             ? now
@@ -97,7 +102,7 @@ export async function POST(request: Request) {
             title: z.string().min(5),
             description: z.string().min(10),
             category: z.string(),
-            deadline_at: z.string().datetime(),
+            deadline_at: z.string().datetime({ offset: true }),
             official_url: sourceUrl,
             source_id: z.string().uuid(),
             is_sample: z.boolean(),
@@ -134,7 +139,11 @@ export async function POST(request: Request) {
         ...(id ? { id } : {}),
       };
     }
-    const { data, error } = await db.from(table).upsert(row).select().single();
+    // A stale or unknown edit ID must never silently create another record.
+    const write = id
+      ? db.from(table).update(row).eq("id", id)
+      : db.from(table).insert(row);
+    const { data, error } = await write.select().single();
     if (error) throw error;
     if (verifiedSourceId) {
       const { error: sourceError } = await db
