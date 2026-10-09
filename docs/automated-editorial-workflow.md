@@ -4,7 +4,7 @@ Status: operating on the Hermes host as an external editorial worker; no Next.js
 
 ## Scope and guardrails
 
-- **Only** the County RSS `https://www.brant.ca/news/rss` for discovery and exact `https://www.brant.ca/news/posts/<slug>/` article URLs. Fixed HTTPS allowlist, redirects and oversized responses rejected. The source registry links to `https://www.brant.ca/news/`.
+- **Only** the canonical County RSS `https://www.brant.ca/news-and-notices/rss/` is used for discovery; the legacy feed `https://www.brant.ca/news/rss` and legacy article paths remain accepted only as fixed same-host equivalents. Canonical article URLs match `https://www.brant.ca/news-and-notices/posts/<slug>/`. Fixed HTTPS allowlist; only old/new equivalents of the same feed or article may redirect. All other redirects and oversized responses are rejected. The source registry links to `https://www.brant.ca/news/`.
 - Recent articles (source date within five days), County `Road Construction` category, explicit Paris locality in headline or source excerpt. Source article is independently re-fetched before approval. No search snippets, generated descriptions, inferred dates/locations, RSS from other sites, or resident submissions.
 - No emergency, flood, outage, election, health, school, safety or ambiguous claims. Other categories remain manual until separately tested and approved. Rejected candidates are logged with reasons, not published.
 - Only the source headline and an intact first paragraph are used, followed by a link reminder. Severity is always `info`, not an alert. No precise coordinates are invented. Records expire within 72 hours, even if the original project continues.

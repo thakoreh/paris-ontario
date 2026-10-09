@@ -6,6 +6,9 @@ test.describe("mobile navigation regressions", () => {
   test("all-pages menu marks the Explore list as current", async ({ page }) => {
     await page.goto("/app/feed");
 
+    // /app/feed is AccountGate-protected. Wait for its real content before
+    // interacting with the SSR-rendered shell, which is inert pre-hydration.
+    await expect(page.locator("main h1")).toBeVisible();
     await page.getByRole("button", { name: "Browse all pages" }).click();
 
     await expect(
@@ -18,6 +21,7 @@ test.describe("mobile navigation regressions", () => {
   test("all-pages menu marks the map alias as current", async ({ page }) => {
     await page.goto("/app/map");
 
+    await expect(page.locator("main h1")).toBeVisible();
     await page.getByRole("button", { name: "Browse all pages" }).click();
 
     await expect(

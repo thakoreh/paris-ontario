@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -27,6 +27,8 @@ import {
 import { usePersonal } from "./provider";
 import { NoticeCard, DeadlineCard, SectionHeading, EmptyState } from "./cards";
 import { MapPanel } from "./map-panel";
+import { ShareButton } from "./share-button";
+import { CoverageStatus } from "./coverage-status";
 import {
   isThisWeekend,
   latestVerification,
@@ -40,6 +42,7 @@ import {
 import { formatDate } from "@/lib/utils";
 import { defaultPreferences } from "@/config/community";
 import "./neighbourhood.css";
+import "./neighbourhood-feed.css";
 
 const kinds = [
   ["all", "All updates"],
@@ -48,6 +51,12 @@ const kinds = [
   ["business", "Local openings"],
   ["community", "Community"],
 ] as const;
+
+type EmptyAction = {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+};
 
 export function Feed({
   notices,
@@ -77,6 +86,8 @@ export function Feed({
   const [limit, setLimit] = useState(12);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<string | null>(null);
+  const [inviteReady, setInviteReady] = useState(false);
+  useEffect(() => setInviteReady(true), []);
   const hasFilters = Boolean(
     query ||
     kind !== (mode === "events" ? "event" : "all") ||
@@ -210,6 +221,24 @@ export function Feed({
   ) {
     const items = groups[id];
     if (!items.length && hasFilters) return null;
+    const emptyMessage =
+      id === "event" && !nearby
+        ? "No current events in this view. Check the community calendar in Services."
+        : empty;
+    const emptyActions: EmptyAction[] =
+      id === "event"
+        ? [{ label: "Check Services", href: "/services" }]
+        : id === "business"
+          ? [{ label: "Share a source", href: "/share-update" }]
+          : id === "community"
+            ? [{ label: "Review sources", href: "/sources" }]
+            : [];
+    if (!items.length && nearby) {
+      emptyActions.push({
+        label: "View all Paris",
+        onClick: () => p.setAreaScope("all"),
+      });
+    }
     return (
       <section
         className={`today-section section-${id}`}
@@ -231,7 +260,28 @@ export function Feed({
               .map(renderCard)}
           </div>
         ) : (
-          <p className="section-empty">{empty}</p>
+          <div className="section-empty">
+            <p>{emptyMessage}</p>
+            {emptyActions.length > 0 && (
+              <div className="section-empty-actions">
+                {emptyActions.map((action) =>
+                  action.href ? (
+                    <Link key={action.label} href={action.href}>
+                      {action.label}
+                    </Link>
+                  ) : (
+                    <button
+                      key={action.label}
+                      type="button"
+                      onClick={action.onClick}
+                    >
+                      {action.label}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
         )}
         {items.length > 3 && !expandedGroups.includes(id) && (
           <button
@@ -461,6 +511,7 @@ export function Feed({
           </Link>
         </div>
       </section>
+      {dashboard && <CoverageStatus sources={sources} demo={p.demo} />}
       {dashboard ? (
         <div className="neighbourhood-layout">
           <div className="today-main">
@@ -549,18 +600,30 @@ export function Feed({
                 href="/map"
                 label="Open map"
               />
-              <div className="preview-map">
-                <MapPanel
-                  notices={mapNotices}
-                  locations={areaLocations}
-                  radius={nearby ? p.preferences.radius_km : 0}
-                />
-              </div>
-              <p>
-                {mappedCount}{" "}
-                {mappedCount === 1 ? "update has" : "updates have"} a map
-                location. Your saved places stay private.
-              </p>
+              {mappedCount > 0 ? (
+                <>
+                  <div className="preview-map">
+                    <MapPanel
+                      notices={mapNotices}
+                      locations={areaLocations}
+                      radius={nearby ? p.preferences.radius_km : 0}
+                    />
+                  </div>
+                  <p>
+                    {mappedCount}{" "}
+                    {mappedCount === 1 ? "update has" : "updates have"} a map
+                    location. Your saved places stay private.
+                  </p>
+                </>
+              ) : (
+                <div className="map-preview-empty">
+                  <p>
+                    <strong>No updates have a map location yet.</strong>
+                    Explore the list for every matching update.
+                  </p>
+                  <Link href="/app/feed">Explore the update list</Link>
+                </div>
+              )}
             </section>
             <section className="neighbourhood-deadlines">
               <SectionHeading
@@ -585,12 +648,27 @@ export function Feed({
               </span>
               <h2>Know something local?</h2>
               <p>
-                An opening, an event, a change on your street. Send the original
-                source for a check before it goes live.
+                Prepare a local update with its original source for review before
+                it is published.
               </p>
-              <Link href="/share-update" className="button primary">
-                Share an update <ArrowRight size={16} />
-              </Link>
+              <div className="neighbourhood-share-actions">
+                <Link href="/share-update" className="button primary">
+                  Prepare an update <ArrowRight size={16} />
+                </Link>
+                <div className="neighbourhood-invite">
+                  <span>Invite a neighbour</span>
+                  {inviteReady && (
+                    <ShareButton
+                      base={
+                        process.env.NEXT_PUBLIC_APP_URL ||
+                        "https://parispulse.ca"
+                      }
+                      publicPath="/today"
+                      title="Paris Pulse — Today in Paris"
+                    />
+                  )}
+                </div>
+              </div>
             </section>
             <Link className="neighbourhood-storm" href="/storm">
               <CloudLightning size={22} />

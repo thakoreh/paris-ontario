@@ -41,7 +41,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       # Local deterministic preview only; no production URL, credentials or writes.
-      - run: npm run test:e2e -- tests/e2e/flows.spec.ts tests/e2e/resident-guide.spec.ts tests/e2e/resident-usability.spec.ts tests/e2e/navigation-regressions.spec.ts tests/e2e/push.spec.ts tests/e2e/resident-dashboard.spec.ts tests/e2e/area-setup.spec.ts tests/e2e/community-submission.spec.ts tests/e2e/ui-pass.spec.ts tests/e2e/share.spec.ts tests/e2e/accessibility.spec.ts --project=desktop --project=mobile
+      - run: npm run test:e2e -- tests/e2e/flows.spec.ts tests/e2e/resident-guide.spec.ts tests/e2e/resident-usability.spec.ts tests/e2e/navigation-regressions.spec.ts tests/e2e/push.spec.ts tests/e2e/resident-dashboard.spec.ts tests/e2e/area-setup.spec.ts tests/e2e/community-submission.spec.ts tests/e2e/ui-pass.spec.ts tests/e2e/share.spec.ts tests/e2e/card-sharing.spec.ts tests/e2e/community-email.spec.ts tests/e2e/neighbourhood-coverage-empty.spec.ts tests/e2e/accessibility.spec.ts --project=desktop --project=mobile
       # Preserve successful preview screenshots before the second Playwright
       # invocation clears its output directory. No production/account data.
       - uses: actions/upload-artifact@v4

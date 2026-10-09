@@ -63,7 +63,7 @@ test("unavailable intake still offers a truthful preview but cannot send", async
   const posts = await mockIntake(page, false);
   await page.goto("/share-update");
   await expect(page.getByRole("status")).toContainText(
-    "Submissions are not available in this environment yet",
+    "Private submissions are not available in this environment yet",
   );
   await fillDraft(page);
   await page

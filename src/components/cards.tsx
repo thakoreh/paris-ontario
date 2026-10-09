@@ -27,6 +27,8 @@ import { localDateKey, noticeDateLabel } from "@/lib/resident-briefing";
 import { latestPublicChangeAt, noticeKind } from "@/lib/resident-experience";
 import { calendarEvent, countdown } from "@/lib/calendar";
 import { usePersonal } from "./provider";
+import { ShareButton } from "./share-button";
+import { noticeSharePath } from "@/lib/share-link";
 const categoryIcons = {
   roads: Construction,
   construction: Construction,
@@ -151,6 +153,14 @@ export function NoticeCard({
               {n.is_sample ? "Urgent example" : "Urgent"}
             </span>
           )}
+        </div>
+        <div className="notice-card-sharing">
+          <ShareButton
+            compact
+            base={process.env.NEXT_PUBLIC_APP_URL || "https://parispulse.ca"}
+            publicPath={noticeSharePath(n.slug)}
+            title={n.title}
+          />
         </div>
         {!compact && (
           <div className="card-source">

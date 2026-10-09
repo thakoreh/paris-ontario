@@ -23,7 +23,11 @@ from email.utils import parsedate_to_datetime
 
 UTC = dt.timezone.utc
 LIST_URL = 'https://www.brant.ca/news/'
-FEED_URL = 'https://www.brant.ca/news/rss'
+CANONICAL_LIST_URL = 'https://www.brant.ca/news-and-notices/'
+LEGACY_FEED_URL = 'https://www.brant.ca/news/rss'
+FEED_URL = 'https://www.brant.ca/news-and-notices/rss/'
+FEED_URLS = (LEGACY_FEED_URL, FEED_URL)
+LIST_URLS = (LIST_URL, CANONICAL_LIST_URL)
 HOST = 'www.brant.ca'
 SOURCE_ID = 'cb111111-1111-4111-8111-111111111111'
 COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
@@ -31,6 +35,7 @@ STATE_DIR = Path.home() / '.hermes' / 'paris-pulse-publisher'
 MAX_PER_DAY = 2
 BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
 SPACE = re.compile(r'\s+')
+ARTICLE_PATH = re.compile(r'/news(?:-and-notices)?/posts/([a-z0-9-]+)/')
 
 
 class EditorialHold(ValueError):
@@ -41,9 +46,45 @@ def clean(text):
     return SPACE.sub(' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
 
 
-def allowed(url):
+def article_slug(url):
     p = urllib.parse.urlsplit(url)
-    return p.scheme == 'https' and p.hostname == HOST and p.port is None and re.fullmatch(r'/news/posts/[a-z0-9-]+/', p.path) and not p.query and not p.fragment
+    if p.username is not None or p.password is not None:
+        return None
+    if p.scheme != 'https' or p.hostname != HOST or p.port is not None or p.query or p.fragment:
+        return None
+    match = ARTICLE_PATH.fullmatch(p.path)
+    return match.group(1) if match else None
+
+
+def allowed(url):
+    return article_slug(url) is not None
+
+
+def canonical_article_url(url):
+    slug = article_slug(url)
+    if slug is None:
+        raise ValueError('Source URL outside fixed allowlist')
+    return CANONICAL_LIST_URL + 'posts/' + slug + '/'
+
+
+def article_url_variants(url):
+    slug = article_slug(url)
+    if slug is None:
+        raise ValueError('Source URL outside fixed allowlist')
+    return (
+        CANONICAL_LIST_URL + 'posts/' + slug + '/',
+        LIST_URL + 'posts/' + slug + '/',
+    )
+
+
+def authorized_redirect(source, target):
+    if allowed(source):
+        return allowed(target) and canonical_article_url(source) == canonical_article_url(target)
+    if source in FEED_URLS:
+        return target in FEED_URLS
+    if source in LIST_URLS:
+        return target in LIST_URLS
+    return False
 
 
 class ListingParser(HTMLParser):
@@ -60,9 +101,15 @@ class ListingParser(HTMLParser):
 def collect(page):
     parser = ListingParser()
     parser.feed(page)
-    links = list(dict.fromkeys(u for u in parser.links if allowed(u)))
+    links = list(dict.fromkeys(canonical_article_url(u) for u in parser.links if allowed(u)))
     if not links: raise ValueError('Official listing returned no allowed article links; parser/source may have changed')
     return links[:15]
+
+
+def parse_feed_date(raw_date):
+    # Keep the legacy interpretation: timezone-less RSS dates are naive and
+    # astimezone() resolves them in the host's local timezone.
+    return parsedate_to_datetime(raw_date).astimezone(UTC)
 
 
 def collect_feed(xml, now):
@@ -76,32 +123,63 @@ def collect_feed(xml, now):
         title = (item.findtext('title') or '').strip()
         raw_date = item.findtext('pubDate') or ''
         if not allowed(url) or not re.search(r'\bparis\b', title, re.I): continue
-        try: published = parsedate_to_datetime(raw_date).astimezone(UTC)
+        try: published = parse_feed_date(raw_date)
         except (ValueError, TypeError, OverflowError) as e:
             raise ValueError('Unrecognized RSS publication date for ' + url) from e
         if dt.timedelta(0) <= now - published <= dt.timedelta(days=5):
-            selected[url] = title
+            canonical = canonical_article_url(url)
+            if canonical in selected and selected[canonical] != title:
+                raise ValueError('RSS has conflicting titles for equivalent article URLs')
+            selected[canonical] = title
         if len(selected) >= 15: break
     return selected
 
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def fetch(url):
-    if url not in (LIST_URL, FEED_URL) and not allowed(url): raise ValueError('Source URL outside fixed allowlist')
-    req = urllib.request.Request(url, headers={'User-Agent': 'ParisPulseEditorial/1.0 (+https://parispulse.ca)'})
-    with urllib.request.urlopen(req, timeout=12) as response:
-        final = response.geturl()
-        if final not in (LIST_URL, FEED_URL, FEED_URL + '/') and not allowed(final): raise ValueError('Source redirected outside fixed allowlist')
-        if response.status != 200: raise ValueError('Source returned non-200')
-        content = response.read(750_001)
-        if len(content) > 750_000: raise ValueError('Source too large')
-        return content.decode('utf-8', 'replace'), final
+    if url not in LIST_URLS and url not in FEED_URLS and not allowed(url):
+        raise ValueError('Source URL outside fixed allowlist')
+    current = url
+    for _ in range(5):
+        req = urllib.request.Request(current, headers={'User-Agent': 'ParisPulseEditorial/1.0 (+https://parispulse.ca)'})
+        opener = urllib.request.build_opener(NoRedirect())
+        try:
+            response = opener.open(req, timeout=12)
+        except urllib.error.HTTPError as error:
+            response = error
+        status = getattr(response, 'status', None)
+        if status is None:
+            status = response.getcode()
+        if status in (301, 302, 303, 307, 308):
+            target = urllib.parse.urljoin(current, response.headers.get('Location', ''))
+            response.close()
+            if not authorized_redirect(current, target):
+                raise ValueError('Source redirected outside fixed allowlist')
+            current = target
+            continue
+        try:
+            final = response.geturl()
+            if final != current and not authorized_redirect(current, final):
+                raise ValueError('Source redirected outside fixed allowlist')
+            if status != 200: raise ValueError('Source returned non-200')
+            content = response.read(750_001)
+            if len(content) > 750_000: raise ValueError('Source too large')
+            return content.decode('utf-8', 'replace'), final
+        finally:
+            response.close()
+    raise ValueError('Source redirected too many times')
 
 
 def review(url, independent_fetch, now, expected_title=None):
     if not allowed(url): raise ValueError('Source URL outside fixed allowlist')
     result = independent_fetch(url)
     page, final = result if isinstance(result, tuple) else (result, url)
-    if final != url: raise ValueError('Source redirected during independent review')
+    if not allowed(final) or canonical_article_url(final) != canonical_article_url(url):
+        raise ValueError('Source redirected outside authorized article equivalent')
     title_match = re.search(r'<h1\b[^>]*class="[^"]*main[^"]*"[^>]*>(.*?)</h1>', page, re.I | re.S)
     date_match = re.search(r'<span\b[^>]*class="[^"]*gs-news-details-date[^"]*"[^>]*>(.*?)</span>', page, re.I | re.S)
     section = re.search(r'<section\b[^>]*class="[^"]*gs-news-details-meta[^>]*>(.*?)</section>', page, re.I | re.S)
@@ -127,14 +205,16 @@ def review(url, independent_fetch, now, expected_title=None):
     if not excerpt: raise EditorialHold('No short complete source excerpt')
     if not re.search(r'\bparis\b', title + ' ' + excerpt, re.I): raise EditorialHold('Not demonstrably Paris-specific')
     if BLOCK.search(title + ' ' + excerpt): raise EditorialHold('Sensitive/ambiguous article requires human review')
-    slug = urllib.parse.urlsplit(url).path.strip('/').split('/')[-1]
+    canonical = canonical_article_url(url)
+    slug = article_slug(canonical)
+    if slug is None: raise ValueError('Source URL outside fixed allowlist')
     return {
         'community_id': COMMUNITY_ID, 'source_id': SOURCE_ID,
         'external_id': 'brant-news:' + slug,
         'title': title, 'slug': 'brant-' + slug,
         'summary': excerpt + ' Check the original County notice for current details.',
         'body': None, 'category': 'construction', 'severity': 'info',
-        'official_url': url, 'published_at': now.isoformat(), 'retrieved_at': now.isoformat(),
+        'official_url': canonical, 'published_at': now.isoformat(), 'retrieved_at': now.isoformat(),
         'verified_at': now.isoformat(), 'expires_at': (now + dt.timedelta(days=3)).isoformat(),
         'latitude': None, 'longitude': None, 'affected_area_text': 'Paris, Ontario',
         'city': 'Paris', 'tags_json': ['county-source', 'automated-source-excerpt'],
@@ -156,8 +236,19 @@ class Supabase:
                      'Content-Type': 'application/json', 'Prefer': 'return=representation'})
         with urllib.request.urlopen(req, timeout=15) as res:
             return json.loads(res.read())
-    def existing(self, url):
-        q = urllib.parse.urlencode({'select': 'id,official_url', 'official_url': 'eq.' + url, 'limit': 1})
+    def existing(self, url, external_id=None):
+        canonical = canonical_article_url(url)
+        slug = article_slug(canonical)
+        if slug is None: raise ValueError('Source URL outside fixed allowlist')
+        expected_external_id = 'brant-news:' + slug
+        if external_id is not None and external_id != expected_external_id:
+            raise ValueError('External ID does not match source URL')
+        for candidate in article_url_variants(canonical):
+            q = urllib.parse.urlencode({'select': 'id,official_url,external_id', 'official_url': 'eq.' + candidate, 'limit': 1})
+            rows = self.request('notices', q)
+            if rows: return rows[0]
+        q = urllib.parse.urlencode({'select': 'id,official_url,external_id', 'source_id': 'eq.' + SOURCE_ID,
+                                    'external_id': 'eq.' + expected_external_id, 'limit': 1})
         rows = self.request('notices', q)
         return rows[0] if rows else None
     def today_count(self, now):
@@ -195,11 +286,14 @@ class Supabase:
 def publish(row, db, now):
     if row['verification_status'] != 'verified' or row['is_sample'] or not allowed(row['official_url']):
         raise ValueError('Review gate did not approve this record')
+    slug = article_slug(row['official_url'])
+    if slug is None or row['official_url'] != canonical_article_url(row['official_url']) or row['external_id'] != 'brant-news:' + slug:
+        raise ValueError('Review gate did not approve this record')
     if dt.datetime.fromisoformat(row['verified_at']) < now - dt.timedelta(minutes=10):
         raise ValueError('Reviewer evidence expired before write')
     if dt.datetime.fromisoformat(row['expires_at']) <= now or dt.datetime.fromisoformat(row['expires_at']) > now + dt.timedelta(days=3, minutes=10):
         raise ValueError('Expiry outside strict window')
-    if db.existing(row['official_url']): return 'duplicate'
+    if db.existing(row['official_url'], row['external_id']): return 'duplicate'
     if db.today_count(now) >= MAX_PER_DAY: raise EditorialHold('Daily publish cap reached')
     if hasattr(db, 'source_ready') and not db.source_ready(): raise ValueError('Configured official source not approved')
     created = db.create(row)
@@ -240,7 +334,7 @@ def run(publish_enabled=False, env_file=None):
             try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError: raise RuntimeError('Previous publisher run still active')
             page, final = fetch(FEED_URL)
-            if final not in (FEED_URL, FEED_URL + '/'): raise RuntimeError('News feed redirected')
+            if final not in FEED_URLS: raise RuntimeError('News feed redirected')
             candidates = collect_feed(page, now)
             outcome['found'] = len(candidates)
             values = load_env(env_file) if env_file else {}

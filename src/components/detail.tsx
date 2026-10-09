@@ -14,10 +14,26 @@ import { categoryLabels } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { scoreNotice, isExpired, relevantDeadline } from "@/lib/relevance";
 import { track } from "@/lib/analytics";
+import { buildCorrectionEmailDraft } from "@/lib/community-email";
+import { canonicalShareUrl } from "@/lib/share-link";
 import { usePersonal } from "./provider";
 import { SampleBadge, DeadlineCard, EmptyState } from "./cards";
 import { MapPanel } from "./map-panel";
 import { ShareButton } from "./share-button";
+import { CommunityEmailDraft } from "./community-email-draft";
+
+function canonicalNoticeUrl(slug: string): string | null {
+  const bases = [process.env.NEXT_PUBLIC_APP_URL, "https://parispulse.ca"];
+  for (const base of bases) {
+    if (!base) continue;
+    try {
+      return canonicalShareUrl(base, `/notice/${encodeURIComponent(slug)}`);
+    } catch {
+      // Try the known public origin when local development uses HTTP.
+    }
+  }
+  return null;
+}
 export function NoticeDetail({
   notice: n,
   source,
@@ -30,6 +46,11 @@ export function NoticeDetail({
     track("notice_viewed", { notice_id: n.id });
   }, [n.id]);
   const match = scoreNotice(n, p.locations, p.preferences);
+  const correctionEmail = buildCorrectionEmailDraft({
+    noticeTitle: n.title,
+    noticeUrl: canonicalNoticeUrl(n.slug) || "",
+    sourceUrl: n.official_url,
+  });
   return (
     <div className="page-wrap detail-wrap">
       <Link className="back-link" href="/today">
@@ -107,6 +128,12 @@ export function NoticeDetail({
           title={n.title}
         />
       </div>
+      <CommunityEmailDraft
+        draft={correctionEmail}
+        heading="Suggest a correction"
+        actionLabel="Open correction email"
+        description="Use your own email app to describe a source-backed correction. Opening the draft sends nothing; review it before choosing whether to send. Your sender address and email provider are involved, and response or publication are not guaranteed."
+      />
       <section className="panel">
         <h2>What to know</h2>
         <p>{n.body || n.summary}</p>

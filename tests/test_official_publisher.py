@@ -1,8 +1,10 @@
 import datetime as dt
 import importlib.util
+import os
 import pathlib
-import unittest
 import tempfile
+import time
+import unittest
 from unittest.mock import patch
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / 'scripts' / 'official_publisher.py'
@@ -11,7 +13,8 @@ assert spec is not None and spec.loader is not None
 publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 NOW = dt.datetime(2026, 9, 28, 12, tzinfo=dt.timezone.utc)
-URL = 'https://www.brant.ca/news/posts/paris-paving-update/'
+URL = 'https://www.brant.ca/news-and-notices/posts/paris-paving-update/'
+LEGACY_URL = 'https://www.brant.ca/news/posts/paris-paving-update/'
 LIST = '''<a class="gs-feed-list-title" href="/news/posts/paris-paving-update/">Paris paving update</a>'''
 ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 <section class="content component meta gs-news-details-meta"><span class="gs-news-details-date">Sep 28, 2026</span>
@@ -20,6 +23,151 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_allowed_supports_canonical_and_legacy_article_paths_only(self):
+        for url in (URL, LEGACY_URL):
+            with self.subTest(url=url):
+                self.assertTrue(publisher.allowed(url))
+        for url in [
+            'http://www.brant.ca/news-and-notices/posts/paris-paving-update/',
+            'https://brant.ca/news-and-notices/posts/paris-paving-update/',
+            'https://www.brant.ca:443/news-and-notices/posts/paris-paving-update/',
+            'https://www.brant.ca/news-and-notices/posts/paris-paving-update/?x=1',
+            'https://www.brant.ca/news-and-notices/posts/paris-paving-update/#x',
+            'https://www.brant.ca/news-and-notices/post/paris-paving-update/',
+            'https://www.brant.ca/news-and-notices/posts/Paris-paving-update/',
+            'https://www.brant.ca/news-and-notices/posts/paris-paving-update',
+        ]:
+            with self.subTest(url=url):
+                self.assertFalse(publisher.allowed(url))
+
+    def test_allowed_rejects_credentials_and_empty_userinfo_markers(self):
+        for url in [
+            'https://user:pass@www.brant.ca/news-and-notices/posts/paris-paving-update/',
+            'https://user@www.brant.ca/news-and-notices/posts/paris-paving-update/',
+            'https://@www.brant.ca/news-and-notices/posts/paris-paving-update/',
+            'https://:@www.brant.ca/news-and-notices/posts/paris-paving-update/',
+        ]:
+            with self.subTest(url=url):
+                self.assertFalse(publisher.allowed(url))
+
+    def test_feed_normalizes_legacy_and_canonical_duplicates(self):
+        feed = '''<rss><channel>
+          <item><title>Paris paving update</title><link>https://www.brant.ca/news/posts/paris-paving-update/</link><pubDate>Wed, 07 October 2026 17:30:52</pubDate></item>
+          <item><title>Paris paving update</title><link>https://www.brant.ca/news-and-notices/posts/paris-paving-update/</link><pubDate>Wed, 07 October 2026 17:30:52</pubDate></item>
+        </channel></rss>'''
+        now = dt.datetime(2026, 10, 8, 12, tzinfo=dt.timezone.utc)
+        self.assertEqual(publisher.collect_feed(feed, now), {URL: 'Paris paving update'})
+
+    def test_feed_redirect_compatibility_is_exact_old_new_pair(self):
+        self.assertEqual(publisher.FEED_URLS, (publisher.LEGACY_FEED_URL, publisher.FEED_URL))
+        for source, target in [
+            (publisher.FEED_URL, publisher.LEGACY_FEED_URL),
+            (publisher.LEGACY_FEED_URL, publisher.FEED_URL),
+        ]:
+            with self.subTest(source=source, target=target):
+                self.assertTrue(publisher.authorized_redirect(source, target))
+        for target in [
+            'https://www.brant.ca/news/rss/',
+            'https://www.brant.ca/news-and-notices/rss',
+            'https://www.brant.ca/news/rss?format=xml',
+            'https://brant.ca/news/rss',
+            'https://evil.example/news/rss',
+        ]:
+            with self.subTest(target=target):
+                self.assertFalse(publisher.authorized_redirect(publisher.FEED_URL, target))
+
+    def test_feed_date_without_timezone_preserves_host_timezone_semantics(self):
+        if not hasattr(time, 'tzset'):
+            self.skipTest('time.tzset unavailable in this Python runtime')
+        raw_date = 'Wed, 07 October 2026 17:30:52'
+        original_tz = os.environ.get('TZ')
+        try:
+            os.environ['TZ'] = 'America/Toronto'
+            time.tzset()
+            toronto = publisher.parse_feed_date(raw_date)
+            os.environ['TZ'] = 'UTC'
+            time.tzset()
+            utc = publisher.parse_feed_date(raw_date)
+        finally:
+            if original_tz is None:
+                os.environ.pop('TZ', None)
+            else:
+                os.environ['TZ'] = original_tz
+            time.tzset()
+
+        self.assertEqual(toronto, dt.datetime(2026, 10, 7, 21, 30, 52, tzinfo=dt.timezone.utc))
+        self.assertEqual(utc, dt.datetime(2026, 10, 7, 17, 30, 52, tzinfo=dt.timezone.utc))
+        self.assertNotEqual(toronto, utc)
+
+    def test_reviewer_accepts_same_slug_legacy_redirect_and_canonicalizes(self):
+        row = publisher.review(LEGACY_URL, lambda u: (ARTICLE, URL), NOW)
+        self.assertEqual(row['official_url'], URL)
+        self.assertEqual(row['external_id'], 'brant-news:paris-paving-update')
+
+    def test_fetch_does_not_follow_unapproved_redirect_destination(self):
+        opened = []
+
+        class Response:
+            status = 302
+            headers = {'Location': 'https://evil.example/news-and-notices/posts/paris-paving-update/'}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def geturl(self):
+                return LEGACY_URL
+
+            def read(self, limit):
+                raise AssertionError('redirect response must not be read as article content')
+
+            def close(self):
+                pass
+
+        class Opener:
+            def open(self, request, timeout):
+                opened.append(request.full_url)
+                return Response()
+
+        with patch.object(publisher.urllib.request, 'urlopen', return_value=Response()), \
+             patch.object(publisher.urllib.request, 'build_opener', return_value=Opener()):
+            with self.assertRaises(ValueError):
+                publisher.fetch(LEGACY_URL)
+        self.assertEqual(opened, [LEGACY_URL])
+
+    def test_publish_duplicate_check_uses_canonical_url_and_external_id(self):
+        row = publisher.review(LEGACY_URL, lambda u: (ARTICLE, URL), NOW)
+
+        class DB:
+            def __init__(self):
+                self.calls = []
+
+            def existing(self, url, external_id):
+                self.calls.append((url, external_id))
+                return {'id': 'existing'}
+
+            def today_count(self, now):
+                raise AssertionError('duplicate must stop before quota lookup')
+
+        db = DB()
+        self.assertEqual(publisher.publish(row, db, NOW), 'duplicate')
+        self.assertEqual(db.calls, [(URL, 'brant-news:paris-paving-update')])
+
+    def test_same_official_url_remains_global_duplicate_guard(self):
+        db = publisher.Supabase('https://example.supabase.co', 'test-only')
+        queries = []
+        db.request = lambda table, params='', method='GET', payload=None: (
+            queries.append(params) or [{'id': 'editor-row', 'official_url': URL, 'external_id': 'editor:other-source'}]
+        )
+
+        self.assertEqual(db.existing(URL, 'brant-news:paris-paving-update')['id'], 'editor-row')
+        self.assertEqual(len(queries), 1)
+        self.assertIn('official_url=eq.', queries[0])
+        self.assertNotIn('source_id=eq.', queries[0])
+        self.assertNotIn('external_id=eq.', queries[0])
+
     def test_rss_discovery_checks_dates_and_exact_titles(self):
         feed = '''<rss><channel>
           <item><title>Paris paving update</title><link>https://www.brant.ca/news/posts/paris-paving-update/</link><pubDate>Mon, 28 Sep 2026 12:00:00 GMT</pubDate></item>
@@ -65,7 +213,7 @@ class PublisherTests(unittest.TestCase):
         row = publisher.review(URL, lambda u: ARTICLE, NOW)
         class DB:
             def __init__(self): self.rows = []; self.writes = 0
-            def existing(self, url): return next((r for r in self.rows if r['official_url'] == url), None)
+            def existing(self, url, external_id=None): return next((r for r in self.rows if r['official_url'] == url), None)
             def today_count(self, now): return len(self.rows)
             def create(self, row): self.writes += 1; self.rows.append(dict(row)); return {'id': '123'}
             def read(self, id): return self.rows[-1] if self.rows else None
@@ -106,7 +254,7 @@ class PublisherTests(unittest.TestCase):
                 '</item></channel></rss>')
         db = publisher.Supabase('https://example.supabase.co', 'test-only')
         db.source_ready = lambda: True
-        db.existing = lambda url: {'id': 'already-published'}
+        db.existing = lambda url, external_id=None: {'id': 'already-published'}
         db.request = lambda table, params='', method='GET', payload=None: requests.append((table, method, payload)) or [{}]
         with tempfile.TemporaryDirectory() as tmp, \
              patch.object(publisher, 'STATE_DIR', pathlib.Path(tmp)), \
@@ -176,7 +324,7 @@ class PublisherTests(unittest.TestCase):
             with self.subTest(article=article), self.assertRaises(publisher.EditorialHold):
                 publisher.review(URL, lambda url: article, NOW)
         class CappedDB:
-            def existing(self, url): return None
+            def existing(self, url, external_id=None): return None
             def today_count(self, now): return publisher.MAX_PER_DAY
         with self.assertRaises(publisher.EditorialHold):
             publisher.publish(publisher.review(URL, lambda url: ARTICLE, NOW), CappedDB(), NOW)
@@ -198,7 +346,7 @@ class PublisherTests(unittest.TestCase):
     def test_daily_cap_and_reviewer_rechecks_age_before_write(self):
         row = publisher.review(URL, lambda u: ARTICLE, NOW)
         class DB:
-            def existing(self, url): return None
+            def existing(self, url, external_id=None): return None
             def today_count(self, now): return 2
             def create(self, row): raise AssertionError('write forbidden')
         with self.assertRaises(ValueError):
