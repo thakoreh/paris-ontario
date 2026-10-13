@@ -47,12 +47,27 @@ def clean(text):
 
 
 def mentions_paris(text):
-    # Road names and references to France are not locality evidence.
+    # Singular Road/Rd/Rd. denotes a street only when the next word is not
+    # road activity. Plural roads is generic; area/town/downtown/local/county
+    # anywhere among the 1-3 intervening words also makes the phrase generic.
+    activities = set(('construction work works repair repairs closure closures closed '
+                      'resurfacing paving maintenance improvements upgrades project projects '
+                      'safety conditions').split())
+    generic = {'area', 'town', 'downtown', 'local', 'county'}
+    remaining = re.sub(r'\bparis(?:\s*,?\s*france\b|\s*\(france\))',
+                       ' ', text, flags=re.I)
+
+    def street_name(match):
+        intervening = (match.group('words') or '').lower().split()
+        following = re.match(r'\s+(\w+)', remaining[match.end():])
+        if generic.intersection(intervening) or (
+                following and following.group(1).lower() in activities):
+            return match.group()
+        return ' '
+
     remaining = re.sub(
-        r'\bparis(?:\s*,?\s*france\b|\s*\(france\)|[\s-]+(?:roads?|rd)\b\.?)',
-        ' ', text, flags=re.I)
-    remaining = re.sub(r'\b[Pp][Aa][Rr][Ii][Ss]\s+(?:[A-Z][a-zA-Z]*\s+){1,3}(?i:road|rd)\b\.?',
-                       ' ', remaining)
+        r'\bparis[\s-]+(?P<words>(?:[a-z]+\s+){1,3}?)??(?:road|rd)\b\.?',
+        street_name, remaining, flags=re.I)
     return re.search(r'\bparis\b', remaining, re.I) is not None
 
 
@@ -206,6 +221,20 @@ class ArticleBodyParser(HTMLParser):
         return self.line_offsets[line - 1] + column
 
     def handle_starttag(self, tag, attrs):
+        # HTML permits p and li end tags to be omitted. Close them at their
+        # structural boundaries so following text keeps the correct ancestry.
+        if tag in ('p', 'ul', 'ol', 'div'):
+            for frame in reversed(self.stack):
+                if frame[0] == 'p':
+                    self.handle_endtag('p')
+                    break
+        if tag == 'li':
+            for frame in reversed(self.stack):
+                if frame[0] in ('ul', 'ol'):
+                    break
+                if frame[0] == 'li':
+                    self.handle_endtag('li')
+                    break
         attrs = dict(attrs)
         tokens = (attrs.get('class', '') + ' ' + attrs.get('id', '')).lower().split()
         parent = self.stack[-1] if self.stack else (None, False, False, None, None)
@@ -249,7 +278,9 @@ class ArticleBodyParser(HTMLParser):
                 if block is not None and not excluded:
                     block['text'].append(' ')
                 for frame in self.stack[index + 1:]:
-                    if frame[2] or frame[3] is not None or id(frame) in self.ancestors:
+                    implicit = (frame[0] in ('p', 'li') and not frame[2]
+                                and frame[3] is not None and id(frame) not in self.ancestors)
+                    if not implicit and (frame[2] or frame[3] is not None or id(frame) in self.ancestors):
                         self.unbalanced = True
                 for frame in self.stack[index:]:
                     self.ancestors.discard(id(frame))
