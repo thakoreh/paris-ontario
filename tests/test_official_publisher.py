@@ -23,6 +23,27 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_real_nested_article_is_sensitive(self):
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_grand_river_street_north.html').read_text()
+        now = dt.datetime(2026, 10, 10, 12, tzinfo=publisher.UTC)
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: page, now,
+                             expected_title='Grand River Street North Upgrades')
+
+    def test_navigation_words_are_excluded_and_nested_list_locality_counts(self):
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_nav_words.html').read_text()
+        row = publisher.review(URL, lambda u: page, NOW)
+        self.assertTrue(row['summary'].startswith('Road work on Main Street is scheduled this week.'))
+        nonlocal_page = page.replace('streets in Paris.', 'streets in the County.')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Not demonstrably Paris-specific'):
+            publisher.review(URL, lambda u: nonlocal_page, NOW)
+
+    def test_all_main_content_blocks_are_screened(self):
+        page = ARTICLE + '<div class="text base-text"><div><h2>School access</h2></div></div>'
+        page = '<main id="site-content">' + page + '</main>'
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: page, NOW)
+
     def test_mentions_paris_requires_an_unexcluded_whole_word(self):
         for text in ['Paris', 'In PARIS, Ontario', 'Paris Road connects to Paris.', 'Paris, France and Paris, Ontario']:
             with self.subTest(text=text):

@@ -181,6 +181,75 @@ def fetch(url):
     raise ValueError('Source redirected too many times')
 
 
+class ArticleBodyParser(HTMLParser):
+    """Collect content blocks, retaining ancestry through nested markup."""
+    VOID = frozenset('area base br col embed hr img input link meta param source track wbr'.split())
+    EXCLUDED = frozenset(('nav', 'header', 'footer', 'script', 'style'))
+
+    def __init__(self):
+        super().__init__()
+        self.stack = []
+        self.blocks = []
+        self.has_main = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        tokens = (attrs.get('class', '') + ' ' + attrs.get('id', '')).lower().split()
+        parent = self.stack[-1] if self.stack else (None, False, False, None, None)
+        _, in_main, excluded, block, paragraph = parent
+        if tag == 'main' and attrs.get('id') == 'site-content':
+            in_main = self.has_main = True
+        excluded = excluded or tag in self.EXCLUDED or any(
+            'breadcrumb' in token or 'sub-nav' in token or 'subnav' in token for token in tokens)
+        if not excluded and block is None and tag == 'div' and {'text', 'base-text'} <= set(tokens):
+            block = {'main': in_main, 'text': [], 'paragraphs': []}
+            self.blocks.append(block)
+        if block is not None and not excluded:
+            if tag in ('div', 'p', 'li', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+                block['text'].append(' ')
+                if paragraph is not None:
+                    paragraph.append(' ')
+            if tag == 'p':
+                paragraph = []
+                block['paragraphs'].append(paragraph)
+        if tag not in self.VOID:
+            self.stack.append((tag, in_main, excluded, block, paragraph))
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in self.VOID:
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag):
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                _, _, excluded, block, paragraph = self.stack[index]
+                if block is not None and not excluded:
+                    block['text'].append(' ')
+                del self.stack[index:]
+                break
+
+    def handle_data(self, data):
+        if self.stack:
+            _, _, excluded, block, paragraph = self.stack[-1]
+            if block is not None and not excluded:
+                block['text'].append(data)
+                if paragraph is not None:
+                    paragraph.append(data)
+
+    def extract(self, page):
+        self.feed(page)
+        self.close()
+        blocks = [b for b in self.blocks if b['main'] or not self.has_main]
+        # HTMLParser has already decoded entities; preserve literal text.
+        normalize = lambda parts: SPACE.sub(' ', ''.join(parts)).strip()
+        body = normalize([' '.join(normalize(b['text']) for b in blocks)])
+        if not body:
+            raise ValueError('Official article body missing or empty')
+        paragraphs = [normalize(p) for b in blocks for p in b['paragraphs']]
+        return body, paragraphs
+
+
 def review(url, independent_fetch, now, expected_title=None):
     if not allowed(url): raise ValueError('Source URL outside fixed allowlist')
     result = independent_fetch(url)
@@ -200,9 +269,7 @@ def review(url, independent_fetch, now, expected_title=None):
         published = dt.datetime.strptime(date_string, '%b %d, %Y').date()
     except ValueError as e:
         raise ValueError('Unrecognized source publication date') from e
-    text_block = re.search(r'<div\b[^>]*class="[^"]*text base-text[^"]*"[^>]*>(.*?)</div>', page, re.I | re.S)
-    if not text_block: raise ValueError('Official article body missing')
-    paragraphs = [clean(p) for p in re.findall(r'<p\b[^>]*>(.*?)</p>', text_block.group(1), re.I | re.S)]
+    body, paragraphs = ArticleBodyParser().extract(page)
     excerpt = next((p for p in paragraphs if len(p) >= 30 and len(p) <= 400), '')
     if not any(paragraphs): raise ValueError('Official article paragraphs missing or empty')
     # Validate required source structure before any healthy editorial skip.
@@ -210,10 +277,10 @@ def review(url, independent_fetch, now, expected_title=None):
     if not (dt.timedelta(0) <= now.date() - published <= dt.timedelta(days=5)):
         raise EditorialHold('Source article is stale or future-dated')
     if not excerpt: raise EditorialHold('No short complete source excerpt')
-    source_text = ' '.join([title] + paragraphs)
+    source_text = title + ' ' + body
     if not mentions_paris(source_text): raise EditorialHold('Not demonstrably Paris-specific')
     # Sensitive-topic screen also covers list items and any other body text.
-    if BLOCK.search(source_text + ' ' + clean(text_block.group(1))): raise EditorialHold('Sensitive/ambiguous article requires human review')
+    if BLOCK.search(source_text): raise EditorialHold('Sensitive/ambiguous article requires human review')
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
     if slug is None: raise ValueError('Source URL outside fixed allowlist')
