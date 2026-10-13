@@ -23,6 +23,169 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_real_nested_article_is_sensitive(self):
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_grand_river_street_north.html').read_text(encoding='utf-8')
+        now = dt.datetime(2026, 10, 10, 12, tzinfo=publisher.UTC)
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: page, now,
+                             expected_title='Grand River Street North Upgrades')
+
+    def test_navigation_words_are_excluded_and_nested_list_locality_counts(self):
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_nav_words.html').read_text(encoding='utf-8')
+        page = page.replace('<header>Fire</header><nav>Health</nav><footer>Emergency</footer>', '').replace(
+            '<div class="breadcrumb">Emergency</div><div class="sub-nav">Fire</div>', '')
+        row = publisher.review(URL, lambda u: page, NOW)
+        self.assertTrue(row['summary'].startswith('Road work on Main Street is scheduled this week.'))
+        nonlocal_page = page.replace('streets in Paris.', 'streets in the County.')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Not demonstrably Paris-specific'):
+            publisher.review(URL, lambda u: nonlocal_page, NOW)
+
+    def test_inside_content_navigation_is_sensitive(self):
+        for markup in ['<header>School closure</header>', '<nav>School closure</nav>',
+                       '<footer>School closure</footer>', '<div class="breadcrumb">School closure</div>',
+                       '<div class="sub-nav">School closure</div>']:
+            page = ARTICLE.replace('</div>', markup + '</div>')
+            with self.subTest(markup=markup), self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+                publisher.review(URL, lambda u: page, NOW)
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_nav_words.html').read_text(encoding='utf-8')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: page, NOW)
+
+    def test_unclosed_exclusions_and_content_ancestors_fail_closed(self):
+        for page in [ARTICLE + '<nav>A school is affected',
+                     ARTICLE + '<header>unfinished', ARTICLE + '<footer>unfinished',
+                     ARTICLE + '<div class="breadcrumb">unfinished',
+                     ARTICLE + '<div class="sub-nav">unfinished',
+                     ARTICLE.replace('</div>', ''),
+                     '<section>' + ARTICLE, '<main id="site-content">' + ARTICLE,
+                     ARTICLE.replace('<div class="text base-text">', '<nav><div class="text base-text">')]:
+            with self.subTest(page=page), self.assertRaisesRegex(publisher.EditorialHold, 'Unbalanced'):
+                publisher.review(URL, lambda u: page, NOW)
+
+    def test_loose_screen_covers_text_after_content_and_decodes_entities(self):
+        for ending in ['</main>', '']:
+            page = '<main id="site-content">' + ARTICLE + '<aside>A sch&#111;ol is affected</aside>' + ending
+            reason = 'Sensitive/ambiguous' if ending else 'Unbalanced'
+            with self.subTest(ending=ending), self.assertRaisesRegex(publisher.EditorialHold, reason):
+                publisher.review(URL, lambda u: page, NOW)
+
+    def test_loose_screen_omits_outside_menus_scripts_and_style(self):
+        page = '<main id="site-content">' + ARTICLE + (
+            '<nav>Fire Health Emergency</nav><div class="sub-nav">School</div>'
+            '<script>School</script><style>School</style></main><aside>School</aside>')
+        self.assertEqual(publisher.review(URL, lambda u: page, NOW)['title'], 'Paris paving update')
+
+    def test_additional_nonlocal_paris_names(self):
+        for name in ['Paris Road traffic', 'Paris Rd.', 'Paris France', 'Paris (France)', 'Paris-Road', 'Paris-Rd',
+                     'Paris Plains Road', 'Paris Plains Church Rd', 'Paris Upper Plains Church Road']:
+            with self.subTest(name=name):
+                self.assertFalse(publisher.mentions_paris(name))
+                self.assertTrue(publisher.mentions_paris(name + ' and in Paris'))
+        self.assertTrue(publisher.mentions_paris('in Paris'))
+
+    def test_case_insensitive_street_names(self):
+        for name in ['Work on paris plains rd', 'PARIS PLAINS CHURCH ROAD']:
+            with self.subTest(name=name):
+                self.assertFalse(publisher.mentions_paris(name))
+                self.assertTrue(publisher.mentions_paris(name + ' and in Paris'))
+
+    def test_generic_road_language_counts_as_locality(self):
+        activities = ('construction work works repair repairs closure closures closed '
+                      'resurfacing paving maintenance improvements upgrades project projects safety conditions').split()
+        texts = ['Paris roads are being repaired', 'Paris Roads are being repaired',
+                 'Paris road construction begins', 'Paris road work this week',
+                 'Paris road closures', 'Paris road repairs', 'in Paris']
+        texts += ['Paris road ' + word for word in activities]
+        texts += ['Paris Plains Rd. ' + word for word in activities]
+        texts += ['Paris ' + word + ' road work' for word in
+                  ['area', 'town', 'downtown', 'local', 'county']]
+        texts += ['Paris ' + word + ' road traffic' for word in
+                  ['area', 'town', 'downtown', 'local', 'county']]
+        for text in texts:
+            with self.subTest(text=text):
+                self.assertTrue(publisher.mentions_paris(text))
+
+    def test_implicitly_closed_paragraphs_and_list_items(self):
+        bodies = [
+            '<p>Road work on Main Street in Paris is scheduled this week.<ul><li>one<li>two</ul>',
+            '<p>Road work on Main Street in Paris is scheduled this week.<p>More details.',
+            '<p>Road work on Main Street in Paris is scheduled this week.<ol><li>one<li>two</ol>',
+            '<p>Road work on Main Street in Paris is scheduled this week.<ul><li>one</ul><li>two',
+        ]
+        for body in bodies:
+            page = '<main id="site-content">' + ARTICLE[:ARTICLE.index('<div class="text')] + (
+                '<div class="text base-text">' + body + '</div></main>')
+            with self.subTest(body=body):
+                self.assertTrue(publisher.review(URL, lambda u: page, NOW)['summary'].startswith(
+                    'Road work on Main Street in Paris is scheduled this week.'))
+                parser = publisher.ArticleBodyParser()
+                text, _ = parser.extract(page)
+                if 'one' in body:
+                    self.assertIn('one two', text)
+            sensitive = page.replace('two', 'A school is affected')
+            if sensitive != page:
+                with self.subTest(sensitive=body), self.assertRaisesRegex(
+                        publisher.EditorialHold, 'Sensitive/ambiguous'):
+                    publisher.review(URL, lambda u: sensitive, NOW)
+
+    def test_all_main_content_blocks_are_screened(self):
+        page = ARTICLE + '<div class="text base-text"><div><h2>School access</h2></div></div>'
+        page = '<main id="site-content">' + page + '</main>'
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: page, NOW)
+
+    def test_mentions_paris_requires_an_unexcluded_whole_word(self):
+        for text in ['Paris', 'In PARIS, Ontario', 'Paris Road connects to Paris.', 'Paris, France and Paris, Ontario']:
+            with self.subTest(text=text):
+                self.assertTrue(publisher.mentions_paris(text))
+        for text in ['comparison', 'Parisian', 'Paris Road', 'Paris Rd', 'PARIS RD.', 'Paris, France', 'Paris Road and Paris, France']:
+            with self.subTest(text=text):
+                self.assertFalse(publisher.mentions_paris(text))
+
+    def test_locality_keeps_exact_excerpt_with_headline_or_later_body_match(self):
+        excerpt = 'Road work on Main Street is scheduled this week.'
+        base = ARTICLE.replace('Paris paving update', 'County paving update').replace(
+            'Road work on Paris Main Street is scheduled this week.', excerpt)
+        for article in [
+            base.replace('County paving update', 'PARIS paving update'),
+            base.replace('See the County notice for details.', 'The work also affects Paris residents.'),
+        ]:
+            with self.subTest(article=article):
+                row = publisher.review(URL, lambda u: article, NOW)
+                self.assertEqual(row['summary'], excerpt + ' Check the original County notice for current details.')
+
+    def test_excluded_mentions_in_headline_and_body_are_held(self):
+        base = ARTICLE.replace('Paris paving update', 'County paving update').replace('Paris Main Street', 'Main Street')
+        for mention in ['County', 'Paris Road', 'PARIS RD', 'Paris Rd.', 'Paris, France', 'Parisian']:
+            article = base.replace('County paving update', f'{mention} traffic update').replace(
+                'Main Street', mention)
+            with self.subTest(mention=mention):
+                with self.assertRaisesRegex(publisher.EditorialHold, 'Not demonstrably Paris-specific'):
+                    publisher.review(URL, lambda u: article, NOW)
+
+    def test_excluded_mentions_do_not_mask_another_paris_occurrence(self):
+        for mention in ['Paris Road', 'Paris Rd', 'Paris Rd.', 'Paris, France']:
+            article = ARTICLE.replace('See the County notice for details.', f'Work is also scheduled near {mention}.')
+            with self.subTest(mention=mention):
+                self.assertEqual(publisher.review(URL, lambda u: article, NOW)['title'], 'Paris paving update')
+
+    def test_school_in_later_body_paragraph_is_held(self):
+        article = ARTICLE.replace('See the County notice for details.', 'A school is affected by this work.')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: article, NOW)
+
+    def test_sensitive_word_in_body_list_item_is_held(self):
+        article = ARTICLE.replace('See the County notice for details.', 'See the County notice for details.</p><ul><li>Includes a new fire hall</li></ul><p>More details follow.')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: article, NOW)
+
+    def test_feed_collects_non_paris_headlines_within_five_days(self):
+        feed = f'''<rss><channel>
+          <item><title>County paving update</title><link>{URL}</link><pubDate>Mon, 28 Sep 2026 12:00:00 GMT</pubDate></item>
+          <item><title>Old County notice</title><link>https://www.brant.ca/news/posts/old-notice/</link><pubDate>Tue, 22 Sep 2026 12:00:00 GMT</pubDate></item>
+        </channel></rss>'''
+        self.assertEqual(publisher.collect_feed(feed, NOW), {URL: 'County paving update'})
+
     def test_allowed_supports_canonical_and_legacy_article_paths_only(self):
         for url in (URL, LEGACY_URL):
             with self.subTest(url=url):
