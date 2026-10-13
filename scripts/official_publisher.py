@@ -212,7 +212,8 @@ def review(url, independent_fetch, now, expected_title=None):
     if not excerpt: raise EditorialHold('No short complete source excerpt')
     source_text = ' '.join([title] + paragraphs)
     if not mentions_paris(source_text): raise EditorialHold('Not demonstrably Paris-specific')
-    if BLOCK.search(source_text): raise EditorialHold('Sensitive/ambiguous article requires human review')
+    # Sensitive-topic screen also covers list items and any other body text.
+    if BLOCK.search(source_text + ' ' + clean(text_block.group(1))): raise EditorialHold('Sensitive/ambiguous article requires human review')
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
     if slug is None: raise ValueError('Source URL outside fixed allowlist')

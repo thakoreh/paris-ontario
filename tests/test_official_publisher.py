@@ -63,6 +63,11 @@ class PublisherTests(unittest.TestCase):
         with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
             publisher.review(URL, lambda u: article, NOW)
 
+    def test_sensitive_word_in_body_list_item_is_held(self):
+        article = ARTICLE.replace('See the County notice for details.', 'See the County notice for details.</p><ul><li>Includes a new fire hall</li></ul><p>More details follow.')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: article, NOW)
+
     def test_feed_collects_non_paris_headlines_within_five_days(self):
         feed = f'''<rss><channel>
           <item><title>County paving update</title><link>{URL}</link><pubDate>Mon, 28 Sep 2026 12:00:00 GMT</pubDate></item>
