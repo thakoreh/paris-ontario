@@ -1,2 +1,1 @@
-# Saved real County pages are kept byte-for-byte as test fixtures.
-*.html -whitespace
+*.html -text -diff

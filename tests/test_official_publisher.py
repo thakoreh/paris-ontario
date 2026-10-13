@@ -24,19 +24,62 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 class PublisherTests(unittest.TestCase):
     def test_real_nested_article_is_sensitive(self):
-        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_grand_river_street_north.html').read_text()
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_grand_river_street_north.html').read_text(encoding='utf-8')
         now = dt.datetime(2026, 10, 10, 12, tzinfo=publisher.UTC)
         with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
             publisher.review(URL, lambda u: page, now,
                              expected_title='Grand River Street North Upgrades')
 
     def test_navigation_words_are_excluded_and_nested_list_locality_counts(self):
-        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_nav_words.html').read_text()
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_nav_words.html').read_text(encoding='utf-8')
+        page = page.replace('<header>Fire</header><nav>Health</nav><footer>Emergency</footer>', '').replace(
+            '<div class="breadcrumb">Emergency</div><div class="sub-nav">Fire</div>', '')
         row = publisher.review(URL, lambda u: page, NOW)
         self.assertTrue(row['summary'].startswith('Road work on Main Street is scheduled this week.'))
         nonlocal_page = page.replace('streets in Paris.', 'streets in the County.')
         with self.assertRaisesRegex(publisher.EditorialHold, 'Not demonstrably Paris-specific'):
             publisher.review(URL, lambda u: nonlocal_page, NOW)
+
+    def test_inside_content_navigation_is_sensitive(self):
+        for markup in ['<header>School closure</header>', '<nav>School closure</nav>',
+                       '<footer>School closure</footer>', '<div class="breadcrumb">School closure</div>',
+                       '<div class="sub-nav">School closure</div>']:
+            page = ARTICLE.replace('</div>', markup + '</div>')
+            with self.subTest(markup=markup), self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+                publisher.review(URL, lambda u: page, NOW)
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_nav_words.html').read_text(encoding='utf-8')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: page, NOW)
+
+    def test_unclosed_exclusions_and_content_ancestors_fail_closed(self):
+        for page in [ARTICLE + '<nav>A school is affected',
+                     ARTICLE + '<header>unfinished', ARTICLE + '<footer>unfinished',
+                     ARTICLE + '<div class="breadcrumb">unfinished',
+                     '<section>' + ARTICLE, '<main id="site-content">' + ARTICLE,
+                     ARTICLE.replace('<div class="text base-text">', '<nav><div class="text base-text">')]:
+            with self.subTest(page=page), self.assertRaisesRegex(publisher.EditorialHold, 'Unbalanced'):
+                publisher.review(URL, lambda u: page, NOW)
+
+    def test_loose_screen_covers_text_after_content_and_decodes_entities(self):
+        for ending in ['</main>', '']:
+            page = '<main id="site-content">' + ARTICLE + '<aside>A sch&#111;ol is affected</aside>' + ending
+            reason = 'Sensitive/ambiguous' if ending else 'Unbalanced'
+            with self.subTest(ending=ending), self.assertRaisesRegex(publisher.EditorialHold, reason):
+                publisher.review(URL, lambda u: page, NOW)
+
+    def test_loose_screen_omits_outside_menus_scripts_and_style(self):
+        page = '<main id="site-content">' + ARTICLE + (
+            '<nav>Fire Health Emergency</nav><div class="sub-nav">School</div>'
+            '<script>School</script><style>School</style></main><aside>School</aside>')
+        self.assertEqual(publisher.review(URL, lambda u: page, NOW)['title'], 'Paris paving update')
+
+    def test_additional_nonlocal_paris_names(self):
+        for name in ['Paris Roads', 'Paris France', 'Paris (France)', 'Paris-Road', 'Paris-Rd',
+                     'Paris Plains Road', 'Paris Plains Church Rd', 'Paris Upper Plains Church Road']:
+            with self.subTest(name=name):
+                self.assertFalse(publisher.mentions_paris(name))
+                self.assertTrue(publisher.mentions_paris(name + ' and in Paris'))
+        self.assertTrue(publisher.mentions_paris('in Paris'))
 
     def test_all_main_content_blocks_are_screened(self):
         page = ARTICLE + '<div class="text base-text"><div><h2>School access</h2></div></div>'

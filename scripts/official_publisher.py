@@ -47,9 +47,12 @@ def clean(text):
 
 
 def mentions_paris(text):
-    # Paris Road/Rd (which leaves town) and Paris, France are not locality
-    # evidence; only a separate remaining whole-word Paris occurrence counts.
-    remaining = re.sub(r'\bparis\s+(?:road|rd)\b\.?|\bparis\s*,\s*france\b', ' ', text, flags=re.I)
+    # Road names and references to France are not locality evidence.
+    remaining = re.sub(
+        r'\bparis(?:\s*,?\s*france\b|\s*\(france\)|[\s-]+(?:roads?|rd)\b\.?)',
+        ' ', text, flags=re.I)
+    remaining = re.sub(r'\b[Pp][Aa][Rr][Ii][Ss]\s+(?:[A-Z][a-zA-Z]*\s+){1,3}(?i:road|rd)\b\.?',
+                       ' ', remaining)
     return re.search(r'\bparis\b', remaining, re.I) is not None
 
 
@@ -191,6 +194,16 @@ class ArticleBodyParser(HTMLParser):
         self.stack = []
         self.blocks = []
         self.has_main = False
+        self.ancestors = set()
+        self.exclusion_starts = {}
+        self.excluded_spans = []
+        self.region_start = None
+        self.region_end = None
+        self.unbalanced = False
+
+    def source_offset(self):
+        line, column = self.getpos()
+        return self.line_offsets[line - 1] + column
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -199,11 +212,17 @@ class ArticleBodyParser(HTMLParser):
         _, in_main, excluded, block, paragraph = parent
         if tag == 'main' and attrs.get('id') == 'site-content':
             in_main = self.has_main = True
-        excluded = excluded or tag in self.EXCLUDED or any(
-            'breadcrumb' in token or 'sub-nav' in token or 'subnav' in token for token in tokens)
+            self.region_start = self.region_end = None
+        parent_excluded = excluded
+        excluded = excluded or tag in ('script', 'style') or (block is None and (
+            tag in self.EXCLUDED or any(
+                'breadcrumb' in token or 'sub-nav' in token or 'subnav' in token for token in tokens)))
         if not excluded and block is None and tag == 'div' and {'text', 'base-text'} <= set(tokens):
             block = {'main': in_main, 'text': [], 'paragraphs': []}
             self.blocks.append(block)
+            self.ancestors.update(id(frame) for frame in self.stack)
+            if self.region_start is None and (in_main or not self.has_main):
+                self.region_start = self.source_offset()
         if block is not None and not excluded:
             if tag in ('div', 'p', 'li', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
                 block['text'].append(' ')
@@ -213,7 +232,10 @@ class ArticleBodyParser(HTMLParser):
                 paragraph = []
                 block['paragraphs'].append(paragraph)
         if tag not in self.VOID:
-            self.stack.append((tag, in_main, excluded, block, paragraph))
+            frame = (tag, in_main, excluded, block, paragraph)
+            self.stack.append(frame)
+            if excluded and not parent_excluded:
+                self.exclusion_starts[id(frame)] = self.source_offset()
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -226,6 +248,17 @@ class ArticleBodyParser(HTMLParser):
                 _, _, excluded, block, paragraph = self.stack[index]
                 if block is not None and not excluded:
                     block['text'].append(' ')
+                for frame in self.stack[index + 1:]:
+                    if frame[2] or frame[3] is not None or id(frame) in self.ancestors:
+                        self.unbalanced = True
+                for frame in self.stack[index:]:
+                    self.ancestors.discard(id(frame))
+                    start = self.exclusion_starts.pop(id(frame), None)
+                    if start is not None:
+                        end = self.page.find('>', self.source_offset()) + 1
+                        self.excluded_spans.append((start, end))
+                if tag == 'main' and self.stack[index][1] and self.region_start is not None:
+                    self.region_end = self.source_offset()
                 del self.stack[index:]
                 break
 
@@ -238,8 +271,26 @@ class ArticleBodyParser(HTMLParser):
                     paragraph.append(data)
 
     def extract(self, page):
+        self.page = page
+        self.line_offsets = [0]
+        self.line_offsets.extend(match.end() for match in re.finditer('\n', page))
         self.feed(page)
         self.close()
+        if self.unbalanced or any(frame[2] or frame[3] is not None or id(frame) in self.ancestors
+                                  for frame in self.stack):
+            raise EditorialHold('Unbalanced article markup requires human review')
+        # The real page has a sub-navigation column after the article. Mask only
+        # outside-content menus (and script/style), then screen through </main>;
+        # choosing the first accepted block also skips menus before the article.
+        end = self.region_end if self.region_end is not None else len(page)
+        region = page[self.region_start:end] if self.region_start is not None else ''
+        for start, stop in sorted(self.excluded_spans, reverse=True):
+            left, right = max(start, self.region_start or 0), min(stop, end)
+            if left < right:
+                origin = self.region_start or 0
+                region = region[:left - origin] + ' ' * (right - left) + region[right - origin:]
+        region = re.sub(r'<(script|style)\b[^>]*>.*?</\1\s*>', ' ', region, flags=re.I | re.S)
+        self.loose_text = html.unescape(re.sub(r'<[^>]*>', ' ', region))
         blocks = [b for b in self.blocks if b['main'] or not self.has_main]
         # HTMLParser has already decoded entities; preserve literal text.
         normalize = lambda parts: SPACE.sub(' ', ''.join(parts)).strip()
@@ -269,7 +320,8 @@ def review(url, independent_fetch, now, expected_title=None):
         published = dt.datetime.strptime(date_string, '%b %d, %Y').date()
     except ValueError as e:
         raise ValueError('Unrecognized source publication date') from e
-    body, paragraphs = ArticleBodyParser().extract(page)
+    parser = ArticleBodyParser()
+    body, paragraphs = parser.extract(page)
     excerpt = next((p for p in paragraphs if len(p) >= 30 and len(p) <= 400), '')
     if not any(paragraphs): raise ValueError('Official article paragraphs missing or empty')
     # Validate required source structure before any healthy editorial skip.
@@ -280,7 +332,7 @@ def review(url, independent_fetch, now, expected_title=None):
     source_text = title + ' ' + body
     if not mentions_paris(source_text): raise EditorialHold('Not demonstrably Paris-specific')
     # Sensitive-topic screen also covers list items and any other body text.
-    if BLOCK.search(source_text): raise EditorialHold('Sensitive/ambiguous article requires human review')
+    if BLOCK.search(source_text) or BLOCK.search(parser.loose_text): raise EditorialHold('Sensitive/ambiguous article requires human review')
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
     if slug is None: raise ValueError('Source URL outside fixed allowlist')
