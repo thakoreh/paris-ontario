@@ -46,6 +46,13 @@ def clean(text):
     return SPACE.sub(' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
 
 
+def mentions_paris(text):
+    # Paris Road/Rd (which leaves town) and Paris, France are not locality
+    # evidence; only a separate remaining whole-word Paris occurrence counts.
+    remaining = re.sub(r'\bparis\s+(?:road|rd)\b\.?|\bparis\s*,\s*france\b', ' ', text, flags=re.I)
+    return re.search(r'\bparis\b', remaining, re.I) is not None
+
+
 def article_slug(url):
     p = urllib.parse.urlsplit(url)
     if p.username is not None or p.password is not None:
@@ -122,7 +129,7 @@ def collect_feed(xml, now):
         url = (item.findtext('link') or '').strip()
         title = (item.findtext('title') or '').strip()
         raw_date = item.findtext('pubDate') or ''
-        if not allowed(url) or not re.search(r'\bparis\b', title, re.I): continue
+        if not allowed(url): continue
         try: published = parse_feed_date(raw_date)
         except (ValueError, TypeError, OverflowError) as e:
             raise ValueError('Unrecognized RSS publication date for ' + url) from e
@@ -203,8 +210,9 @@ def review(url, independent_fetch, now, expected_title=None):
     if not (dt.timedelta(0) <= now.date() - published <= dt.timedelta(days=5)):
         raise EditorialHold('Source article is stale or future-dated')
     if not excerpt: raise EditorialHold('No short complete source excerpt')
-    if not re.search(r'\bparis\b', title + ' ' + excerpt, re.I): raise EditorialHold('Not demonstrably Paris-specific')
-    if BLOCK.search(title + ' ' + excerpt): raise EditorialHold('Sensitive/ambiguous article requires human review')
+    source_text = ' '.join([title] + paragraphs)
+    if not mentions_paris(source_text): raise EditorialHold('Not demonstrably Paris-specific')
+    if BLOCK.search(source_text): raise EditorialHold('Sensitive/ambiguous article requires human review')
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
     if slug is None: raise ValueError('Source URL outside fixed allowlist')

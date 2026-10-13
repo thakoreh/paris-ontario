@@ -23,6 +23,53 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_mentions_paris_requires_an_unexcluded_whole_word(self):
+        for text in ['Paris', 'In PARIS, Ontario', 'Paris Road connects to Paris.', 'Paris, France and Paris, Ontario']:
+            with self.subTest(text=text):
+                self.assertTrue(publisher.mentions_paris(text))
+        for text in ['comparison', 'Parisian', 'Paris Road', 'Paris Rd', 'PARIS RD.', 'Paris, France', 'Paris Road and Paris, France']:
+            with self.subTest(text=text):
+                self.assertFalse(publisher.mentions_paris(text))
+
+    def test_locality_keeps_exact_excerpt_with_headline_or_later_body_match(self):
+        excerpt = 'Road work on Main Street is scheduled this week.'
+        base = ARTICLE.replace('Paris paving update', 'County paving update').replace(
+            'Road work on Paris Main Street is scheduled this week.', excerpt)
+        for article in [
+            base.replace('County paving update', 'PARIS paving update'),
+            base.replace('See the County notice for details.', 'The work also affects Paris residents.'),
+        ]:
+            with self.subTest(article=article):
+                row = publisher.review(URL, lambda u: article, NOW)
+                self.assertEqual(row['summary'], excerpt + ' Check the original County notice for current details.')
+
+    def test_excluded_mentions_in_headline_and_body_are_held(self):
+        base = ARTICLE.replace('Paris paving update', 'County paving update').replace('Paris Main Street', 'Main Street')
+        for mention in ['County', 'Paris Road', 'PARIS RD', 'Paris Rd.', 'Paris, France', 'Parisian']:
+            article = base.replace('County paving update', f'{mention} paving update').replace(
+                'Main Street', mention)
+            with self.subTest(mention=mention):
+                with self.assertRaisesRegex(publisher.EditorialHold, 'Not demonstrably Paris-specific'):
+                    publisher.review(URL, lambda u: article, NOW)
+
+    def test_excluded_mentions_do_not_mask_another_paris_occurrence(self):
+        for mention in ['Paris Road', 'Paris Rd', 'Paris Rd.', 'Paris, France']:
+            article = ARTICLE.replace('See the County notice for details.', f'Work is also scheduled near {mention}.')
+            with self.subTest(mention=mention):
+                self.assertEqual(publisher.review(URL, lambda u: article, NOW)['title'], 'Paris paving update')
+
+    def test_school_in_later_body_paragraph_is_held(self):
+        article = ARTICLE.replace('See the County notice for details.', 'A school is affected by this work.')
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Sensitive/ambiguous'):
+            publisher.review(URL, lambda u: article, NOW)
+
+    def test_feed_collects_non_paris_headlines_within_five_days(self):
+        feed = f'''<rss><channel>
+          <item><title>County paving update</title><link>{URL}</link><pubDate>Mon, 28 Sep 2026 12:00:00 GMT</pubDate></item>
+          <item><title>Old County notice</title><link>https://www.brant.ca/news/posts/old-notice/</link><pubDate>Tue, 22 Sep 2026 12:00:00 GMT</pubDate></item>
+        </channel></rss>'''
+        self.assertEqual(publisher.collect_feed(feed, NOW), {URL: 'County paving update'})
+
     def test_allowed_supports_canonical_and_legacy_article_paths_only(self):
         for url in (URL, LEGACY_URL):
             with self.subTest(url=url):
