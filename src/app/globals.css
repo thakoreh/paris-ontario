@@ -2600,6 +2600,8 @@ h3 { font-size: 16px; font-weight: 700; }
 
 /* Keep guide previews compact while retaining their source and review date. */
 .explore-page .explore-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+/* Trails are full-width rows per the mockup; visitor tiles stay two-up. */
+.explore-page .explore-grid.explore-trails { grid-template-columns: minmax(0, 1fr); }
 .explore-entry-compact { padding: 10px; }
 .explore-entry-compact p { margin: 4px 0; font-size: 12px; }
 .explore-entry-compact .explore-entry-source { display: block; align-content: center; font-size: 12px; overflow-wrap: anywhere; }

@@ -48,6 +48,10 @@ test("Explore keeps mobile chips on one row beside a compact map hero", async ({
     );
   expect(new Set(tops).size).toBe(1);
   await expect(chips).toHaveCSS("overflow-x", "auto");
+  const trailLefts = await page
+    .locator(".explore-trails > *")
+    .evaluateAll((rows) => rows.map((r) => Math.round(r.getBoundingClientRect().left)));
+  expect(new Set(trailLefts).size).toBe(1);
   const hero = await page.locator(".explore-map-card").boundingBox();
   const chipBox = await chips.boundingBox();
   expect(hero!.y - (chipBox!.y + chipBox!.height)).toBeLessThanOrEqual(24);
