@@ -51,12 +51,13 @@ export function TodayPage({
         ))}
       </nav>
       <div className="today-columns">
-        {content.deadlines.length > 0 && (
-          <section className="today-deadlines">
+        {(
+          <section className="today-deadlines panel">
             <div className="section-heading">
               <h2>Deadlines</h2>
               <Link href="/deadlines">All deadlines ›</Link>
             </div>
+            {content.deadlines.length === 0 && <p>{unavailable ? "Deadlines are temporarily unavailable." : "No verified upcoming deadlines are listed."}</p>}
             {content.deadlines.map((d) => (
               <DeadlineCard key={d.id} deadline={d} />
             ))}

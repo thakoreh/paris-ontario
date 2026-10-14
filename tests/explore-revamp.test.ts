@@ -188,7 +188,9 @@ describe("Today", () => {
         now,
       }),
     );
-    expect(html).not.toContain("<h2>Deadlines");
+    expect(html).toContain("<h2>Deadlines</h2>");
+    expect(html).toContain("No verified upcoming deadlines are listed.");
+    expect(html).toContain('href="/deadlines"');
     expect(html).not.toContain("<h2>This weekend");
     expect(html.match(/Quiet week in Paris/g)).toHaveLength(1);
     expect(essentials).toHaveLength(4);
