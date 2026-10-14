@@ -33,6 +33,8 @@ test("Explore keeps mobile chips on one row beside a compact map hero", async ({
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/explore");
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(() => document.fonts.ready);
   const title = page.getByRole("heading", {
     name: "Explore Paris",
     exact: true,
@@ -42,7 +44,7 @@ test("Explore keeps mobile chips on one row beside a compact map hero", async ({
   const tops = await chips
     .locator("button")
     .evaluateAll((buttons) =>
-      buttons.map((b) => b.getBoundingClientRect().top),
+      buttons.map((b) => Math.round(b.getBoundingClientRect().top)),
     );
   expect(new Set(tops).size).toBe(1);
   await expect(chips).toHaveCSS("overflow-x", "auto");
