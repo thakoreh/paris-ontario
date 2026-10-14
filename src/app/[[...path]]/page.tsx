@@ -255,7 +255,7 @@ export default async function Page({
       </div>
     );
   if (route === "storm") return <StormPage {...data} />;
-  if (route === "sources") return <SourcesPage sources={data.sources} />;
+  if (route === "sources") return <SourcesPage sources={data.sources} demo={data.demo || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY} />;
   if (route === "deadlines" || route === "app/deadlines") {
     const content = (
       <DeadlinesPage

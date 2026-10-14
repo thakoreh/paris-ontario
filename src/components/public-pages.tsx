@@ -108,7 +108,7 @@ export function StormPage({
     </div>
   );
 }
-export function SourcesPage({ sources }: { sources: Source[] }) {
+export function SourcesPage({ sources, demo = false }: { sources: Source[]; demo?: boolean }) {
   const freshness = contentFreshness(sources);
   return (
     <div className="page-wrap">
@@ -126,7 +126,7 @@ export function SourcesPage({ sources }: { sources: Source[] }) {
           authoritative alerts.
         </p>
       </div>
-      <CoverageStatus sources={sources} />
+      <CoverageStatus sources={sources} demo={demo} />
       <div className="message-box" role="status">
         <strong>
           {freshness.state === "current"

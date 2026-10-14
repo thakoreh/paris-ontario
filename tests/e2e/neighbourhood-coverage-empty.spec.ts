@@ -11,9 +11,16 @@ test("source coverage stays on Sources and public pages hide empty shelves", asy
   }
   await page.goto("/sources");
   await expect(page.getByRole("complementary", { name: "Source coverage" })).toBeVisible();
-  await expect(page.getByRole("complementary", { name: "Source coverage" })).toContainText("Source coverage needs attention");
-  await expect(page.locator(".source-card")).toHaveCount(9);
-  await expect(page.locator(".source-card").first()).toContainText("Needs review");
+  await expect(page.getByRole("complementary", { name: "Source coverage" })).toContainText("Sample preview");
+  await expect(page.getByRole("complementary", { name: "Source coverage" })).toContainText(
+    "This preview is not live information and does not count toward production coverage.",
+  );
+  await expect(page.getByRole("complementary", { name: "Source coverage" })).not.toContainText(
+    "Source checks are within schedule",
+  );
+  // The verified preview fixture carries exactly one source.
+  await expect(page.locator(".source-card")).toHaveCount(1);
+  await expect(page.locator(".source-card").first()).toContainText("Review status");
 });
 
 test("Explore categories hide unrelated entries and preserve official links", async ({ page }) => {
