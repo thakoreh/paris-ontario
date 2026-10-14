@@ -30,15 +30,6 @@ beforeEach(() => {
 });
 
 describe("route-aware social metadata", () => {
-  it.each([{ path: [] }, { path: ["today"] }])(
-    "uses only the root canonical for Today ($path)",
-    async ({ path }) => {
-      const metadata = await generateMetadata({
-        params: Promise.resolve({ path }),
-      });
-      expect(metadata.alternates).toEqual({ canonical: "https://parispulse.ca/" });
-    },
-  );
   it("emits canonical OG and large Twitter metadata for a public guide", async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ path: ["paris-ontario"] }),

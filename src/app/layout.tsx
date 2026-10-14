@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
-  alternates: siteUrl ? { canonical: siteUrl.toString() } : undefined,
+  alternates: siteUrl ? { canonical: "/" } : undefined,
   openGraph: {
     title: "Paris Pulse | Local updates for Paris, Ontario",
     description: SITE_DESCRIPTION,

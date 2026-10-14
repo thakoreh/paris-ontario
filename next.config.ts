@@ -13,6 +13,8 @@ const securityHeaders = [
 const config: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // The dev badge overlaps the mobile tab bar in e2e (dev server only).
+  devIndicators: false,
   // Keep descriptions in <head> for HTML-only SEO checks, including Lighthouse.
   htmlLimitedBots: /.*/,
   outputFileTracingRoot: process.cwd(),

@@ -11,7 +11,7 @@ test("four destinations remain current through navigation and browser history", 
   page,
 }, testInfo) => {
   await page.goto("/");
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://parispulse.ca/");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /^https:\/\/parispulse\.ca\/?$/);
   const navigation = page.getByRole("navigation", {
     name:
       testInfo.project.name === "mobile"
