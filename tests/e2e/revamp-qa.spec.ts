@@ -47,13 +47,35 @@ test("Explore keeps mobile chips on one row beside a compact map hero", async ({
       buttons.map((b) => Math.round(b.getBoundingClientRect().top)),
     );
   expect(new Set(tops).size).toBe(1);
-  await expect(chips).toHaveCSS("overflow-x", "auto");
+  const chipBox = await chips.boundingBox();
+  const chipBounds = await chips.locator("button").evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const rect = button.getBoundingClientRect();
+      return { right: rect.right, height: rect.height, width: rect.width };
+    }),
+  );
+  expect(chipBounds).toHaveLength(5);
+  expect(chipBounds.at(-1)!.right).toBeLessThanOrEqual(chipBox!.x + chipBox!.width);
+  for (const chip of chipBounds) {
+    expect(chip.height).toBeGreaterThanOrEqual(44);
+    expect(chip.width).toBeGreaterThanOrEqual(44);
+  }
+  const trailTitles = await page.locator(".explore-trails h3").evaluateAll((titles) =>
+    titles.map((title) => {
+      const style = getComputedStyle(title);
+      return { weight: parseFloat(style.fontWeight), size: parseFloat(style.fontSize) };
+    }),
+  );
+  expect(trailTitles.length).toBeGreaterThan(0);
+  for (const title of trailTitles) {
+    expect(title.weight).toBeGreaterThanOrEqual(600);
+    expect(title.size).toBeGreaterThanOrEqual(15);
+  }
   const trailLefts = await page
     .locator(".explore-trails > *")
     .evaluateAll((rows) => rows.map((r) => Math.round(r.getBoundingClientRect().left)));
   expect(new Set(trailLefts).size).toBe(1);
   const hero = await page.locator(".explore-map-card").boundingBox();
-  const chipBox = await chips.boundingBox();
   expect(hero!.y - (chipBox!.y + chipBox!.height)).toBeLessThanOrEqual(24);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,

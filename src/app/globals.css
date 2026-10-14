@@ -2581,8 +2581,8 @@ h3 { font-size: 16px; font-weight: 700; }
 .chip, .filter-chip, .section-more { min-height: 44px; padding: 10px 14px; }
 
 .neighbourhood-shell .revamp-page h1 { font-family: var(--font-inter), system-ui, sans-serif; font-size: 28px; line-height: 1.2; }
-.explore-chips { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; }
-.explore-chips .button { flex-shrink: 0; border-radius: 999px; }
+.explore-chips { flex-wrap: nowrap; gap: 6px; max-width: 100%; padding-bottom: 4px; }
+.explore-chips .button { flex-shrink: 0; border-radius: 999px; min-width: 44px; min-height: 44px; padding: 8px 10px; font-size: 12px; }
 .explore-map-card { padding: 0; background: transparent; border: 0; box-shadow: none; }
 .explore-map-preview { margin-top: 0; }
 .map-sources { display: flex; flex-direction: column; font-size: 12px; }
@@ -2603,6 +2603,12 @@ h3 { font-size: 16px; font-weight: 700; }
 /* Trails are full-width rows per the mockup; visitor tiles stay two-up. */
 .explore-grid.explore-trails { grid-template-columns: minmax(0, 1fr); }
 .explore-entry-compact { padding: 10px; }
+.explore-page .explore-entry-trail-preview { margin: 0; padding: 10px 12px; }
+.explore-entry-trail-preview > a { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 3px; width: 100%; color: var(--ink); }
+.explore-entry-trail-preview h3 { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.4; }
+.explore-trail-meta { display: flex; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.4; white-space: nowrap; }
+.explore-trail-source { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.explore-trail-reviewed { flex-shrink: 0; }
 .explore-entry-compact p { margin: 4px 0; font-size: 12px; }
 .explore-entry-compact .explore-entry-source { display: block; align-content: center; font-size: 12px; overflow-wrap: anywhere; }
 .neighbourhood-shell .explore-page { padding-top: 16px; }
@@ -2610,3 +2616,5 @@ h3 { font-size: 16px; font-weight: 700; }
 @media (min-width: 900px) {
   .neighbourhood-shell .today-page h1 { font-size: 36px; }
 }
+/* B2: five Explore chips share one 390px row (each stays at least 44x44). */
+.neighbourhood-shell .explore-page .explore-chips .button { flex: 1 1 auto; min-width: 44px; min-height: 44px; padding: 8px 6px; font-size: 12px; white-space: nowrap; }

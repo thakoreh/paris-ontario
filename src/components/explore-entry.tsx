@@ -10,6 +10,22 @@ export function ExploreEntryCard({
   compact?: boolean;
 }) {
   const Heading = headingLevel === 2 ? "h2" : "h3";
+  if (compact && (entry.category === "trails" || entry.category === "river"))
+    return (
+      <article className="panel explore-entry explore-entry-trail-preview">
+        <a href={entry.source_url} target="_blank" rel="noreferrer">
+          <Heading>{entry.title} ›</Heading>
+          <span className="explore-trail-meta">
+            <span className="explore-trail-source" title={entry.organization}>
+              {entry.organization} ↗
+            </span>
+            <span className="explore-trail-reviewed">
+              · Checked <time dateTime={entry.reviewed_at}>{entry.reviewed_at}</time>
+            </span>
+          </span>
+        </a>
+      </article>
+    );
   if (compact)
     return (
       <article className="panel explore-entry explore-entry-compact">
