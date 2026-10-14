@@ -118,7 +118,7 @@
   display: grid;
   min-width: 0;
   flex: 1;
-  gap: 3px;
+  gap: 8px;
 }
 .resident-shortcuts strong {
   color: var(--ink);
@@ -179,7 +179,7 @@
 }
 .quick-filter-row {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   overflow-x: auto;
   padding: 2px 2px 4px;
   scrollbar-width: none;
@@ -188,7 +188,7 @@
   display: none;
 }
 .quick-filter-row button {
-  min-height: 34px;
+  min-height: 44px;
   padding: 7px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -253,7 +253,7 @@
   .discovery-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 7px;
+    gap: 8px;
     margin-top: 16px;
   }
   .discovery-toolbar .search-field {

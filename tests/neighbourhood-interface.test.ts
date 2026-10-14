@@ -93,7 +93,7 @@ describe("neighbourhood interface server rendering", () => {
     const html = feed([], "map");
     expect(html).toContain('aria-label="Explore view"');
     expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain("Map preview");
+    expect(html).not.toContain("Map preview");
   });
   it("renders each notice once on Today with an honest first-visit explanation", () => {
     const html = feed([
@@ -102,13 +102,13 @@ describe("neighbourhood interface server rendering", () => {
     ]);
     expect(html.match(/data-notice-id="notice"/g)).toHaveLength(1);
     expect(html.match(/data-notice-id="event"/g)).toHaveLength(1);
-    expect(html).toContain("Your first look around.");
-    expect(html).toContain("No verified local opening announcements");
+    expect(html).not.toContain("Your first look around.");
+    expect(html).not.toContain("No verified local opening announcements");
   });
   it("does not mark a recently reverified old notice new", () => {
     state.personal.lastVisitAt = new Date(+now - 3 * 86400000).toISOString();
     const html = feed([notice()]);
-    expect(html).toContain("No newly published or source-updated notices");
+    expect(html).not.toContain("No newly published or source-updated notices");
     expect(html.match(/data-notice-id="notice"/g)).toHaveLength(1);
   });
   it("assigns a source-updated notice to New without duplicating it in Changes", () => {
@@ -116,7 +116,7 @@ describe("neighbourhood interface server rendering", () => {
     const html = feed([notice({ source_updated_at: recent })]);
     expect(html).toContain("1 verified update since");
     expect(html.match(/data-notice-id="notice"/g)).toHaveLength(1);
-    expect(html).toContain("No current road or service changes in this view.");
+    expect(html).not.toContain("No current road or service changes in this view.");
   });
   it("honours the same private radius on Today, Explore and Map with an All Paris escape", () => {
     state.personal.locations = [

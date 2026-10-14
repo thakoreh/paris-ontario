@@ -1,3 +1,4 @@
+import { Inter } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
@@ -7,8 +8,21 @@ import { Provider } from "@/components/provider";
 import { Shell } from "@/components/shell";
 import { StructuredData } from "@/components/structured-data";
 import { FAVICON_METADATA } from "@/lib/favicon";
-import { normalizePublicUrl, sitePath, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+import {
+  normalizePublicUrl,
+  sitePath,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+} from "@/lib/site";
 import { SOCIAL_IMAGE_ALT, SOCIAL_IMAGE_PATH } from "@/lib/seo";
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  display: "swap",
+  fallback: ["system-ui"],
+  variable: "--font-inter",
+});
 
 const siteUrl = normalizePublicUrl();
 const socialImage = sitePath(siteUrl, SOCIAL_IMAGE_PATH) || SOCIAL_IMAGE_PATH;
@@ -50,13 +64,17 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#214f43",
+  themeColor: "#1f7a74",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en-CA">
-      <body>
+      <body className={inter.variable}>
         <StructuredData base={siteUrl} />
         <Provider>
           <Shell>{children}</Shell>

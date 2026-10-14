@@ -28,7 +28,6 @@ import { usePersonal } from "./provider";
 import { NoticeCard, DeadlineCard, SectionHeading, EmptyState } from "./cards";
 import { MapPanel } from "./map-panel";
 import { ShareButton } from "./share-button";
-import { CoverageStatus } from "./coverage-status";
 import {
   isThisWeekend,
   latestVerification,
@@ -51,12 +50,6 @@ const kinds = [
   ["business", "Local openings"],
   ["community", "Community"],
 ] as const;
-
-type EmptyAction = {
-  label: string;
-  href?: string;
-  onClick?: () => void;
-};
 
 export function Feed({
   notices,
@@ -217,28 +210,9 @@ export function Feed({
     id: "change" | "event" | "business" | "community",
     title: string,
     note: string,
-    empty: string,
   ) {
     const items = groups[id];
-    if (!items.length && hasFilters) return null;
-    const emptyMessage =
-      id === "event" && !nearby
-        ? "No current events in this view. Check the community calendar in Services."
-        : empty;
-    const emptyActions: EmptyAction[] =
-      id === "event"
-        ? [{ label: "Check Services", href: "/services" }]
-        : id === "business"
-          ? [{ label: "Share a source", href: "/share-update" }]
-          : id === "community"
-            ? [{ label: "Review sources", href: "/sources" }]
-            : [];
-    if (!items.length && nearby) {
-      emptyActions.push({
-        label: "View all Paris",
-        onClick: () => p.setAreaScope("all"),
-      });
-    }
+    if (!items.length) return null;
     return (
       <section
         className={`today-section section-${id}`}
@@ -251,7 +225,7 @@ export function Feed({
           </div>
           <span className="section-count">{items.length}</span>
         </div>
-        {items.length ? (
+        {
           <div
             className={`today-cards ${id === "event" || id === "business" ? "discovery-cards" : ""}`}
           >
@@ -259,30 +233,7 @@ export function Feed({
               .slice(0, expandedGroups.includes(id) ? items.length : 3)
               .map(renderCard)}
           </div>
-        ) : (
-          <div className="section-empty">
-            <p>{emptyMessage}</p>
-            {emptyActions.length > 0 && (
-              <div className="section-empty-actions">
-                {emptyActions.map((action) =>
-                  action.href ? (
-                    <Link key={action.label} href={action.href}>
-                      {action.label}
-                    </Link>
-                  ) : (
-                    <button
-                      key={action.label}
-                      type="button"
-                      onClick={action.onClick}
-                    >
-                      {action.label}
-                    </button>
-                  ),
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        }
         {items.length > 3 && !expandedGroups.includes(id) && (
           <button
             className="section-more"
@@ -486,16 +437,18 @@ export function Feed({
           </div>
         )}
         <div className="feed-results">
-          <p
-            role="status"
-            aria-label="Notice results"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {dashboard
-              ? `${filtered.length} ${filtered.length === 1 ? "update" : "updates"}${nearby ? " in your area" : " across Paris"}`
-              : `Showing ${Math.min(filtered.length, limit)} of ${filtered.length} notices`}
-          </p>
+          {filtered.length > 0 && (
+            <p
+              role="status"
+              aria-label="Notice results"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {dashboard
+                ? `${filtered.length} ${filtered.length === 1 ? "update" : "updates"}${nearby ? " in your area" : " across Paris"}`
+                : `Showing ${Math.min(filtered.length, limit)} of ${filtered.length} notices`}
+            </p>
+          )}
           {hasFilters && (
             <button className="text-button" onClick={clearFilters}>
               Clear filters
@@ -511,145 +464,147 @@ export function Feed({
           </Link>
         </div>
       </section>
-      {dashboard && <CoverageStatus sources={sources} demo={p.demo} />}
+
       {dashboard ? (
         <div className="neighbourhood-layout">
           <div className="today-main">
-            <section
-              className="since-visit"
-              aria-labelledby="since-visit-title"
-            >
-              <div className="since-visit-heading">
-                <Sparkles size={20} />
-                <div>
-                  <h2 id="since-visit-title">New since your last visit</h2>
-                  <p>
-                    {!p.ready
-                      ? "Loading your visit history…"
-                      : !p.visitHistoryAvailable
-                        ? "Visit history is unavailable in this browser. You can still explore every update below."
-                        : !p.lastVisitAt
-                          ? "Your first look around. On your next visit, newly published and source-updated notices will appear here."
-                          : groups.new.length
-                            ? `${groups.new.length} verified ${groups.new.length === 1 ? "update" : "updates"} since ${formatDate(p.lastVisitAt)} ET`
-                            : "No newly published or source-updated notices in this view since your last visit. Coverage is limited."}
-                  </p>
+            {groups.new.length > 0 && (
+              <section
+                className="since-visit"
+                aria-labelledby="since-visit-title"
+              >
+                <div className="since-visit-heading">
+                  <Sparkles size={20} />
+                  <div>
+                    <h2 id="since-visit-title">New since your last visit</h2>
+                    <p>
+                      {!p.ready
+                        ? "Loading your visit history…"
+                        : !p.visitHistoryAvailable
+                          ? "Visit history is unavailable in this browser. You can still explore every update below."
+                          : !p.lastVisitAt
+                            ? "Your first look around. On your next visit, newly published and source-updated notices will appear here."
+                            : groups.new.length
+                              ? `${groups.new.length} verified ${groups.new.length === 1 ? "update" : "updates"} since ${formatDate(p.lastVisitAt)} ET`
+                              : "No newly published or source-updated notices in this view since your last visit. Coverage is limited."}
+                    </p>
+                  </div>
+                  {p.lastVisitAt && (
+                    <span className="new-count">{groups.new.length}</span>
+                  )}
                 </div>
-                {p.lastVisitAt && (
-                  <span className="new-count">{groups.new.length}</span>
+                {groups.new.length > 0 && (
+                  <div className="today-cards">
+                    {groups.new
+                      .slice(
+                        0,
+                        expandedGroups.includes("new") ? groups.new.length : 4,
+                      )
+                      .map(renderCard)}
+                  </div>
                 )}
-              </div>
-              {groups.new.length > 0 && (
-                <div className="today-cards">
-                  {groups.new
-                    .slice(
-                      0,
-                      expandedGroups.includes("new") ? groups.new.length : 4,
-                    )
-                    .map(renderCard)}
-                </div>
-              )}
-              {groups.new.length > 4 && !expandedGroups.includes("new") && (
-                <button
-                  className="section-more"
-                  onClick={() => setExpandedGroups([...expandedGroups, "new"])}
-                >
-                  Show all {groups.new.length} new updates{" "}
-                  <ArrowRight size={15} />
-                </button>
-              )}
-            </section>
+                {groups.new.length > 4 && !expandedGroups.includes("new") && (
+                  <button
+                    className="section-more"
+                    onClick={() =>
+                      setExpandedGroups([...expandedGroups, "new"])
+                    }
+                  >
+                    Show all {groups.new.length} new updates{" "}
+                    <ArrowRight size={15} />
+                  </button>
+                )}
+              </section>
+            )}
             {renderGroup(
               "change",
               "Changes around you",
               "Roads, services and the things that affect your day.",
-              "No current road or service changes in this view. Check official sources before travelling.",
             )}
             {renderGroup(
               "event",
               "Things to do",
               "Dates and details from the original event announcement.",
-              "No current events in this view. Try All Paris or check the community calendar in Services.",
             )}
             {renderGroup(
               "business",
               "Local openings",
               "New places, with a source you can check.",
-              "No verified local opening announcements in this view yet. Know of one? Share the source for review.",
             )}
             {renderGroup(
               "community",
               "Around the neighbourhood",
               "Planning, recreation and other useful local news.",
-              "No other current community updates in this view.",
             )}
-            {!filtered.length && hasFilters && (
+            {!filtered.length && (
               <EmptyState
-                title="No matching notices."
-                description="Clear your filters or try a different street or topic."
+                title="Quiet week in Paris. Browse Services or Explore."
+                description=""
               />
+            )}
+            {!filtered.length && (
+              <div className="action-row">
+                <Link className="button primary" href="/services">
+                  Services
+                </Link>
+                <Link className="button outline" href="/explore">
+                  Explore
+                </Link>
+              </div>
             )}
             <Link className="explore-all" href="/explore">
               Explore all local updates <ArrowRight size={17} />
             </Link>
           </div>
           <aside className="neighbourhood-rail">
-            <section className="neighbourhood-map-card">
-              <SectionHeading
-                title="Around your area"
-                href="/explore"
-                label="Open map"
-              />
-              {mappedCount > 0 ? (
-                <>
-                  <div className="preview-map">
-                    <MapPanel
-                      notices={mapNotices}
-                      locations={areaLocations}
-                      radius={nearby ? p.preferences.radius_km : 0}
-                    />
-                  </div>
-                  <p>
-                    {mappedCount}{" "}
-                    {mappedCount === 1 ? "update has" : "updates have"} a map
-                    location. Your saved places stay private.
-                  </p>
-                </>
-              ) : (
-                <div className="map-preview-empty">
-                  <p>
-                    <strong>No updates have a map location yet.</strong>
-                    Explore the list for every matching update.
-                  </p>
-                  <Link href="/explore">Explore the update list</Link>
-                </div>
-              )}
-            </section>
-            <section className="neighbourhood-deadlines">
-              <SectionHeading
-                title="Coming up"
-                href="/deadlines"
-                label="All deadlines"
-              />
-              <p className="rail-intro">A heads-up for the next seven days.</p>
-              {comingDeadlines.slice(0, 3).map((deadline) => (
-                <DeadlineCard key={deadline.id} deadline={deadline} />
-              ))}
-              {!comingDeadlines.length && (
-                <p className="rail-empty">
-                  No upcoming deadlines in this view. Check original sources for
-                  other due dates.
+            {mappedCount > 0 && (
+              <section className="neighbourhood-map-card">
+                <SectionHeading
+                  title="Around your area"
+                  href="/explore"
+                  label="Open map"
+                />
+                {
+                  <>
+                    <div className="preview-map">
+                      <MapPanel
+                        notices={mapNotices}
+                        locations={areaLocations}
+                        radius={nearby ? p.preferences.radius_km : 0}
+                      />
+                    </div>
+                    <p>
+                      {mappedCount}{" "}
+                      {mappedCount === 1 ? "update has" : "updates have"} a map
+                      location. Your saved places stay private.
+                    </p>
+                  </>
+                }
+              </section>
+            )}
+            {comingDeadlines.length > 0 && (
+              <section className="neighbourhood-deadlines">
+                <SectionHeading
+                  title="Coming up"
+                  href="/deadlines"
+                  label="All deadlines"
+                />
+                <p className="rail-intro">
+                  A heads-up for the next seven days.
                 </p>
-              )}
-            </section>
+                {comingDeadlines.slice(0, 3).map((deadline) => (
+                  <DeadlineCard key={deadline.id} deadline={deadline} />
+                ))}
+              </section>
+            )}
             <section className="neighbourhood-share">
               <span className="rail-symbol">
                 <Plus size={22} />
               </span>
               <h2>Know something local?</h2>
               <p>
-                Prepare a local update with its original source for review before
-                it is published.
+                Prepare a local update with its original source for review
+                before it is published.
               </p>
               <div className="neighbourhood-share-actions">
                 <Link href="/share-update" className="button primary">
@@ -679,7 +634,10 @@ export function Feed({
                 </span>
               </div>
             </Link>
-            <Link className="rail-settings" href="/app/alerts#browser-notifications">
+            <Link
+              className="rail-settings"
+              href="/app/alerts#browser-notifications"
+            >
               Browser alerts · Check this device <ArrowUpRight size={14} />
             </Link>
             {p.profile && ["editor", "admin"].includes(p.profile.role) && (
@@ -691,7 +649,7 @@ export function Feed({
         </div>
       ) : (
         <div className={`explore-results ${map ? "with-map" : ""}`}>
-          {map && (
+          {map && mappedCount > 0 && (
             <section className="explore-map" aria-label="Map view">
               <div className="large-map">
                 <MapPanel

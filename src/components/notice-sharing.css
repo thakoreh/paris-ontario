@@ -10,9 +10,9 @@
 }
 
 .notice-share-trigger {
-  min-height: 30px;
+  min-height: 44px;
   padding: 7px 10px;
-  gap: 6px;
+  gap: 8px;
   font-size: 10px;
 }
 
@@ -39,15 +39,15 @@
 .notice-share-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .notice-share-option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 30px;
+  gap: 8px;
+  min-height: 44px;
   padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;

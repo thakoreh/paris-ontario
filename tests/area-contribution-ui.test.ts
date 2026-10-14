@@ -47,12 +47,11 @@ describe("progressive area setup and private contribution UI", () => {
     expect(html).toContain("No prompts until you choose Enable.");
     expect(html).toContain("publishing one does not automatically send an alert");
   });
-  it("does not ask anonymous contributors for identity or precise locations", () => {
+  it("hides intake until availability is confirmed", () => {
     const html = renderToString(React.createElement(CommunitySubmissionForm));
-    expect(html).toContain("Original source URL");
-    expect(html).toContain("Review my update");
-    expect(html).toContain("public details only");
-    expect(html).toContain("No account or contact information is needed.");
+    expect(html).toContain('href="/contact"');
+    expect(html).not.toContain("Review my update");
+    expect(html).not.toContain("not available in this environment");
     expect(html).not.toContain('type="email"');
     expect(html).not.toContain("Send for editor review");
     expect(html).not.toContain('value="emergency"');

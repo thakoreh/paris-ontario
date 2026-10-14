@@ -166,10 +166,6 @@ export function NoticeDetail({
           match.
         </p>
       )}
-      <p className="disclaimer">
-        Information can change. Verify important details with the original
-        source. Paris Pulse is not an official County of Brant service.
-      </p>
     </div>
   );
 }
@@ -252,11 +248,6 @@ export function DeadlinesPage({
       {!filtered.length && (
         <EmptyState title="No upcoming deadlines in this view." />
       )}
-      <p className="disclaimer">
-        Calendar downloads work locally. Reminders are saved, but scheduled
-        email delivery is not enabled yet. Verify important dates with the
-        original source.
-      </p>
     </div>
   );
 }

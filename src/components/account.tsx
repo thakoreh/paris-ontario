@@ -532,53 +532,7 @@ export function PreferencesForm({
       {show(3) && (
         <section className="preference-section">
           <h2>Updates on your terms.</h2>
-          <p>
-            Browser alerts are sent when editors select a matching verified
-            notice. Email, digest, instant-alert and reminder preferences below
-            are saved for future use; their scheduled delivery is not enabled.
-          </p>
-          {(
-            [
-              [
-                "daily_digest_enabled",
-                "Daily digest",
-                "Saved for future daily delivery; not currently sent.",
-              ],
-              [
-                "weekly_digest_enabled",
-                "Weekly digest",
-                "Saved for future weekly delivery; not currently sent.",
-              ],
-              [
-                "instant_enabled",
-                "Important instant alerts",
-                "Future automated alerts; not currently sent. This does not control editor-selected browser alerts.",
-              ],
-              [
-                "deadline_reminders_enabled",
-                "Deadline reminders",
-                "Reminder choices are saved; scheduled reminders are not currently sent.",
-              ],
-              [
-                "email_enabled",
-                "Email updates",
-                "Saved for future email delivery. No scheduled email alerts are currently sent.",
-              ],
-            ] as const
-          ).map(([key, title, description]) => (
-            <label className="toggle-row" key={key}>
-              <span>
-                <strong>{title}</strong>
-                <small>{description}</small>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                checked={v[key]}
-                onChange={(e) => setV({ ...v, [key]: e.target.checked })}
-              />
-            </label>
-          ))}
+          <p>Browser alerts are sent when editors select a matching verified notice.</p>
           <label className="toggle-row">
             <span>
               <strong>Push notifications</strong>
