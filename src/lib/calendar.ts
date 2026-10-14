@@ -24,6 +24,22 @@ export function calendarEvent(d: Deadline | Notice) {
     return `${part("year")}${part("month")}${part("day")}T${part("hour")}${part("minute")}${part("second")}`;
   };
   const dateOnly = (value: string) => value.slice(0, 10).replace(/-/g, "");
+  // A timed event that ends on a later Toronto day is exported as an all-day
+  // range: sources give only an overall start and end, not daily hours.
+  const multiDay = !allDay && local(start).slice(0, 8) !== local(end).slice(0, 8);
+  const nextDay = (ymd: string) => {
+    const d = new Date(Date.UTC(+ymd.slice(0, 4), +ymd.slice(4, 6) - 1, +ymd.slice(6, 8) + 1));
+    return d.toISOString().slice(0, 10).replace(/-/g, "");
+  };
+  const human = (value: string) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Toronto", weekday: "short", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(new Date(value));
+  const baseDescription = "description" in d ? d.description : d.summary;
+  const description = multiDay
+    ? `${baseDescription}\n\nListed as starting ${human(start)} and ending ${human(end)} (Toronto time). Check the official listing for daily hours.`
+    : baseDescription;
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -49,11 +65,15 @@ export function calendarEvent(d: Deadline | Notice) {
     "BEGIN:VEVENT",
     `UID:${d.id}@parispulse.local`,
     `DTSTAMP:${date(new Date().toISOString())}`,
-    allDay ? `DTSTART;VALUE=DATE:${dateOnly(start)}` : `DTSTART;TZID=America/Toronto:${local(start)}`,
-    allDay ? `DTEND;VALUE=DATE:${dateOnly(end)}` : `DTEND;TZID=America/Toronto:${local(end)}`,
+    allDay ? `DTSTART;VALUE=DATE:${dateOnly(start)}`
+      : multiDay ? `DTSTART;VALUE=DATE:${local(start).slice(0, 8)}`
+      : `DTSTART;TZID=America/Toronto:${local(start)}`,
+    allDay ? `DTEND;VALUE=DATE:${dateOnly(end)}`
+      : multiDay ? `DTEND;VALUE=DATE:${nextDay(local(end).slice(0, 8))}`
+      : `DTEND;TZID=America/Toronto:${local(end)}`,
     ...(!("deadline_at" in d) && d.address_text ? [`LOCATION:${escape(d.address_text)}`] : []),
     `SUMMARY:${escape((d.is_sample ? "[Sample data] " : "") + d.title)}`,
-    `DESCRIPTION:${escape("description" in d ? d.description : d.summary)}`,
+    `DESCRIPTION:${escape(description)}`,
     `URL:${d.official_url}`,
     "END:VEVENT",
     "END:VCALENDAR",
