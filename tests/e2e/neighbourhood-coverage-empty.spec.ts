@@ -56,7 +56,7 @@ test("empty Today shelves provide direct actions and avoid a redundant All Paris
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/services$/);
   await page.goBack();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/$/);
   await expectNoHorizontalOverflow(page);
 
   for (const action of await page.locator(".section-empty-actions a").all()) {
@@ -104,5 +104,5 @@ test("Invite a neighbour shares the canonical public Today link", async ({ page 
   await invite.getByRole("button", { name: "Share", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => (window as Window & { __sharedUrl?: string }).__sharedUrl))
-    .toBe("https://parispulse.ca/today");
+    .toBe("https://parispulse.ca/");
 });

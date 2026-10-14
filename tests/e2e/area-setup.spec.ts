@@ -154,7 +154,7 @@ test("area setup goes from a confirmed place through preview and interests witho
   await page
     .getByRole("link", { name: "Finish and explore", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/$/);
   await expect(
     page.getByRole("region", { name: "Your feed area" }),
   ).toContainText("Public landmark");

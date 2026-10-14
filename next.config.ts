@@ -14,6 +14,15 @@ const config: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   outputFileTracingRoot: process.cwd(),
+  async redirects() {
+    // Explicit 301s meet the legacy URL contract (permanent: true uses 308).
+    return [
+      { source: "/today", destination: "/", statusCode: 301 },
+      { source: "/app", destination: "/", statusCode: 301 },
+      { source: "/map", destination: "/explore", statusCode: 301 },
+      { source: "/app/feed", destination: "/explore", statusCode: 301 },
+    ];
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

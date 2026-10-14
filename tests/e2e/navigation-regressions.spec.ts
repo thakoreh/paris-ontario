@@ -1,105 +1,118 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("mobile navigation regressions", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+const destinations = [
+  ["Today", "/"],
+  ["Events", "/events"],
+  ["Explore", "/explore"],
+  ["Services", "/services"],
+] as const;
 
-  test("all-pages menu marks the Explore list as current", async ({ page }) => {
-    await page.goto("/app/feed");
-
-    // /app/feed is AccountGate-protected. Wait for its real content before
-    // interacting with the SSR-rendered shell, which is inert pre-hydration.
-    await expect(page.locator("main h1")).toBeVisible();
-    await page.getByRole("button", { name: "Browse all pages" }).click();
-
-    await expect(
-      page.getByRole("navigation", { name: "All pages" }).getByRole("link", {
-        name: "Explore the list",
-      }),
-    ).toHaveAttribute("aria-current", "page");
-  });
-
-  test("all-pages menu marks the map alias as current", async ({ page }) => {
-    await page.goto("/app/map");
-
-    await expect(page.locator("main h1")).toBeVisible();
-    await page.getByRole("button", { name: "Browse all pages" }).click();
-
-    await expect(
-      page.getByRole("navigation", { name: "All pages" }).getByRole("link", {
-        name: "Explore the map",
-      }),
-    ).toHaveAttribute("aria-current", "page");
-  });
-
-  test("personal Today navigates to the shared local briefing and remains current", async ({
-    page,
-  }) => {
-    await page.goto("/app");
-
-    const home = page
-      .getByRole("navigation", { name: "Mobile navigation" })
-      .getByRole("link", { name: "Today", exact: true });
-    await expect(home).toHaveAttribute("href", "/today");
-    await expect(home).toHaveAttribute("aria-current", "page");
-
-    await home.click();
-    await expect(page).toHaveURL(/\/today$/);
-  });
-
-  test("anonymous Today navigates to the same shared local briefing", async ({
-    page,
-  }) => {
-    await page.goto("/");
-
-    const home = page
-      .getByRole("navigation", { name: "Mobile navigation" })
-      .getByRole("link", { name: "Today", exact: true });
-    await expect(home).toHaveAttribute("href", "/today");
-    await expect(home).toHaveAttribute("aria-current", "page");
-  });
-});
-
-test("the four mobile destinations remain correct after repeat visits and browser Back/Forward", async ({
+test("four destinations remain current through navigation and browser history", async ({
   page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/today");
+}, testInfo) => {
+  await page.goto("/");
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://parispulse.ca/");
   const navigation = page.getByRole("navigation", {
-    name: "Mobile navigation",
+    name:
+      testInfo.project.name === "mobile"
+        ? "Mobile navigation"
+        : "Main navigation",
     exact: true,
   });
-  for (const [name, path] of [
-    ["Explore", "/map"],
-    ["Share", "/share-update"],
-    ["My area", "/app/area"],
-    ["Today", "/today"],
-  ]) {
-    const destination = navigation.getByRole("link", { name, exact: true });
-    await destination.click();
-    await expect(page).toHaveURL(new RegExp(`${path}$`));
-    await expect(destination).toHaveAttribute("aria-current", "page");
+  await expect(navigation.getByRole("link")).toHaveCount(4);
+  await expect(page.locator("#all-pages-menu")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Browse all pages" }),
+  ).toHaveCount(0);
+  for (const [name, href] of destinations) {
+    const link = navigation.getByRole("link", { name, exact: true });
+    await expect(link).toHaveAttribute("href", href);
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`${href === "/" ? "/" : href}$`));
+    await expect(link).toHaveAttribute("aria-current", "page");
     await expect(navigation.locator('[aria-current="page"]')).toHaveCount(1);
-    await expect(page.locator("main h1")).toBeVisible();
   }
   await page.goBack();
-  await expect(page).toHaveURL(/\/app\/area$/);
   await expect(
-    navigation.getByRole("link", { name: "My area", exact: true }),
+    navigation.getByRole("link", { name: "Explore", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await page.goForward();
-  await expect(page).toHaveURL(/\/today$/);
   await expect(
-    navigation.getByRole("link", { name: "Today", exact: true }),
+    navigation.getByRole("link", { name: "Services", exact: true }),
   ).toHaveAttribute("aria-current", "page");
-  await page
-    .getByRole("button", { name: "Browse all pages", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "All pages", exact: true })
-    .getByRole("link", { name: "Today in Paris", exact: true })
-    .click();
+});
+
+for (const [source, destination] of [
+  ["/today", "/"],
+  ["/app", "/"],
+  ["/map", "/explore"],
+  ["/app/feed", "/explore"],
+]) {
+  test(`${source} permanently redirects to ${destination}`, async ({
+    request,
+  }) => {
+    const response = await request.get(`${source}?area=paris`, {
+      maxRedirects: 0,
+    });
+    expect(response.status()).toBe(301);
+    expect(response.headers().location).toBe(`${destination}?area=paris`);
+  });
+}
+
+test("profile is a 44px target, prompts guests to sign in, and keeps sharing available", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  const profile = page.getByRole("link", { name: "Your profile", exact: true });
+  const box = (await profile.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  const saved = page.locator(".header-tools .saved-entry");
+  if (testInfo.project.name === "mobile") await expect(saved).toBeHidden();
+  else await expect(saved).toBeVisible();
+  await profile.click();
+  await expect(page).toHaveURL(/\/profile$/);
   await expect(
-    page.getByRole("navigation", { name: "All pages", exact: true }),
-  ).not.toBeVisible();
-  await expect(page).toHaveURL(/\/today$/);
+    page.locator("main").getByRole("link", { name: "Sign in", exact: true }),
+  ).toHaveAttribute("href", "/login");
+  await expect(
+    page
+      .locator("main")
+      .getByRole("link", { name: "Share an update", exact: true }),
+  ).toHaveAttribute("href", "/share-update");
+});
+
+for (const route of ["/app/alerts", "/notifications"]) {
+  test(`${route} contains account preferences and browser notifications`, async ({
+    page,
+  }) => {
+    await page.goto(route);
+    await expect(
+      page.getByRole("heading", { name: "Alerts", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Alert preferences", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Browser notifications", exact: true }),
+    ).toBeVisible();
+  });
+}
+
+test("public tools remain within two taps and trust links appear once in the footer", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .locator(".primary-navigation, .mobile-nav")
+    .getByRole("link", { name: "Services", exact: true })
+    .filter({ visible: true })
+    .click();
+  for (const href of ["/deadlines", "/storm", "/new-to-paris"])
+    await expect(page.locator(`main a[href="${href}"]`).first()).toBeVisible();
+  await page.goto("/explore");
+  await expect(page.locator('main a[href="/paris-ontario"]')).toBeVisible();
+  const footer = page.locator("footer");
+  await expect(footer.getByRole("link")).toHaveCount(7);
+  await expect(footer.locator('a[href="/about"]')).toHaveCount(1);
 });

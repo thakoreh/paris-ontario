@@ -63,14 +63,14 @@ test.describe("resident discovery UI", () => {
       navigation.getByRole("link", { name: "Explore", exact: true }),
     ).toBeVisible();
     await expect(
-      navigation.getByRole("link", { name: "Share", exact: true }),
+      navigation.getByRole("link", { name: "Events", exact: true }),
     ).toBeVisible();
     await expect(
-      navigation.getByRole("link", { name: "My area", exact: true }),
+      navigation.getByRole("link", { name: "Services", exact: true }),
     ).toBeVisible();
     await navigation
       .getByRole("link", { name: "Explore", exact: true })
       .click();
-    await expect(page).toHaveURL(/\/map$/);
+    await expect(page).toHaveURL(/\/explore$/);
   });
 });

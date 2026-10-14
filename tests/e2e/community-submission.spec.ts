@@ -170,7 +170,7 @@ test("Share review can be edited and sends only public draft fields once for pen
     fullPage: true,
   });
   await page.getByRole("link", { name: "Back to Today", exact: true }).click();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/$/);
   await expect(
     page.getByRole("link", { name: editedTitle, exact: true }),
   ).toHaveCount(0);

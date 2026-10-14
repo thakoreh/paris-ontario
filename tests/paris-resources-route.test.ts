@@ -6,9 +6,9 @@ const root = path.resolve(__dirname, "..");
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 
 describe("Paris Ontario resource hub route", () => {
-  it("is public, rendered by the catch-all route, and linked from shared navigation", () => {
+  it("is public, rendered by the catch-all route, and linked from Explore", () => {
     expect(read("src/middleware.ts")).toContain('"/paris-ontario"');
     expect(read("src/app/[[...path]]/page.tsx")).toContain('route === "paris-ontario"');
-    expect(read("src/components/shell.tsx")).toContain('"/paris-ontario"');
+    expect(read("src/app/explore/page.tsx")).toContain('"/paris-ontario"');
   });
 });

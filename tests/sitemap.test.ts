@@ -76,10 +76,10 @@ describe("public sitemap coverage", () => {
       params: { id?: string },
     ) => ReturnType<typeof sitemap>;
 
-    await expect(nextMetadataExport({ id: undefined })).resolves.toHaveLength(15);
+    await expect(nextMetadataExport({ id: undefined })).resolves.toHaveLength(14);
     expect(mocks.publicData).toHaveBeenCalledWith(expect.any(Date));
   });
-  it("preserves all 15 static routes and adds only eligible dynamic records", async () => {
+  it("preserves all 14 static routes and adds only eligible dynamic records", async () => {
     mocks.publicData.mockResolvedValue({
       notices: [
         notice(),
@@ -108,8 +108,11 @@ describe("public sitemap coverage", () => {
       (url) => !url.includes("/notice/") && !url.includes("/deadline/"),
     );
 
-    expect(staticUrls).toHaveLength(15);
-    expect(new Set(staticUrls).size).toBe(15);
+    expect(staticUrls).toContain("https://parispulse.ca/explore");
+    expect(staticUrls).not.toContain("https://parispulse.ca/today");
+    expect(staticUrls).not.toContain("https://parispulse.ca/map");
+    expect(staticUrls).toHaveLength(14);
+    expect(new Set(staticUrls).size).toBe(14);
     expect(urls).toEqual(
       expect.arrayContaining([
         "https://parispulse.ca/notice/verified-road-update",
@@ -162,7 +165,7 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(fixedNow);
-    expect(entries).toHaveLength(15);
+    expect(entries).toHaveLength(14);
     expect(entries.every((entry) => !entry.url.includes("/notice/") && !entry.url.includes("/deadline/"))).toBe(true);
   });
 });

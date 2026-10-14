@@ -69,14 +69,10 @@ test("the previous visit is stable during navigation and advances on a real retu
   );
 
   // Next client navigation must not relabel every page transition as a visit.
-  await page.getByRole("button", { name: "Browse all pages" }).click();
-  await page
-    .getByRole("navigation", { name: "All pages" })
-    .getByRole("link", { name: "Explore the map", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/map$/);
+  await page.locator(".primary-navigation, .mobile-nav").getByRole("link", { name: "Explore", exact: true }).filter({ visible: true }).click();
+  await expect(page).toHaveURL(/\/explore$/);
   await page.goBack();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/$/);
   await expect(
     shelf.getByRole("link", { name: fixtureNoticeTitle, exact: true }),
   ).toBeVisible();
@@ -196,39 +192,14 @@ test("All Paris is an explicit persistent escape from a small neighbourhood radi
   });
 });
 
-test("desktop navigation and the complete tools menu remain keyboard operable", async ({
-  page,
-}) => {
+test("desktop profile remains keyboard operable", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/today");
-  const navigation = page.getByRole("navigation", { name: "Main navigation" });
-  await expect(navigation.getByRole("link")).toHaveCount(4);
-  for (const name of ["Today", "Explore", "Share", "My area"]) {
-    await expect(
-      navigation.getByRole("link", { name, exact: true }),
-    ).toBeVisible();
-  }
-  const toggle = page.getByRole("button", { name: "Browse all pages" });
-  await toggle.focus();
+  await page.goto("/");
+  const profile = page.getByRole("link", { name: "Your profile", exact: true });
+  await profile.focus();
   await page.keyboard.press("Enter");
-  const menu = page.getByRole("navigation", { name: "All pages" });
-  const deadline = menu.getByRole("link", {
-    name: "Upcoming deadlines",
-    exact: true,
-  });
-  await expect(deadline).toBeVisible();
-  await deadline.focus();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/deadlines$/);
-  await expect(menu).not.toBeVisible();
-  await page.goBack();
-  await expect(page).toHaveURL(/\/today$/);
-  await expect(menu).not.toBeVisible();
-  await toggle.focus();
-  await page.keyboard.press("Enter");
-  await page.keyboard.press("Escape");
-  await expect(menu).not.toBeVisible();
-  await expect(toggle).toBeFocused();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole("heading", { name: "Your profile", exact: true })).toBeVisible();
 });
 
 test("320px screens and reduced motion preserve all four resident destinations", async ({
@@ -252,7 +223,7 @@ test("320px screens and reduced motion preserve all four resident destinations",
     const navigation = page.getByRole("navigation", {
       name: "Mobile navigation",
     });
-    for (const name of ["Today", "Explore", "Share", "My area"]) {
+    for (const name of ["Today", "Events", "Explore", "Services"]) {
       await expect(
         navigation.getByRole("link", { name, exact: true }),
       ).toBeVisible();
@@ -277,12 +248,8 @@ test("320px screens and reduced motion preserve all four resident destinations",
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
     expect(bounds.height).toBeGreaterThanOrEqual(44);
   }
-  await page.getByRole("button", { name: "Browse all pages" }).click();
+  await page.getByRole("link", { name: "Your profile", exact: true }).click();
   await expectNoHorizontalOverflow(page);
-  await page.keyboard.press("Escape");
-  await expect(
-    page.getByRole("button", { name: "Browse all pages" }),
-  ).toBeFocused();
 });
 
 test("unavailable visit storage is explained without making newness claims", async ({

@@ -11,6 +11,8 @@ const staticRoutes = new Set([
   "/deadlines",
   "/map",
   "/events",
+  "/explore",
+  "/profile",
   "/paris-ontario",
   "/services",
   "/new-to-paris",

@@ -47,43 +47,12 @@ test("notice filters announce results and reset without a reload", async ({
   ).toBe(true);
 });
 
-test("mobile menu exposes resident destinations and closes on navigation", async ({
-  page,
-}) => {
+test("mobile profile keeps sign-in and sharing reachable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/today");
-  const toggle = page.getByRole("button", { name: "Browse all pages" });
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await toggle.click();
-  const menu = page.getByRole("navigation", { name: "All pages" });
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(
-    menu.getByRole("link", { name: "Today in Paris", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
-  for (const name of [
-    "Explore the map",
-    "Upcoming deadlines",
-    "Storm & disruption",
-    "Events & activities",
-    "New to Paris",
-    "Browser notifications",
-  ]) {
-    await expect(menu.getByRole("link", { name, exact: true })).toBeVisible();
-  }
-  await page.keyboard.press("Escape");
-  await expect(menu).not.toBeVisible();
-  await expect(toggle).toBeFocused();
-  await toggle.click();
-  await menu
-    .getByRole("link", { name: "Upcoming deadlines", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/deadlines$/);
-  await expect(menu).not.toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  await page.goto("/");
+  await page.getByRole("link", { name: "Your profile", exact: true }).click();
+  await expect(page.locator("main").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.locator("main").getByRole("link", { name: "Share an update", exact: true })).toBeVisible();
 });
 
 test("Explore preserves filters across List and Map and links a selected notice to its marker", async ({

@@ -17,11 +17,10 @@ type SitemapEntry = [
 // Static routes omit lastModified unless a durable publication/review date is known.
 const routes: SitemapEntry[] = [
   ["/", "daily", 1],
-  ["/today", "hourly", 0.9],
   ["/storm", "hourly", 0.9],
   ["/deadlines", "daily", 0.8],
   ["/events", "daily", 0.8],
-  ["/map", "daily", 0.7],
+  ["/explore", "daily", 0.7],
   ["/sources", "weekly", 0.8],
   ["/paris-ontario", "monthly", 0.9, "2026-09-15"],
   ["/services", "monthly", 0.9, "2026-09-15"],

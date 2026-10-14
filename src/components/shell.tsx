@@ -1,111 +1,31 @@
 "use client";
+import React from "react";
 import Link from "next/link";
-import { useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   Activity,
   ArrowRight,
-  Bell,
   Bookmark,
   CalendarDays,
-  CloudLightning,
   Compass,
   Home,
-  Map,
   MapPin,
-  Menu,
-  Plus,
-  Settings,
   ShieldCheck,
-  X,
+  UserRound,
 } from "lucide-react";
 import { usePersonal } from "./provider";
 import "./neighbourhood.css";
 
 const destinations = [
-  ["/today", "Today", Home],
-  ["/map", "Explore", Compass],
-  ["/share-update", "Share", Plus],
-  ["/app/area", "My area", MapPin],
-] as const;
-const allPages = [
-  ["/today", "Today in Paris", Home],
-  ["/map", "Explore the map", Map],
-  ["/app/feed", "Explore the list", Compass],
-  ["/events", "Events & activities", CalendarDays],
-  ["/deadlines", "Upcoming deadlines", CalendarDays],
-  ["/storm", "Storm & disruption", CloudLightning],
-  ["/services", "Everyday services", ShieldCheck],
-  ["/new-to-paris", "New to Paris", Home],
-  ["/paris-ontario", "Paris resource guide", Compass],
-  ["/app/saved", "Saved notices", Bookmark],
-  ["/app/locations", "My locations", MapPin],
-  ["/app/alerts", "Alert preferences", Bell],
-  ["/notifications", "Browser notifications", Bell],
-  ["/app/settings", "Account settings", Settings],
+  ["/", "Today", Home],
+  ["/events", "Events", CalendarDays],
+  ["/explore", "Explore", Compass],
+  ["/services", "Services", ShieldCheck],
 ] as const;
 function isCurrent(path: string, href: string) {
-  if (href === "/today") return ["/", "/today", "/app"].includes(path);
-  if (href === "/map")
-    return ["/map", "/app/map", "/app/feed", "/events"].includes(path);
-  if (href === "/app/area")
-    return [
-      "/app/area",
-      "/onboarding",
-      "/app/locations",
-      "/app/locations/new",
-      "/app/alerts",
-      "/notifications",
-      "/app/settings",
-    ].includes(path);
-  return href === path;
-}
-function PageMenu({ path }: { path: string }) {
-  const [open, setOpen] = useState(false);
-  const toggle = useRef<HTMLButtonElement>(null);
-  return (
-    <div
-      className="page-menu"
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && open) {
-          setOpen(false);
-          toggle.current?.focus();
-        }
-      }}
-    >
-      <button
-        ref={toggle}
-        type="button"
-        className="button outline"
-        aria-label="Browse all pages"
-        aria-expanded={open}
-        aria-controls="all-pages-menu"
-        onClick={() => setOpen(!open)}
-      >
-        {open ? <X size={18} /> : <Menu size={18} />} <span>Menu</span>
-      </button>
-      <nav id="all-pages-menu" aria-label="All pages" hidden={!open}>
-        <p className="nav-label">LOCAL TOOLS & YOUR SETTINGS</p>
-        {allPages.map(([href, label, Icon]) => (
-          <Link
-            href={href}
-            key={href}
-            aria-current={
-              path === href ||
-              (href === "/today" && ["/", "/app"].includes(path)) ||
-              (href === "/map" && path === "/app/map")
-                ? "page"
-                : undefined
-            }
-            onClick={() => setOpen(false)}
-          >
-            <Icon size={18} />
-            {label}
-          </Link>
-        ))}
-      </nav>
-    </div>
-  );
+  if (href === "/") return path === "/";
+  if (href === "/explore" && path === "/app/map") return true;
+  return path === href || path.startsWith(`${href}/`);
 }
 export function AreaContextBar() {
   const p = usePersonal();
@@ -167,7 +87,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const showArea = [
     "/",
     "/today",
-    "/map",
+    "/explore",
     "/events",
     "/app",
     "/app/feed",
@@ -181,7 +101,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </a>
       <div className="site-body">
         <header className="topbar neighbourhood-topbar">
-          <Link className="brand" href="/today" aria-label="Paris Pulse home">
+          <Link className="brand" href="/" aria-label="Paris Pulse home">
             <span className="brand-icon">
               <Activity size={22} />
             </span>
@@ -209,7 +129,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Bookmark size={19} />
               <span>Saved</span>
             </Link>
-            <PageMenu key={path} path={path} />
+            <Link
+              className="button outline profile-entry"
+              href="/profile"
+              aria-label="Your profile"
+            >
+              <UserRound size={22} />
+            </Link>
           </div>
         </header>
         {p.demo && process.env.NEXT_PUBLIC_PARIS_PULSE_TEST_MODE !== "1" && (
@@ -229,15 +155,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span>Useful local information. Original sources. Your area.</span>
           </div>
           <div>
-            <Link href="/services">Services</Link>
-            <Link href="/deadlines">Deadlines</Link>
-            <Link href="/new-to-paris">New to Paris</Link>
             <Link href="/sources">Sources</Link>
             <Link href="/about">About</Link>
             <Link href="/editorial-policy">Editorial policy</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
             <Link href="/contact">Contact</Link>
+            <Link href="/share-update">Share an update</Link>
           </div>
           <p>
             © {new Date().getFullYear()} Paris Pulse. Information can change.
