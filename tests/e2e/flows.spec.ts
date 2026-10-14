@@ -48,15 +48,12 @@ test("guest preferences, saved notices and reminders persist without sign-in", a
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Add to calendar" }).first().click();
   expect((await download).suggestedFilename()).toMatch(/\.ics$/);
-  await page
-    .getByRole("button", { name: "Remind me", exact: true })
-    .first()
-    .click();
-  await expect(page.getByRole("status")).toContainText("Reminder saved");
-  await page.reload();
+  // Email reminders are not offered until delivery exists (Nitpick item 7);
+  // calendar export is the reminder path.
   await expect(
-    page.getByRole("button", { name: "Update reminder" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Remind me", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText(/not enabled yet/)).toHaveCount(0);
 });
 test("manual location and access protection", async ({ page, request }) => {
   await page.goto("/app/locations");
