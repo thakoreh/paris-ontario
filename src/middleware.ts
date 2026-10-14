@@ -69,7 +69,7 @@ const staticRoutes = new Set([
 ]);
 
 function notFoundResponse(request: NextRequest) {
-  return NextResponse.rewrite(new URL("/_not-found", request.url), {
+  return NextResponse.rewrite(new URL("/api/not-found", request.url), {
     status: 404,
   });
 }
