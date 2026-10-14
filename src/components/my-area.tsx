@@ -32,7 +32,7 @@ export function MyArea({ notices, unavailable = false }: { notices: Notice[]; un
     finally { setBusy(false); }
   }
   return <div className="page-wrap area-setup">
-    <div className="page-heading"><div><span className="eyebrow">MY AREA · PRIVATE BY DESIGN</span><h1>Make Paris feel local.</h1><p>Choose the places and updates that matter to you. Browser alerts are optional.</p></div><Link className="text-link" href="/today">Back to Today</Link></div>
+    <div className="page-heading"><div><span className="eyebrow">MY AREA · PRIVATE BY DESIGN</span><h1>Make Paris feel local.</h1><p>Choose the places and updates that matter to you. Browser alerts are optional.</p></div><Link className="text-link" href="/">Back to Today</Link></div>
     <ol className="area-steps" aria-label="Set up your area">{steps.map((name, i) => <li key={name} aria-current={step === i ? "step" : undefined}><span>{i + 1}</span>{name}</li>)}</ol>
     <p className="area-storage-note"><ShieldCheck size={17} />{p.guest ? "Your guest places and preferences stay in this browser. They are not transferred when you sign in." : "Your saved places are private to your account. Your visit history stays in this browser."}</p>
     <section className="panel area-step-panel" aria-label={steps[step]}>
@@ -49,7 +49,7 @@ export function MyArea({ notices, unavailable = false }: { notices: Notice[]; un
         <button className="button primary" onClick={() => setStep(2)}>Continue to interests<ArrowRight size={16} /></button>
       </>}
       {step === 2 && <><h2>What matters to you?</h2><p>Choose the topics you want to hear about. You can browse without choosing any; push notifications require at least one.</p><div className="interest-grid">{categories.map(category => <label key={category} className={interests.includes(category) ? "interest selected" : "interest"}><input type="checkbox" checked={interests.includes(category)} onChange={event => setInterests(event.target.checked ? [...interests, category] : interests.filter(value => value !== category))} />{categoryLabels[category]}</label>)}</div><button className="button primary" disabled={busy} onClick={() => void advance("interests")}>{busy ? "Saving…" : "Save interests"}<ArrowRight size={16} /></button></>}
-      {step === 3 && <><BrowserNotifications embedded /><Link className="button primary" href="/today">Finish and explore<ArrowRight size={16} /></Link></>}
+      {step === 3 && <><BrowserNotifications embedded /><Link className="button primary" href="/">Finish and explore<ArrowRight size={16} /></Link></>}
       {error && <p className="error" role="alert">{error}</p>}
       {step > 0 && <button className="button outline setup-back" disabled={busy} onClick={() => { setError(""); setStep(step - 1); }}><ArrowLeft size={16} />Back</button>}
     </section>

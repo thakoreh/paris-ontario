@@ -13,7 +13,20 @@ const securityHeaders = [
 const config: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // The dev badge overlaps the mobile tab bar in e2e (dev server only).
+  devIndicators: false,
+  // Keep descriptions in <head> for HTML-only SEO checks, including Lighthouse.
+  htmlLimitedBots: /.*/,
   outputFileTracingRoot: process.cwd(),
+  async redirects() {
+    // Explicit 301s meet the legacy URL contract (permanent: true uses 308).
+    return [
+      { source: "/today", destination: "/", statusCode: 301 },
+      { source: "/app", destination: "/", statusCode: 301 },
+      { source: "/map", destination: "/explore", statusCode: 301 },
+      { source: "/app/feed", destination: "/explore", statusCode: 301 },
+    ];
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

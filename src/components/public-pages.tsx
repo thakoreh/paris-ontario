@@ -1,3 +1,4 @@
+import { CoverageStatus } from "./coverage-status";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -107,7 +108,7 @@ export function StormPage({
     </div>
   );
 }
-export function SourcesPage({ sources }: { sources: Source[] }) {
+export function SourcesPage({ sources, demo = false }: { sources: Source[]; demo?: boolean }) {
   const freshness = contentFreshness(sources);
   return (
     <div className="page-wrap">
@@ -125,6 +126,7 @@ export function SourcesPage({ sources }: { sources: Source[] }) {
           authoritative alerts.
         </p>
       </div>
+      <CoverageStatus sources={sources} demo={demo} />
       <div className="message-box" role="status">
         <strong>
           {freshness.state === "current"
@@ -153,6 +155,10 @@ export function SourcesPage({ sources }: { sources: Source[] }) {
                   {s.ingestion_type} ·{" "}
                   {s.ingestion_enabled ? "enabled" : "not automated"}
                 </dd>
+              </div>
+              <div>
+                <dt>Review status</dt>
+                <dd>{contentFreshness([s]).state === "current" ? "Within schedule" : "Needs review"}</dd>
               </div>
               <div>
                 <dt>Last checked</dt>

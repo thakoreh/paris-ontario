@@ -9,7 +9,7 @@ export default function ErrorPage({ reset }: { reset: () => void }) {
           original sources for time-sensitive details.
         </p>
         <button className="button primary" onClick={reset}>
-          Try again
+          Retry
         </button>
       </div>
     </div>

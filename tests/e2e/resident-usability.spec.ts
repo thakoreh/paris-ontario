@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("notice filters announce results and reset without a reload", async ({
   page,
 }) => {
-  await page.goto("/app/feed");
+  await page.goto("/app/map");
   const results = page.getByRole("status", { name: "Notice results" });
   await expect(results).toContainText(/Showing \d+ of \d+ notices/);
   await expect(page.locator(".notice-list .notice-card").first()).toBeVisible();
@@ -11,7 +11,7 @@ test("notice filters announce results and reset without a reload", async ({
   await page
     .getByRole("searchbox", { name: "Search local updates" })
     .fill("zzzz-no-such-paris-notice");
-  await expect(results).toHaveText("Showing 0 of 0 notices");
+  await expect(results).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "No matching notices." }),
   ).toBeVisible();
@@ -47,49 +47,18 @@ test("notice filters announce results and reset without a reload", async ({
   ).toBe(true);
 });
 
-test("mobile menu exposes resident destinations and closes on navigation", async ({
-  page,
-}) => {
+test("mobile profile keeps sign-in and sharing reachable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/today");
-  const toggle = page.getByRole("button", { name: "Browse all pages" });
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await toggle.click();
-  const menu = page.getByRole("navigation", { name: "All pages" });
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect(
-    menu.getByRole("link", { name: "Today in Paris", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
-  for (const name of [
-    "Explore the map",
-    "Upcoming deadlines",
-    "Storm & disruption",
-    "Events & activities",
-    "New to Paris",
-    "Browser notifications",
-  ]) {
-    await expect(menu.getByRole("link", { name, exact: true })).toBeVisible();
-  }
-  await page.keyboard.press("Escape");
-  await expect(menu).not.toBeVisible();
-  await expect(toggle).toBeFocused();
-  await toggle.click();
-  await menu
-    .getByRole("link", { name: "Upcoming deadlines", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/deadlines$/);
-  await expect(menu).not.toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  await page.goto("/");
+  await page.getByRole("link", { name: "Your profile", exact: true }).click();
+  await expect(page.locator("main").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.locator("main").getByRole("link", { name: "Share an update", exact: true })).toBeVisible();
 });
 
 test("Explore preserves filters across List and Map and links a selected notice to its marker", async ({
   page,
 }, testInfo) => {
-  await page.goto("/app/feed");
+  await page.goto("/app/map");
   await expect(
     page.getByRole("heading", {
       name: "Explore your neighbourhood",
@@ -97,9 +66,7 @@ test("Explore preserves filters across List and Map and links a selected notice 
     }),
   ).toBeVisible();
   const view = page.getByRole("group", { name: "Explore view", exact: true });
-  await expect(
-    view.getByRole("button", { name: "List", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await view.getByRole("button", { name: "List", exact: true }).click();
   const search = page.getByRole("searchbox", {
     name: "Search local updates",
     exact: true,

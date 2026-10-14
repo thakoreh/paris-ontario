@@ -1,3 +1,4 @@
+import { TodayPage } from "@/components/today-page";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { publicData, noticeBySlug, deadlineById } from "@/lib/repository";
@@ -11,9 +12,9 @@ import {
   AccountGate,
   LocationsPage,
   LocationForm,
-  PreferencesForm,
   SettingsPage,
 } from "@/components/account";
+import { AlertsPage } from "@/components/alerts-page";
 import { MyArea } from "@/components/my-area";
 import { CommunitySubmissionForm, SubmissionReviewQueue } from "@/components/community-submission-form";
 import { Admin } from "@/components/admin";
@@ -70,10 +71,10 @@ export async function generateMetadata({
   if (route === "_not-found") return privateRouteMetadata("Update not found");
   if (privateRoute) return privateRouteMetadata("Your Paris Pulse");
 
-  const homepage = route === "";
+  const homepage = route === "" || route === "today";
   let title: string | undefined;
   let description: string | undefined;
-  const canonical = route === "disclaimer" ? "/privacy" : route ? `/${route}` : "/";
+  const canonical = homepage ? "/" : route === "disclaimer" ? "/privacy" : route === "map" ? "/explore" : `/${route}`;
   let type: "website" | "article" = "website";
 
   if (homepage) {
@@ -94,11 +95,6 @@ export async function generateMetadata({
     type = "article";
   } else {
     const pageMetadata: Record<string, { title: string; description: string }> = {
-      today: {
-        title: "Today in Paris",
-        description:
-          "The latest verified local updates and disruptions for Paris, Ontario.",
-      },
       storm: {
         title: "Storm & disruption",
         description:
@@ -216,17 +212,7 @@ export default async function Page({
         </div>
       </AccountGate>
     );
-  if (route === "app/alerts")
-    return (
-      <AccountGate>
-        <div className="page-wrap narrow">
-          <h1>Alert preferences</h1>
-          <div className="panel">
-            <PreferencesForm />
-          </div>
-        </div>
-      </AccountGate>
-    );
+  if (route === "app/alerts") return <AlertsPage />;
   if (route === "app/settings")
     return (
       <AccountGate>
@@ -257,6 +243,7 @@ export default async function Page({
     return <DeadlinesPage deadlines={[deadline]} detail />;
   }
   const data = await publicData();
+  if (route === "") return <TodayPage {...data} unavailable={!!data.error} />;
   if (data.error)
     return (
       <div className="page-wrap">
@@ -268,7 +255,7 @@ export default async function Page({
       </div>
     );
   if (route === "storm") return <StormPage {...data} />;
-  if (route === "sources") return <SourcesPage sources={data.sources} />;
+  if (route === "sources") return <SourcesPage sources={data.sources} demo={data.demo || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY} />;
   if (route === "deadlines" || route === "app/deadlines") {
     const content = (
       <DeadlinesPage
@@ -284,7 +271,7 @@ export default async function Page({
   }
   const modes: Record<string, string> = {
     "": "home",
-    today: "today",
+    today: "home",
     map: "map",
     events: "events",
     app: "app",

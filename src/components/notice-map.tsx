@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { withRetry } from "@/lib/retry";
 import type { Notice, Location } from "@/types";
 import { community } from "@/config/community";
 import { noticeKind } from "@/lib/resident-experience";
+import { loadExploreLayer } from "@/lib/explore-map-data";
+import exploreSources from "../../public/data/explore/sources.json";
 import { categoryLabels } from "@/types";
 
 type MapData = {
@@ -13,6 +16,9 @@ type MapData = {
 };
 export default function NoticeMap({
   notices,
+  exploreLayers = false,
+  noticeError = false,
+  onRetryNotices,
   locations = [],
   radius = 0,
   pick,
@@ -20,6 +26,9 @@ export default function NoticeMap({
   selectedNoticeId,
   onSelectNotice,
 }: Omit<MapData, "locations" | "radius"> & {
+  exploreLayers?: boolean;
+  noticeError?: boolean;
+  onRetryNotices?: () => void;
   locations?: Location[];
   radius?: number;
   onPick?: (lat: number, lng: number) => void;
@@ -30,7 +39,9 @@ export default function NoticeMap({
   const clusterRef = useRef<import("leaflet").MarkerClusterGroup | null>(null);
   const markers = useRef(new Map<string, import("leaflet").Marker>());
   const selectCallback = useRef(onSelectNotice);
+  const [layerError, setLayerError] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     selectCallback.current = onSelectNotice;
@@ -39,12 +50,13 @@ export default function NoticeMap({
   const dataKey = JSON.stringify({ notices, locations, radius, pick });
   useEffect(() => {
     let disposed = false;
+    const controller = new AbortController();
     let map: import("leaflet").Map | undefined;
     const data: MapData = JSON.parse(dataKey);
     const mapMarkers = markers.current;
     void (async () => {
-      const L = (await import("leaflet")).default;
-      await import("leaflet.markercluster");
+      const L = (await withRetry(() => import("leaflet"))).default;
+      await withRetry(() => import("leaflet.markercluster"));
       if (disposed || !ref.current) return;
       map = L.map(ref.current, { scrollWheelZoom: false }).setView(
         [
@@ -88,6 +100,41 @@ export default function NoticeMap({
         cluster.addLayer(marker);
       }
       map.addLayer(cluster);
+      if (exploreLayers) {
+        const overlays: Record<string, import("leaflet").Layer> = { Notices: cluster };
+        const pending = new Set<string>();
+        const loaded = new Set<string>();
+        for (const source of exploreSources) {
+          const group = L.layerGroup();
+          overlays[source.name] = group;
+          const load = async () => {
+            if (loaded.has(source.id) || pending.has(source.id)) return;
+            pending.add(source.id);
+            try {
+              const response = await loadExploreLayer(source.path, controller.signal);
+              if (disposed) return;
+              L.geoJSON(response, {
+                style: { color: "#1f7a74", weight: 4 },
+                pointToLayer: (_, latlng) => L.circleMarker(latlng, {
+                  radius: 7, color: source.id === "parking" ? "#725735" : "#155c57",
+                  fillOpacity: 0.8,
+                }),
+              }).addTo(group);
+              loaded.add(source.id);
+              setLayerError(null);
+            } catch {
+              if (!disposed) {
+                map?.removeLayer(group);
+                setLayerError(`${source.name} couldn’t load. Toggle it again to retry.`);
+              }
+            } finally { pending.delete(source.id); }
+          };
+          map.on("overlayadd", (event: import("leaflet").LayersControlEvent) => {
+            if (event.layer === group) void load();
+          });
+        }
+        L.control.layers(undefined, overlays, { collapsed: false }).addTo(map);
+      }
       for (const location of data.locations) {
         const privateLabel = document.createElement("span");
         privateLabel.textContent = `${location.label} · private`;
@@ -130,11 +177,12 @@ export default function NoticeMap({
     });
     return () => {
       disposed = true;
+      controller.abort();
       map?.remove();
       clusterRef.current = null;
       mapMarkers.clear();
     };
-  }, [dataKey, onPick]);
+  }, [dataKey, onPick, retryKey, exploreLayers]);
   useEffect(() => {
     if (!selectedNoticeId) return;
     const marker = markers.current.get(selectedNoticeId);
@@ -142,6 +190,7 @@ export default function NoticeMap({
       clusterRef.current.zoomToShowLayer(marker, () => marker.openPopup());
   }, [selectedNoticeId, revision]);
   return (
+    <>
     <div className="leaflet-map" style={{ position: "relative" }}>
       <div
         ref={ref}
@@ -153,15 +202,37 @@ export default function NoticeMap({
             : "Map of notice locations. Equivalent notices are available in the list."
         }
       />
+      {layerError && <p role="status" className="map-layer-error">{layerError}</p>}
       {failed && (
-        <p
+        <div
           className="map-loading"
           role="status"
           style={{ position: "absolute", inset: 0 }}
         >
-          The map couldn’t load. The same updates are available in the list.
-        </p>
+          <p>
+            The map couldn’t load. The same updates are available in the list.
+          </p>
+          <button
+            className="button outline"
+            onClick={() => {
+              setFailed(false);
+              setRetryKey((value) => value + 1);
+            }}
+          >
+            Retry
+          </button>
+        </div>
       )}
     </div>
+    {noticeError && <div role="status" className="map-notice-error">
+      <p>Notices couldn&apos;t load. County layers are still shown.</p>
+      <button className="button outline" onClick={onRetryNotices}>Retry</button>
+    </div>}
+    {exploreLayers && <aside className="map-sources" aria-label="Map data sources">
+      {exploreSources.map((source) => <a key={source.id} href={source.source_url} target="_blank" rel="noreferrer">
+        {source.name} · County of Brant Open Data · checked {source.checked} ↗
+      </a>)}
+    </aside>}
+    </>
   );
 }

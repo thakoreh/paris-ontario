@@ -15,7 +15,6 @@ import {
   Bus,
   CloudLightning,
   Info,
-  Bell,
   Download,
   Store,
 } from "lucide-react";
@@ -239,7 +238,6 @@ export function DeadlineCard({
   deadline: Deadline;
   full?: boolean;
 }) {
-  const p = usePersonal();
   const date = new Date(d.deadline_at);
   return (
     <article className="deadline-card">
@@ -278,37 +276,6 @@ export function DeadlineCard({
                 onClick={() => downloadCalendar(d)}
               >
                 <Download size={15} /> Add to calendar
-              </button>
-              <select
-                aria-label={`Reminder for ${d.title}`}
-                defaultValue="1440"
-                id={`reminder-${d.id}`}
-              >
-                <option value="1440">1 day before</option>
-                <option value="60">1 hour before</option>
-                <option value="0">At deadline</option>
-              </select>
-              <button
-                className="button outline small"
-                onClick={() =>
-                  void p
-                    .remind({
-                      deadline_id: d.id,
-                      minutes_before: Number(
-                        (
-                          document.getElementById(
-                            `reminder-${d.id}`,
-                          ) as HTMLSelectElement
-                        ).value,
-                      ),
-                    })
-                    .catch((e) => p.notify(e.message))
-                }
-              >
-                <Bell size={15} />
-                {p.reminders.some((r) => r.deadline_id === d.id)
-                  ? "Update reminder"
-                  : "Remind me"}
               </button>
               <a
                 href={d.official_url}
@@ -372,7 +339,7 @@ export function EmptyState({
       <span className="empty-icon">
         <Check />
       </span>
-      <h3>{title}</h3>
+      <h2>{title}</h2>
       <p>{description}</p>
     </div>
   );

@@ -3,20 +3,20 @@ import { expect, test } from "@playwright/test";
 test("resident services search and category filters work", async ({ page }) => {
   await page.goto("/services");
   await expect(
-    page.getByRole("heading", { name: "Everyday services in Paris, Ontario" }),
+    page.getByRole("heading", { name: "Services", exact: true }),
   ).toBeVisible({ timeout: 10000 });
-  await expect(page.locator(".service-card")).toHaveCount(8);
+  await expect(page.locator(".service-rows").first().locator(".service-row")).toHaveCount(8);
   await page.getByLabel("Search services").fill("trash");
-  await expect(page.locator(".service-card")).toHaveCount(1);
+  await expect(page.locator(".service-rows").first().locator(".service-row")).toHaveCount(1);
   await expect(
-    page.getByRole("link", { name: "Find my collection information" }),
+    page.getByRole("link", { name: /Garbage, recycling & yard waste/ }),
   ).toHaveAttribute("href", /brant.ca\/garbage/);
   await page.getByLabel("Service category").selectOption("Getting around");
   await expect(
-    page.getByText("No services match those filters."),
+    page.getByRole("status").filter({ hasText: "No services match those filters." }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect(page.locator(".service-card")).toHaveCount(8);
+  await expect(page.locator(".service-rows").first().locator(".service-row")).toHaveCount(8);
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
     "https://parispulse.ca/services",

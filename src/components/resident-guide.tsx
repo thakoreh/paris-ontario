@@ -72,7 +72,7 @@ export function ResidentServices() {
           <p>
             Try a shorter search or clear the category. Looking for a closure or
             event?{" "}
-            <Link className="text-link" href="/today">
+            <Link className="text-link" href="/">
               Check local updates
             </Link>
             .

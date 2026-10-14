@@ -21,7 +21,7 @@ describe("middleware public deadline eligibility", () => {
     vi.clearAllMocks();
   });
 
-  it.each(["/app/area", "/share-update", "/admin/submissions"])("allows the new registered route %s through to its page guard", async (path) => {
+  it.each(["/app/area", "/share-update", "/admin/submissions", "/explore", "/explore/trails", "/explore/visiting", "/services/council", "/profile"])("allows the new registered route %s through to its page guard", async (path) => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const response = await createMiddleware()(new NextRequest(`http://localhost${path}`));

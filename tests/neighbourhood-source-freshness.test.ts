@@ -1,3 +1,4 @@
+import { CoverageStatus } from "@/components/coverage-status";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -57,11 +58,7 @@ const notice = (changes: Partial<Notice> = {}): Notice => ({
   ...changes,
 });
 
-const feed = (
-  sources: Source[],
-  notices: Notice[] = [],
-  mode = "today",
-) =>
+const feed = (sources: Source[], notices: Notice[] = [], mode = "today") =>
   renderToString(
     React.createElement(Feed, {
       notices,
@@ -94,14 +91,13 @@ beforeEach(() => {
     removeLocation: vi.fn(),
     savePreferences: vi.fn(),
     toggleNotice: vi.fn(),
-    remind: vi.fn(),
     signOut: vi.fn(),
   };
 });
 
-describe("Today source coverage notice", () => {
+describe("Internal source coverage notice", () => {
   it("labels an on-schedule source check as current and links to source coverage", () => {
-    const html = feed([
+    const html = coverage([
       source(new Date(Date.now() - 5 * 60_000).toISOString()),
     ]);
 
@@ -111,7 +107,7 @@ describe("Today source coverage notice", () => {
   });
 
   it("warns when active source checks are overdue without claiming there are no updates", () => {
-    const html = feed([
+    const html = coverage([
       source(new Date(Date.now() - 2 * 60 * 60_000).toISOString()),
     ]);
 
@@ -124,17 +120,15 @@ describe("Today source coverage notice", () => {
   });
 
   it("distinguishes a source with no recorded check from a dated overdue check", () => {
-    const html = feed([source(null)]);
+    const html = coverage([source(null)]);
 
     expect(html).toContain("Source check history is incomplete");
-    expect(html.replace(/<!-- -->/g, "")).toContain(
-      "has no recorded check",
-    );
+    expect(html.replace(/<!-- -->/g, "")).toContain("has no recorded check");
     expect(html).not.toContain("active source is overdue");
   });
 
   it("explains unknown coverage when there are no active sources", () => {
-    const html = feed([]);
+    const html = coverage([]);
 
     expect(html).toContain("Source coverage is unknown");
     expect(html).toContain("No active source checks are available");
@@ -143,35 +137,33 @@ describe("Today source coverage notice", () => {
 
   it("labels demo previews and does not present them as production coverage", () => {
     state.personal.demo = true;
-    const html = feed([
+    const html = coverage([
       source(new Date(Date.now() - 2 * 60 * 60_000).toISOString()),
     ]);
 
     expect(html).toContain("Sample preview");
-    expect(html).toContain(
-      "does not count toward production coverage",
-    );
+    expect(html).toContain("does not count toward production coverage");
     expect(html).not.toContain("Source coverage needs attention");
   });
 });
 
 describe("Today actionable empty shelves", () => {
-  it("keeps empty event, business and community shelves useful", () => {
+  it("hides empty event, business and community shelves", () => {
     const html = feed(
       [source(new Date(Date.now() - 5 * 60_000).toISOString())],
       [notice()],
     );
 
-    expect(html).toContain('class="section-empty-actions"');
+    expect(html).not.toContain('class="section-empty-actions"');
     expect(html).toContain('href="/services"');
-    expect(html).toContain("Check Services");
+    expect(html).not.toContain("Check Services");
     expect(html).toContain('href="/share-update"');
-    expect(html).toContain("Share a source");
+    expect(html).not.toContain("Share a source");
     expect(html).toContain('href="/sources"');
-    expect(html).toContain("Review sources");
+    expect(html).not.toContain("Review sources");
   });
 
-  it("offers the existing All Paris scope action for nearby empty shelves", () => {
+  it("shows a quiet card for an empty nearby view", () => {
     state.personal.locations = [
       {
         id: "private",
@@ -194,7 +186,7 @@ describe("Today actionable empty shelves", () => {
       [],
     );
 
-    expect(html).toContain("View all Paris");
+    expect(html).toContain("Quiet week in Paris");
   });
 
   it("does not suggest All Paris when the current view already covers Paris", () => {
@@ -215,13 +207,20 @@ describe("Today actionable empty shelves", () => {
     expect(html).toContain("Invite a neighbour");
   });
 
-  it("replaces an empty Today map preview with a compact list action", () => {
-    const html = feed([
-      source(new Date(Date.now() - 5 * 60_000).toISOString()),
-    ], [notice({ latitude: null, longitude: null })]);
+  it("hides an empty Today map preview", () => {
+    const html = feed(
+      [source(new Date(Date.now() - 5 * 60_000).toISOString())],
+      [notice({ latitude: null, longitude: null })],
+    );
 
-    expect(html).toContain("No updates have a map location yet");
-    expect(html).toContain("Explore the update list");
+    expect(html).not.toContain("No updates have a map location yet");
+    expect(html).not.toContain("Explore the update list");
     expect(html).not.toContain("Map preview");
   });
 });
+
+function coverage(sources: Source[]) {
+  return renderToString(
+    React.createElement(CoverageStatus, { sources, demo: state.personal.demo }),
+  );
+}

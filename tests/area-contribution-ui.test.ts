@@ -5,6 +5,7 @@ import { defaultPreferences } from "@/config/community";
 import type { usePersonal } from "@/components/provider";
 import { MyArea } from "@/components/my-area";
 import { CommunitySubmissionForm, SubmissionReviewQueue } from "@/components/community-submission-form";
+import { AlertsPage } from "@/components/alerts-page";
 import { BrowserNotifications } from "@/components/browser-notifications";
 const state = vi.hoisted(() => ({ personal: {} as ReturnType<typeof usePersonal> }));
 vi.mock("@/components/provider", () => ({ usePersonal: () => state.personal }));
@@ -16,10 +17,20 @@ beforeEach(() => {
     saved: [], read: [], dismissed: [], reminders: [], ready: true, demo: true,
     guest: true, message: "", areaScope: "nearby", lastVisitAt: null, visitHistoryAvailable: true,
     notify: vi.fn(), enterDemo: vi.fn(), saveLocation: vi.fn(), removeLocation: vi.fn(),
-    savePreferences: vi.fn(), toggleNotice: vi.fn(), remind: vi.fn(), signOut: vi.fn(), setAreaScope: vi.fn(),
+    savePreferences: vi.fn(), toggleNotice: vi.fn(), signOut: vi.fn(), setAreaScope: vi.fn(),
   };
 });
 describe("progressive area setup and private contribution UI", () => {
+  it("merges alert preferences and browser controls under one Alerts heading", () => {
+    const html = renderToString(React.createElement(AlertsPage));
+    expect(html.match(/<h1>/g)).toHaveLength(1);
+    expect(html).toContain("<h1>Alerts</h1>");
+    expect(html).toContain('id="alert-preferences-heading"');
+    expect(html).toContain('id="browser-notifications"');
+    expect(html).toContain("<h2>Browser notifications</h2>");
+    expect(html).toContain('href="/app/alerts#browser-notifications"');
+    expect(html).toContain("Sign in to enable notifications");
+  });
   it("starts with private area choice before interests or browser permission", () => {
     const html = renderToString(React.createElement(MyArea, { notices: [] }));
     expect(html).toContain("Make Paris feel local.");
@@ -36,12 +47,11 @@ describe("progressive area setup and private contribution UI", () => {
     expect(html).toContain("No prompts until you choose Enable.");
     expect(html).toContain("publishing one does not automatically send an alert");
   });
-  it("does not ask anonymous contributors for identity or precise locations", () => {
+  it("hides intake until availability is confirmed", () => {
     const html = renderToString(React.createElement(CommunitySubmissionForm));
-    expect(html).toContain("Original source URL");
-    expect(html).toContain("Review my update");
-    expect(html).toContain("public details only");
-    expect(html).toContain("No account or contact information is needed.");
+    expect(html).toContain('href="/contact"');
+    expect(html).not.toContain("Review my update");
+    expect(html).not.toContain("not available in this environment");
     expect(html).not.toContain('type="email"');
     expect(html).not.toContain("Send for editor review");
     expect(html).not.toContain('value="emergency"');

@@ -94,7 +94,7 @@ export function ParisOntarioResourceHub() {
             <Link href="/services" className="button outline">
               Everyday services
             </Link>
-            <Link href="/today" className="button outline">
+            <Link href="/" className="button outline">
               Local updates
             </Link>
           </div>

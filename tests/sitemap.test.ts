@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Deadline, Notice } from "@/types";
 
-const mocks = vi.hoisted(() => ({ publicData: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  publicData: vi.fn(),
+  createServerClient: vi.fn(),
+}));
 
 vi.mock("@/lib/repository", () => ({ publicData: mocks.publicData }));
 
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: mocks.createServerClient,
+}));
+
 import sitemap, { buildSitemap } from "@/app/sitemap";
+import { NextRequest } from "next/server";
+import { createMiddleware } from "@/middleware";
 
 const notice = (overrides: Partial<Notice> = {}): Notice =>
   ({
@@ -20,7 +29,7 @@ const notice = (overrides: Partial<Notice> = {}): Notice =>
     official_url: "https://www.brant.ca/news/road-update",
     published_at: "2026-09-10T12:00:00.000Z",
     retrieved_at: "2026-09-10T13:00:00.000Z",
-    verified_at: "2026-09-10T14:00:00.000Z",
+    verified_at: "2026-09-10T17:00:00.000Z",
     source_updated_at: "2026-09-11T12:00:00.000Z",
     end_at: "2099-09-12T00:00:00.000Z",
     expires_at: "2099-09-13T00:00:00.000Z",
@@ -41,12 +50,12 @@ const deadline = (overrides: Partial<Deadline> = {}): Deadline =>
     title: "Verified consultation deadline",
     description: "A verified deadline.",
     category: "planning",
-    deadline_at: "2099-09-14T00:00:00.000Z",
+    deadline_at: "2099-09-17T00:00:00.000Z",
     official_url: "https://www.brant.ca/consultations/one",
     latitude: null,
     longitude: null,
     source_id: "source-1",
-    verified_at: "2026-09-10T14:00:00.000Z",
+    verified_at: "2026-09-10T17:00:00.000Z",
     is_sample: false,
     ...overrides,
   }) as Deadline;
@@ -72,18 +81,24 @@ describe("public sitemap coverage", () => {
       return repositoryData;
     });
 
-    const nextMetadataExport = sitemap as unknown as (
-      params: { id?: string },
-    ) => ReturnType<typeof sitemap>;
+    const nextMetadataExport = sitemap as unknown as (params: {
+      id?: string;
+    }) => ReturnType<typeof sitemap>;
 
-    await expect(nextMetadataExport({ id: undefined })).resolves.toHaveLength(15);
+    await expect(nextMetadataExport({ id: undefined })).resolves.toHaveLength(
+      17,
+    );
     expect(mocks.publicData).toHaveBeenCalledWith(expect.any(Date));
   });
-  it("preserves all 15 static routes and adds only eligible dynamic records", async () => {
+  it("preserves all 17 static routes and adds only eligible dynamic records", async () => {
     mocks.publicData.mockResolvedValue({
       notices: [
         notice(),
-        notice({ id: "notice-draft", slug: "draft", verification_status: "draft" }),
+        notice({
+          id: "notice-draft",
+          slug: "draft",
+          verification_status: "draft",
+        }),
         notice({ id: "notice-sample", slug: "sample", is_sample: true }),
         notice({
           id: "notice-expired",
@@ -95,7 +110,10 @@ describe("public sitemap coverage", () => {
         deadline(),
         deadline({ id: "deadline-sample", is_sample: true }),
         deadline({ id: "deadline-unverified", verified_at: null }),
-        deadline({ id: "deadline-past", deadline_at: "2020-01-01T00:00:00.000Z" }),
+        deadline({
+          id: "deadline-past",
+          deadline_at: "2020-01-01T00:00:00.000Z",
+        }),
       ],
       sources: [],
       demo: false,
@@ -103,13 +121,55 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(fixedNow);
+    // Exercise the actual guard for every advertised route, including details.
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      gt: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: "eligible" } }),
+    };
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-key");
+    mocks.createServerClient.mockReturnValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null } }) },
+      from: vi.fn().mockReturnValue(query),
+    });
+    try {
+      for (const entry of entries) {
+        const response = await createMiddleware(() => fixedNow)(
+          new NextRequest(`${entry.url}?_rsc=route-regression`, {
+            headers: { RSC: "1", "Next-Router-Prefetch": "1" },
+          }),
+        );
+        expect(response.status, entry.url).toBe(200);
+        expect(response.headers.get("x-middleware-next"), entry.url).toBe("1");
+        expect(
+          response.headers.get("x-middleware-rewrite"),
+          entry.url,
+        ).toBeNull();
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
     const urls = entries.map((entry) => entry.url);
     const staticUrls = urls.filter(
       (url) => !url.includes("/notice/") && !url.includes("/deadline/"),
     );
 
-    expect(staticUrls).toHaveLength(15);
-    expect(new Set(staticUrls).size).toBe(15);
+    expect(staticUrls).toContain("https://parispulse.ca/explore");
+    expect(staticUrls).not.toContain("https://parispulse.ca/today");
+    expect(staticUrls).not.toContain("https://parispulse.ca/map");
+    for (const addedRoute of [
+      "/explore/trails",
+      "/explore/visiting",
+      "/services/council",
+    ])
+      expect(staticUrls).toContain(`https://parispulse.ca${addedRoute}`);
+    expect(staticUrls).toHaveLength(17);
+    expect(new Set(staticUrls).size).toBe(17);
     expect(urls).toEqual(
       expect.arrayContaining([
         "https://parispulse.ca/notice/verified-road-update",
@@ -133,15 +193,25 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(fixedNow);
-    expect(entries.find((entry) => entry.url.endsWith("/notice/verified-road-update")))
-      .toMatchObject({ lastModified: new Date("2026-09-11T12:00:00.000Z") });
-    expect(entries.find((entry) => entry.url.endsWith("/deadline/deadline-1")))
-      .toMatchObject({ lastModified: new Date("2026-09-10T14:00:00.000Z") });
+    expect(
+      entries.find((entry) =>
+        entry.url.endsWith("/notice/verified-road-update"),
+      ),
+    ).toMatchObject({ lastModified: new Date("2026-09-11T12:00:00.000Z") });
+    expect(
+      entries.find((entry) => entry.url.endsWith("/deadline/deadline-1")),
+    ).toMatchObject({ lastModified: new Date("2026-09-10T17:00:00.000Z") });
   });
 
   it("excludes notices that are verified but not published yet", async () => {
     mocks.publicData.mockResolvedValue({
-      notices: [notice({ id: "notice-future", slug: "future", published_at: "2999-01-01T00:00:00.000Z" })],
+      notices: [
+        notice({
+          id: "notice-future",
+          slug: "future",
+          published_at: "2999-01-01T00:00:00.000Z",
+        }),
+      ],
       deadlines: [],
       sources: [],
       demo: false,
@@ -149,7 +219,9 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(new Date("2026-09-15T12:00:00.000Z"));
-    expect(entries.some((entry) => entry.url.endsWith("/notice/future"))).toBe(false);
+    expect(entries.some((entry) => entry.url.endsWith("/notice/future"))).toBe(
+      false,
+    );
   });
 
   it("keeps static coverage but never substitutes preview records when the repository is unavailable", async () => {
@@ -162,7 +234,52 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(fixedNow);
-    expect(entries).toHaveLength(15);
-    expect(entries.every((entry) => !entry.url.includes("/notice/") && !entry.url.includes("/deadline/"))).toBe(true);
+    expect(entries).toHaveLength(17);
+    expect(
+      entries.every(
+        (entry) =>
+          !entry.url.includes("/notice/") && !entry.url.includes("/deadline/"),
+      ),
+    ).toBe(true);
   });
+});
+
+it("every generated sitemap route passes middleware without a 404 rewrite", async () => {
+  const { createMiddleware } = await import("@/middleware");
+  const { NextRequest } = await import("next/server");
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
+  const query = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    not: vi.fn().mockReturnThis(),
+    lte: vi.fn().mockReturnThis(),
+    gt: vi.fn().mockReturnThis(),
+    or: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { id: "eligible-record" } }),
+  };
+  mocks.createServerClient.mockReturnValue({
+    auth: { getUser: vi.fn() },
+    from: vi.fn(() => query),
+  });
+  mocks.publicData.mockResolvedValue({
+    notices: [notice()],
+    deadlines: [deadline()],
+    sources: [],
+    demo: false,
+    error: null,
+  });
+  for (const entry of await buildSitemap(fixedNow)) {
+    const response = await createMiddleware(() => fixedNow)(
+      new NextRequest(`${entry.url}?_rsc=route-regression`, {
+        headers: { RSC: "1", "Next-Router-Prefetch": "1" },
+      }),
+    );
+    expect(response.status, entry.url).toBe(200);
+    expect(response.headers.get("x-middleware-rewrite"), entry.url).toBeNull();
+  }
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 });

@@ -6,11 +6,24 @@ import { canonicalWwwRedirect } from "@/lib/site";
 
 const staticRoutes = new Set([
   "/",
+  "/data/explore/sources.json",
+  "/data/explore/brant-trails.geojson",
+  "/data/explore/brant-river-access.geojson",
+  "/data/explore/brant-parking.geojson",
+  "/favicon.ico",
+  "/icon.svg",
+  "/icon-192.png",
+  "/apple-touch-icon.png",
   "/today",
   "/storm",
   "/deadlines",
   "/map",
   "/events",
+  "/explore",
+  "/explore/trails",
+  "/explore/visiting",
+  "/services/council",
+  "/profile",
   "/paris-ontario",
   "/services",
   "/new-to-paris",
@@ -56,7 +69,7 @@ const staticRoutes = new Set([
 ]);
 
 function notFoundResponse(request: NextRequest) {
-  return NextResponse.rewrite(new URL("/_not-found", request.url), {
+  return NextResponse.rewrite(new URL("/api/not-found", request.url), {
     status: 404,
   });
 }

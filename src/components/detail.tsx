@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useQueryState } from "@/lib/query-state";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -53,7 +54,7 @@ export function NoticeDetail({
   });
   return (
     <div className="page-wrap detail-wrap">
-      <Link className="back-link" href="/today">
+      <Link className="back-link" href="/">
         <ArrowLeft size={15} /> Back to local updates
       </Link>
       <div className="card-eyebrow">
@@ -165,10 +166,6 @@ export function NoticeDetail({
           match.
         </p>
       )}
-      <p className="disclaimer">
-        Information can change. Verify important details with the original
-        source. Paris Pulse is not an official County of Brant service.
-      </p>
     </div>
   );
 }
@@ -181,8 +178,17 @@ export function DeadlinesPage({
   detail?: boolean;
   personal?: boolean;
 }) {
-  const [category, setCategory] = useState("all");
-  const [period, setPeriod] = useState("month");
+  const [category, setCategory] = useQueryState("category", "all", [
+    "all",
+    "recreation",
+    "planning",
+    "event",
+  ]);
+  const [period, setPeriod] = useQueryState("range", "month", [
+    "today",
+    "7d",
+    "month",
+  ]);
   const p = usePersonal();
   const filtered = deadlines.filter(
     (d) =>
@@ -193,7 +199,7 @@ export function DeadlinesPage({
         +new Date(d.deadline_at) - new Date().getTime() <
           (period === "today"
             ? 86400000
-            : period === "week"
+            : period === "7d"
               ? 7 * 86400000
               : 31 * 86400000)),
   );
@@ -212,7 +218,7 @@ export function DeadlinesPage({
             onChange={(e) => setPeriod(e.target.value)}
           >
             <option value="today">Today</option>
-            <option value="week">Next 7 days</option>
+            <option value="7d">Next 7 days</option>
             <option value="month">This month</option>
           </select>
           <select
@@ -232,7 +238,7 @@ export function DeadlinesPage({
           <DeadlineCard deadline={d} full />
           {detail && d.notice_id && (
             <p>
-              <Link className="text-link" href={`/today`}>
+              <Link className="text-link" href="/">
                 Browse related local updates <ArrowUpRight size={14} />
               </Link>
             </p>
@@ -242,11 +248,6 @@ export function DeadlinesPage({
       {!filtered.length && (
         <EmptyState title="No upcoming deadlines in this view." />
       )}
-      <p className="disclaimer">
-        Calendar downloads work locally. Reminders are saved, but scheduled
-        email delivery is not enabled yet. Verify important dates with the
-        original source.
-      </p>
     </div>
   );
 }

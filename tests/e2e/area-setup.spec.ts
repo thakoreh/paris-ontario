@@ -154,13 +154,11 @@ test("area setup goes from a confirmed place through preview and interests witho
   await page
     .getByRole("link", { name: "Finish and explore", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/today$/);
-  await expect(
-    page.getByRole("region", { name: "Your feed area" }),
-  ).toContainText("Public landmark");
-  await expect(
-    page.getByRole("region", { name: "Your feed area" }),
-  ).toContainText("1 km radius");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("region", { name: "Your feed area" })).toHaveCount(0);
+  await page.goto("/events");
+  await expect(page.getByRole("region", { name: "Your feed area" })).toContainText("Public landmark");
+  await expect(page.getByRole("region", { name: "Your feed area" })).toContainText("1 km radius");
   const saved = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)!),
     guestStorageKey,
@@ -206,9 +204,9 @@ test("Cancel discards an unfinished extra place and leaving setup discards unsav
   await expect(page.getByLabel("Place label", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "5 km", exact: true }).click();
   await page.getByRole("link", { name: "Back to Today", exact: true }).click();
-  await expect(
-    page.getByRole("region", { name: "Your feed area" }),
-  ).toContainText("3 km radius");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("region", { name: "Your feed area" })).toHaveCount(0);
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!).preferences.radius_km, guestStorageKey)).toBe(3);
   await page.goBack();
   await expect(page).toHaveURL(/\/app\/area$/);
   await expect(
@@ -249,9 +247,9 @@ test("an address is optional and All Paris setup never claims a saved private pl
   await page
     .getByRole("link", { name: "Finish and explore", exact: true })
     .click();
-  await expect(
-    page.getByRole("region", { name: "Your feed area" }),
-  ).toContainText("Exploring all Paris");
+  await expect(page.getByRole("region", { name: "Your feed area" })).toHaveCount(0);
+  await page.goto("/events");
+  await expect(page.getByRole("region", { name: "Your feed area" })).toContainText("Exploring all Paris");
   const saved = await page.evaluate(
     (key) => JSON.parse(localStorage.getItem(key)!),
     guestStorageKey,

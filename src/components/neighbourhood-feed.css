@@ -48,8 +48,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 36px;
+  gap: 8px;
+  min-height: 44px;
   padding: 7px 10px;
   border: 1px solid currentColor;
   border-radius: 7px;
@@ -75,7 +75,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 44px;
   padding: 7px 11px;
   border: 1px solid #c8d8c1;
   border-radius: 7px;
@@ -106,7 +106,7 @@
 }
 .map-preview-empty a {
   width: fit-content;
-  min-height: 36px;
+  min-height: 44px;
   padding: 8px 10px;
   border: 1px solid #c8d8c1;
   border-radius: 7px;
@@ -135,7 +135,7 @@
   margin: 0;
 }
 .neighbourhood-invite .share-control .button {
-  min-height: 38px;
+  min-height: 44px;
 }
 @media (max-width: 680px) {
   .coverage-status {

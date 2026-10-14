@@ -183,12 +183,12 @@ test("guest settings cannot enable delivery or prompt for browser permission", a
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Set up browser notifications" }),
-  ).toHaveAttribute("href", "/notifications");
+  ).toHaveAttribute("href", "/app/alerts#browser-notifications");
   await expect(
-    page.getByText(/Quiet hours use Paris, Ontario time \(America\/Toronto\)/),
+    page.getByRole("region", { name: "Alert preferences" }).getByText(/Quiet hours use Paris, Ontario time \(America\/Toronto\)/),
   ).toBeVisible();
   await expect(
-    page.getByText(/matching start and end times pause delivery all day/),
+    page.getByRole("region", { name: "Alert preferences" }).getByText(/matching start and end times pause delivery all day/),
   ).toBeVisible();
   await expect(page.getByText(/Browser push is not enabled/)).toHaveCount(0);
   await page.getByRole("button", { name: "Save preferences" }).click();

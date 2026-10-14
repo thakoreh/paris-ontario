@@ -170,7 +170,7 @@
   }
   .resource-task-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 7px;
+    gap: 8px;
   }
   .resource-task-grid button {
     grid-template-columns: auto minmax(0, 1fr);

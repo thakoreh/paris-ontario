@@ -1,10 +1,5 @@
 /* Neighbourhood-first UI. Shared shell styles keep every existing tool readable. */
 .neighbourhood-shell {
-  --ink: #203c31;
-  --green: #285c47;
-  --muted: #58675c;
-  --line: #dce3d9;
-  --paper: #f7f8f3;
   background: var(--paper);
 }
 .neighbourhood-shell .site-body {
@@ -14,20 +9,14 @@
   max-width: 1280px;
   padding: 38px 40px 64px;
 }
-.neighbourhood-shell h1 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(34px, 3.7vw, 48px);
-  font-weight: 400;
-  line-height: 1.13;
-  letter-spacing: -1.5px;
-}
+
 .neighbourhood-shell .button {
   min-height: 44px;
   font-size: 14px;
   padding: 11px 16px;
 }
 .neighbourhood-shell .button.small {
-  min-height: 40px;
+  min-height: 44px;
   font-size: 13px;
 }
 .neighbourhood-shell .icon-button {
@@ -83,43 +72,15 @@
   align-items: center;
   gap: 8px;
 }
-.page-menu {
-  position: relative;
+.neighbourhood-topbar .profile-entry {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  flex-shrink: 0;
 }
-.page-menu > nav {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 12px);
-  z-index: 500;
-  width: 292px;
-  max-height: min(70vh, 650px);
-  overflow-y: auto;
-  padding: 16px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  box-shadow: 0 12px 40px #203c3120;
-}
-.page-menu > nav[hidden] {
-  display: none;
-}
-.page-menu .nav-label {
-  font-size: 10px;
-  margin: 5px 10px 10px;
-}
-.page-menu nav a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: 7px;
-  min-height: 42px;
-  padding: 8px 10px;
-  font-size: 14px;
-}
-.page-menu nav a:hover,
-.page-menu nav a[aria-current="page"] {
-  background: #edf2e7;
-}
+.profile-links { display: grid; gap: 8px; }
+.profile-links a { min-height: 44px; }
 .area-context {
   display: flex;
   align-items: center;
@@ -163,8 +124,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 36px;
+  gap: 8px;
+  min-height: 44px;
   background: transparent;
   border: 0;
   border-radius: 6px;
@@ -183,16 +144,16 @@
 .area-edit {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 13px;
-  min-height: 40px;
+  min-height: 44px;
   text-decoration: underline;
   text-underline-offset: 4px;
 }
 .area-privacy {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   margin-left: auto;
   font-size: 12px;
   color: var(--muted);
@@ -217,17 +178,17 @@
 .neighbourhood-shell footer > div {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 18px;
+  gap: 8px 18px;
   margin: 0;
 }
 .neighbourhood-shell footer .footer-intro {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 8px;
   flex: 1 0 100%;
 }
 .footer-intro strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 22px;
 }
 .footer-intro span,
@@ -315,7 +276,7 @@
   padding-bottom: 0;
 }
 .neighbourhood-feed .filter-tabs button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px 15px;
   border-radius: 22px;
   font-size: 13px;
@@ -361,7 +322,7 @@
   background: none;
   color: var(--green);
   font-size: 13px;
-  min-height: 32px;
+  min-height: 44px;
   padding: 0 5px;
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -369,7 +330,7 @@
 .coverage-link {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   margin-left: auto;
   color: var(--muted);
   font-size: 11px;
@@ -389,7 +350,7 @@
   gap: 16px;
 }
 .neighbourhood-feed h2 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 25px;
   font-weight: 400;
   letter-spacing: -0.6px;
@@ -401,7 +362,7 @@
 }
 .neighbourhood-feed .section-heading > a {
   font-size: 12px;
-  min-height: 32px;
+  min-height: 44px;
 }
 .section-count {
   display: grid;
@@ -505,7 +466,7 @@
 }
 .neighbourhood-shell .card-eyebrow {
   font-size: 11px;
-  gap: 6px;
+  gap: 8px;
   line-height: 1.6;
   margin-bottom: 8px;
   color: #5c6a57;
@@ -545,13 +506,13 @@
   display: block;
   font-size: 26px;
   line-height: 1.25;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-weight: 400;
 }
 .notice-timing {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   color: #4b634e;
   margin: 8px 0;
@@ -569,7 +530,7 @@
 .notice-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin: 10px 0;
 }
 .notice-tags span {
@@ -599,13 +560,13 @@
 .neighbourhood-shell .card-source {
   font-size: 11px;
   line-height: 1.65;
-  gap: 5px 9px;
+  gap: 8px 9px;
   margin-top: 13px;
 }
 .neighbourhood-shell .card-source a {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 8px;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -620,9 +581,9 @@
   padding-block: 4px;
 }
 .neighbourhood-shell .bookmark {
-  min-width: 40px;
-  width: 40px;
-  height: 40px;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
   margin: -5px -7px 0 0;
 }
 .section-empty {
@@ -637,7 +598,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   border: 0;
   background: transparent;
   font-size: 13px;
@@ -705,7 +666,7 @@
   font-size: 10px;
 }
 .neighbourhood-shell .deadline-date strong {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 25px;
 }
 .neighbourhood-rail .deadline-card {
@@ -748,14 +709,14 @@
 .neighbourhood-storm span {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
 }
 .rail-settings {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   padding: 12px 0;
   border-top: 1px solid var(--line);
   font-size: 12px;
@@ -830,7 +791,7 @@
 .map-legend span {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 .map-legend span:before {
   content: "";
@@ -881,12 +842,12 @@
 .show-on-map {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   margin: 0 0 5px auto;
   background: none;
   border: 0;
   padding: 3px 5px;
-  min-height: 32px;
+  min-height: 44px;
   font-size: 12px;
   color: #4a664b;
 }
@@ -944,7 +905,7 @@
     gap: 20px;
   }
   .primary-navigation {
-    gap: 2px;
+    gap: 8px;
   }
   .primary-navigation a {
     padding-inline: 13px;
@@ -998,10 +959,13 @@
     display: none;
   }
   .header-tools {
-    gap: 6px;
+    gap: 8px;
   }
   .header-tools .button {
     padding-inline: 11px;
+  }
+  .header-tools .profile-entry {
+    padding: 0;
   }
   .neighbourhood-topbar .brand {
     font-size: 26px;
@@ -1011,10 +975,7 @@
     height: 32px;
     margin-right: 7px;
   }
-  .page-menu > nav {
-    width: min(300px, calc(100vw - 40px));
-    max-height: calc(100dvh - 180px);
-  }
+  .header-tools .saved-entry { display: none; }
   .area-context {
     gap: 9px 15px;
     margin-inline: 20px;
@@ -1031,10 +992,10 @@
   .area-scope-control button {
     font-size: 12px;
     padding-inline: 10px;
-    min-height: 36px;
+    min-height: 44px;
   }
   .area-edit {
-    min-height: 32px;
+    min-height: 44px;
     font-size: 12px;
   }
   .area-privacy {
@@ -1054,7 +1015,7 @@
   }
   .neighbourhood-heading .eyebrow {
     flex-wrap: wrap;
-    gap: 5px 9px;
+    gap: 8px 9px;
     font-size: 10px;
   }
   .neighbourhood-heading .heading-place {
@@ -1080,7 +1041,7 @@
     font-size: 13px;
   }
   .welcome-area .button {
-    min-height: 40px;
+    min-height: 44px;
     padding: 9px 14px;
     margin-left: 31px;
   }
@@ -1093,19 +1054,19 @@
   }
   .neighbourhood-feed .feed-toolbar > .button {
     padding: 9px 12px;
-    min-height: 42px;
+    min-height: 44px;
     font-size: 13px;
   }
   .view-control {
     margin-left: auto;
   }
   .neighbourhood-feed .filter-tabs {
-    gap: 6px;
+    gap: 8px;
   }
   .neighbourhood-feed .filter-tabs button {
     font-size: 12px;
     padding: 7px 12px;
-    min-height: 39px;
+    min-height: 44px;
   }
   .neighbourhood-feed .filter-panel {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1113,7 +1074,7 @@
     gap: 12px;
   }
   .neighbourhood-feed .feed-results {
-    gap: 6px 10px;
+    gap: 8px 10px;
     padding-top: 13px;
   }
   .coverage-link {
@@ -1180,9 +1141,9 @@
     padding-left: 0;
   }
   .neighbourhood-shell .bookmark {
-    min-width: 32px;
-    width: 32px;
-    margin-right: -6px;
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
   }
   .event-date-badge {
     min-width: 40px;
@@ -1249,7 +1210,7 @@
     padding: 25px 0 110px;
   }
   .neighbourhood-shell footer > div {
-    gap: 6px 17px;
+    gap: 8px 17px;
   }
   .neighbourhood-shell .mobile-nav {
     display: flex;
@@ -1257,9 +1218,9 @@
   }
   .neighbourhood-shell .mobile-nav a {
     min-width: 58px;
-    min-height: 49px;
+    min-height: 56px;
     font-size: 11px;
-    gap: 4px;
+    gap: 8px;
     padding: 3px 12px;
     border-radius: 8px;
   }
@@ -1289,9 +1250,6 @@
   }
   .neighbourhood-rail {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .neighbourhood-shell h1 {
-    font-size: 34px;
   }
   .neighbourhood-heading .heading-place {
     display: block;

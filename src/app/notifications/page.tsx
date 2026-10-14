@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
-import { BrowserNotifications } from "@/components/browser-notifications";
+import { AlertsPage } from "@/components/alerts-page";
 import { privateRouteMetadata } from "@/lib/seo";
-export const metadata: Metadata = privateRouteMetadata("Browser notifications");
-export default function Page() { return <BrowserNotifications />; }
+export const metadata = privateRouteMetadata("Alerts");
+export default function Page() {
+  return <AlertsPage />;
+}
