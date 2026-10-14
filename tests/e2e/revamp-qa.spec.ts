@@ -70,3 +70,13 @@ test("Today has a main column and Explore rail at 1280px", async ({ page }) => {
   await expect(page.locator(".today-page h1")).toHaveCSS("font-size", "36px");
   await expect(page.getByText("Friday weekend email")).toHaveCount(0);
 });
+
+test("Trails subpage lists trails as full-width rows at 1280px", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/explore/trails");
+  const lefts = await page
+    .locator(".explore-trails > *")
+    .evaluateAll((rows) => rows.map((r) => Math.round(r.getBoundingClientRect().left)));
+  expect(lefts.length).toBeGreaterThan(1);
+  expect(new Set(lefts).size).toBe(1);
+});

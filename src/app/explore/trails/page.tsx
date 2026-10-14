@@ -17,7 +17,7 @@ export default function Page() {
         go.
       </p>
       <section aria-label="Trail and river guides">
-        <div className="explore-grid">
+        <div className="explore-grid explore-trails">
           {trailEntries.map((entry) => (
             <ExploreEntryCard key={entry.id} entry={entry} headingLevel={2} />
           ))}
