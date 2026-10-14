@@ -24,9 +24,10 @@ export function calendarEvent(d: Deadline | Notice) {
     return `${part("year")}${part("month")}${part("day")}T${part("hour")}${part("minute")}${part("second")}`;
   };
   const dateOnly = (value: string) => value.slice(0, 10).replace(/-/g, "");
-  // A timed event that ends on a later Toronto day is exported as an all-day
+  // A timed Notice with a real end on a later Toronto day is exported as an all-day
   // range: sources give only an overall start and end, not daily hours.
-  const multiDay = !allDay && local(start).slice(0, 8) !== local(end).slice(0, 8);
+  const multiDay = !allDay && !("deadline_at" in d) && !!d.end_at &&
+    local(start).slice(0, 8) !== local(end).slice(0, 8);
   const nextDay = (ymd: string) => {
     const d = new Date(Date.UTC(+ymd.slice(0, 4), +ymd.slice(4, 6) - 1, +ymd.slice(6, 8) + 1));
     return d.toISOString().slice(0, 10).replace(/-/g, "");
