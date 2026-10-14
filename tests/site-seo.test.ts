@@ -29,7 +29,7 @@ const source = (last_checked_at: string | null): Source => ({
 describe("public-site configuration", () => {
   it("gives the homepage a Paris, Ontario search title", () => {
     const page = fs.readFileSync(
-      path.join(process.cwd(), "src/app/[[...path]]/page.tsx"),
+      path.join(process.cwd(), "src/app/page.tsx"),
       "utf8",
     );
     expect(page).toContain('"Paris, Ontario local updates and resources"');

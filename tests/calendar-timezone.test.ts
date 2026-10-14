@@ -23,3 +23,40 @@ it("supplies a one-hour end for deadlines", () => {
   const ics = calendarEvent({ ...createSeed().deadlines[0], deadline_at: "2026-07-10T14:00:00Z" });
   expect(ics).toContain("DTEND;TZID=America/Toronto:20260710T110000");
 });
+it("keeps an event without a real end timed when its synthetic end crosses Toronto midnight", () => {
+  const ics = calendarEvent({ ...event, start_at: "2026-10-25T03:30:00Z", end_at: null });
+  expect(ics).toContain("DTSTART;TZID=America/Toronto:20261024T233000");
+  expect(ics).toContain("DTEND;TZID=America/Toronto:20261025T003000");
+  expect(ics).not.toContain("VALUE=DATE");
+  const unfolded = ics.replace(/\r\n /g, "");
+  expect(unfolded).not.toContain("Listed as starting");
+  expect(unfolded).not.toContain("daily hours");
+});
+it("keeps a deadline timed when its synthetic end crosses Toronto midnight", () => {
+  const ics = calendarEvent({ ...createSeed().deadlines[0], deadline_at: "2026-10-25T03:30:00Z" });
+  expect(ics).toContain("DTSTART;TZID=America/Toronto:20261024T233000");
+  expect(ics).toContain("DTEND;TZID=America/Toronto:20261025T003000");
+  expect(ics).not.toContain("VALUE=DATE");
+  const unfolded = ics.replace(/\r\n /g, "");
+  expect(unfolded).not.toContain("Listed as starting");
+  expect(unfolded).not.toContain("daily hours");
+});
+it("exports an overnight multi-day event as an all-day range without inventing daily hours", () => {
+  const ics = calendarEvent({
+    ...event,
+    start_at: "2026-10-24T15:00:00Z",
+    end_at: "2026-10-25T20:00:00Z",
+  });
+  expect(ics).toContain("DTSTART;VALUE=DATE:20261024");
+  expect(ics).toContain("DTEND;VALUE=DATE:20261026");
+  expect(ics).not.toContain("DTSTART;TZID");
+  const unfolded = ics.replace(/\r\n /g, "");
+  expect(unfolded).toContain("Check the official listing for daily hours.");
+  expect(unfolded).toMatch(/11:00/);
+  expect(unfolded).toMatch(/16:00/);
+});
+it("keeps same-day timed events with their Toronto times", () => {
+  const ics = calendarEvent({ ...event, start_at: "2026-10-24T15:00:00Z", end_at: "2026-10-24T20:00:00Z" });
+  expect(ics).toContain("DTSTART;TZID=America/Toronto:20261024T110000");
+  expect(ics).toContain("DTEND;TZID=America/Toronto:20261024T160000");
+});

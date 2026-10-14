@@ -1,9 +1,6 @@
 import { Inter } from "next/font/google";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import "leaflet/dist/leaflet.css";
-import "leaflet.markercluster/dist/MarkerCluster.css";
-import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { Provider } from "@/components/provider";
 import { Shell } from "@/components/shell";
 import { StructuredData } from "@/components/structured-data";

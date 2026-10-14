@@ -1,3 +1,4 @@
+import { buildCommit } from "@/lib/build-info";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,7 @@ export async function GET() {
       service: "paris-pulse",
       dataMode: configured ? "supabase" : "preview",
       readiness: ready ? "ready" : "unavailable",
+      commit: buildCommit(),
     },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
