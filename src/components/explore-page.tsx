@@ -58,25 +58,13 @@ export function ExplorePage() {
       <div className="explore-map-card panel" ref={mapRef}>
         {view === "map" ? (
           <>
-            {loading ? (
-              <p role="status">Loading notice map…</p>
-            ) : failed ? (
-              <div role="status">
-                <MapPanel notices={[]} exploreLayers />
-                <p>
-                  The notice map couldn’t load. Official guides remain available
-                  below.
-                </p>
-                <button
-                  className="button outline"
-                  onClick={() => setRetryKey((key) => key + 1)}
-                >
-                  Retry
-                </button>
-              </div>
-            ) : (
-              <MapPanel notices={notices} exploreLayers />
-            )}
+            <MapPanel
+              notices={notices}
+              exploreLayers
+              noticeError={failed}
+              onRetryNotices={() => setRetryKey((key) => key + 1)}
+            />
+            {loading && <p role="status">Loading notices…</p>}
             <button className="button outline" onClick={() => setView("list")}>Close map</button>
             <button
               className="button outline"

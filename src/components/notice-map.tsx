@@ -17,6 +17,8 @@ type MapData = {
 export default function NoticeMap({
   notices,
   exploreLayers = false,
+  noticeError = false,
+  onRetryNotices,
   locations = [],
   radius = 0,
   pick,
@@ -25,6 +27,8 @@ export default function NoticeMap({
   onSelectNotice,
 }: Omit<MapData, "locations" | "radius"> & {
   exploreLayers?: boolean;
+  noticeError?: boolean;
+  onRetryNotices?: () => void;
   locations?: Location[];
   radius?: number;
   onPick?: (lat: number, lng: number) => void;
@@ -220,6 +224,10 @@ export default function NoticeMap({
         </div>
       )}
     </div>
+    {noticeError && <div role="status" className="map-notice-error">
+      <p>Notices couldn&apos;t load. County layers are still shown.</p>
+      <button className="button outline" onClick={onRetryNotices}>Retry</button>
+    </div>}
     {exploreLayers && <aside className="map-sources" aria-label="Map data sources">
       {exploreSources.map((source) => <a key={source.id} href={source.source_url} target="_blank" rel="noreferrer">
         {source.name} · County of Brant Open Data · checked {source.checked} ↗
