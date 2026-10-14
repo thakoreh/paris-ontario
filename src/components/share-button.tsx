@@ -3,6 +3,7 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Link2, Mail, Share2 } from "lucide-react";
 import {
+  canonicalShareUrl,
   copyPublicLink,
   shareChannelUrl,
   sharePublicLink,
@@ -85,7 +86,19 @@ export function ShareButton({
       setMessage(outcomeMessages[outcome.status]);
       if (outcome.status === "manual") setManualUrl(outcome.url);
     } catch {
-      setMessage("Sharing is unavailable. Please try again later.");
+      let url: string;
+      try {
+        url = canonicalShareUrl(base, publicPath);
+      } catch {
+        const currentUrl = new URL(window.location.href);
+        for (const key of [...currentUrl.searchParams.keys()]) {
+          if (/^utm_/i.test(key)) currentUrl.searchParams.delete(key);
+        }
+        currentUrl.hash = "";
+        url = currentUrl.toString();
+      }
+      setManualUrl(url);
+      setMessage("Copy the link below");
     } finally {
       sharing.current = false;
       setBusy(false);
