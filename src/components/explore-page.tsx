@@ -100,7 +100,6 @@ export function ExplorePage() {
           </button>
         )}
       </div>
-      <Link href="/paris-ontario">Paris resource guide ›</Link>
       {category === "all" && notices.length > 0 && (
         <section>
           <h2>Local notices</h2>
@@ -115,9 +114,9 @@ export function ExplorePage() {
             <h2>Trails & river</h2>
             <Link href="/explore/trails">All trails & river ›</Link>
           </div>
-          <div className="explore-grid">
+          <div className="explore-grid explore-trails">
             {trails.map((entry) => (
-              <ExploreEntryCard key={entry.id} entry={entry} />
+              <ExploreEntryCard key={entry.id} entry={entry} compact />
             ))}
           </div>
         </section>
@@ -130,7 +129,7 @@ export function ExplorePage() {
           </div>
           <div className="explore-grid">
             {visiting.map((entry) => (
-              <ExploreEntryCard key={entry.id} entry={entry} />
+              <ExploreEntryCard key={entry.id} entry={entry} compact />
             ))}
           </div>
         </section>

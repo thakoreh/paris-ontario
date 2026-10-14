@@ -2553,7 +2553,8 @@ footer > div a { display: inline-flex; align-items: center; min-height: 44px; }
   .today-columns { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; column-gap: 28px; }
   .today-main { grid-column: 1; grid-row: 1 / span 2; }
   .today-deadlines { grid-column: 2; grid-row: 1; }
-  .today-tasks { grid-column: 2; grid-row: 2; }
+  .today-explore { grid-column: 2; grid-row: 2; }
+  .today-tasks { grid-column: 1; grid-row: 3; }
 }
 .explore-map-card > .leaflet-map { height: 360px; margin: 12px 0; border-radius: var(--radius); overflow: hidden; }
 .explore-map-card:fullscreen > .leaflet-map { height: 75vh; }
@@ -2588,11 +2589,22 @@ h3 { font-size: 16px; font-weight: 700; }
 .map-layer-error { position: absolute; bottom: 0; background: white; z-index: 1000; padding: 8px; }
 @media (min-width: 900px) {
   .neighbourhood-shell .revamp-page h1 { font-size: 40px; }
-  .today-tasks { grid-row: 1; }
-  .today-deadlines ~ .today-tasks { grid-row: 2; }
+  .today-explore { grid-row: 1; }
+  .today-deadlines ~ .today-explore { grid-row: 2; }
 }
 .today-explore { display: none; }
 @media (min-width: 900px) {
   .today-explore { display: block; }
   .essentials-strip a { flex-direction: row; align-items: center; justify-content: space-between; }
+}
+
+/* Keep guide previews compact while retaining their source and review date. */
+.explore-page .explore-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.explore-entry-compact { padding: 10px; }
+.explore-entry-compact p { margin: 4px 0; font-size: 12px; }
+.explore-entry-compact .explore-entry-source { display: block; align-content: center; font-size: 12px; overflow-wrap: anywhere; }
+.neighbourhood-shell .explore-page { padding-top: 16px; }
+.neighbourhood-shell .explore-page h1 { margin: 0 0 12px; }
+@media (min-width: 900px) {
+  .neighbourhood-shell .today-page h1 { font-size: 36px; }
 }

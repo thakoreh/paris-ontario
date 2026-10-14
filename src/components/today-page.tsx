@@ -23,9 +23,7 @@ export function TodayPage({
   now?: Date;
 }) {
   const content = todayContent(notices, deadlines, now);
-  const quiet =
-    !content.weekend.length &&
-    !content.deadlines.length;
+  const quiet = !content.weekend.length && !content.deadlines.length;
   return (
     <div className="page-wrap revamp-page today-page">
       <p className="eyebrow">
@@ -111,6 +109,23 @@ export function TodayPage({
             </div>
           )}
         </div>
+        <section className="today-explore">
+          <h2>Explore</h2>
+          <nav className="quick-task-grid" aria-label="Explore shortcuts">
+            <Link className="panel" href="/explore/trails">
+              Trails & river ›
+            </Link>
+            <Link className="panel" href="/explore/visiting">
+              Visiting Paris ›
+            </Link>
+            <Link className="panel" href="/explore">
+              Open map ›
+            </Link>
+            <Link className="panel" href="/services/council">
+              Council ›
+            </Link>
+          </nav>
+        </section>
         <section className="today-tasks">
           <h2>Quick tasks</h2>
           <nav className="quick-task-grid" aria-label="Quick tasks">
@@ -132,15 +147,6 @@ export function TodayPage({
               ),
             )}
           </nav>
-          <div className="today-explore">
-            <h2>Explore</h2>
-            <nav className="quick-task-grid" aria-label="Explore shortcuts">
-              <Link className="panel" href="/explore/trails">Trails & river ›</Link>
-              <Link className="panel" href="/explore/visiting">Visiting Paris ›</Link>
-              <Link className="panel" href="/explore">Open map ›</Link>
-              <Link className="panel" href="/services/council">Council ›</Link>
-            </nav>
-          </div>
         </section>
       </div>
       <SiteSearch notices={notices} />
