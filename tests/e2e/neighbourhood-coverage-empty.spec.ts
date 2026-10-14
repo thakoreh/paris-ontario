@@ -11,15 +11,18 @@ test("source coverage stays on Sources and public pages hide empty shelves", asy
   }
   await page.goto("/sources");
   await expect(page.getByRole("complementary", { name: "Source coverage" })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Source coverage" })).toContainText("Source coverage needs attention");
+  await expect(page.locator(".source-card")).toHaveCount(9);
+  await expect(page.locator(".source-card").first()).toContainText("Needs review");
 });
 
 test("Explore categories hide unrelated entries and preserve official links", async ({ page }) => {
   await page.goto("/explore");
   await page.getByRole("button", { name: "River", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Paddling the Grand River", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Paddling the Grand River ›", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Visiting Paris", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Visiting", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Plan your stay", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Plan your stay ›", exact: true })).toBeVisible();
   await expect(page.locator('main a[href="https://www.brant.ca/Visit"]').first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Trails & river", exact: true })).toHaveCount(0);
 });
