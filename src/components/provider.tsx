@@ -13,7 +13,6 @@ import type {
   Location,
   Preferences,
   Profile,
-  Reminder,
 } from "@/types";
 import { defaultPreferences } from "@/config/community";
 import { demoLocations } from "@/data/seed";
@@ -47,7 +46,6 @@ type Context = PersonalState & {
     id: string,
     kind: "saved" | "read" | "dismissed",
   ) => Promise<void>;
-  remind: (r: Reminder) => Promise<void>;
   signOut: () => Promise<void>;
 };
 const StateContext = createContext<Context | null>(null);
@@ -268,22 +266,6 @@ export function Provider({ children }: { children: ReactNode }) {
       }));
       if (kind === "saved" && on) track("notice_saved", { notice_id: id });
       notify(on ? `Notice marked ${kind}.` : `Notice removed from ${kind}.`);
-    },
-    remind: async (r) => {
-      await persist(
-        "deadline_reminders",
-        { ...r, user_id: state.profile?.id },
-        "user_id,deadline_id",
-      );
-      update((s) => ({
-        ...s,
-        reminders: [
-          ...s.reminders.filter((x) => x.deadline_id !== r.deadline_id),
-          r,
-        ],
-      }));
-      track("deadline_reminder_added", { deadline_id: r.deadline_id });
-      notify("Reminder saved. Email scheduling is not enabled yet.");
     },
     signOut: async () => {
       const db = browserClient();

@@ -1,10 +1,5 @@
 /* Neighbourhood-first UI. Shared shell styles keep every existing tool readable. */
 .neighbourhood-shell {
-  --ink: #203c31;
-  --green: #285c47;
-  --muted: #58675c;
-  --line: #dce3d9;
-  --paper: #f7f8f3;
   background: var(--paper);
 }
 .neighbourhood-shell .site-body {
@@ -14,13 +9,7 @@
   max-width: 1280px;
   padding: 38px 40px 64px;
 }
-.neighbourhood-shell h1 {
-  font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: clamp(34px, 3.7vw, 48px);
-  font-weight: 400;
-  line-height: 1.13;
-  letter-spacing: -1.5px;
-}
+
 .neighbourhood-shell .button {
   min-height: 44px;
   font-size: 14px;
@@ -1152,9 +1141,9 @@
     padding-left: 0;
   }
   .neighbourhood-shell .bookmark {
-    min-width: 32px;
-    width: 32px;
-    margin-right: -6px;
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
   }
   .event-date-badge {
     min-width: 40px;
@@ -1261,9 +1250,6 @@
   }
   .neighbourhood-rail {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .neighbourhood-shell h1 {
-    font-size: 34px;
   }
   .neighbourhood-heading .heading-place {
     display: block;

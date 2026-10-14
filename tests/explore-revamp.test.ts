@@ -169,6 +169,16 @@ describe("Today", () => {
     expect(content.deadlines).toEqual([]);
     expect(content.notices).toEqual([]);
   });
+  it("shows the AC5 quiet week with one notice and no events or deadlines", () => {
+    const html = renderToStaticMarkup(createElement(TodayPage, {
+      notices: [notice({ category: "recreation" })], deadlines: [], sources: [], now,
+    }));
+    expect(html.match(/Quiet week in Paris/g)).toHaveLength(1);
+    expect(html).not.toContain("<h2>Local notices");
+    expect(html).toContain("Browse Services or Explore.");
+    expect(html).toContain('href="/services"');
+    expect(html).toContain('href="/explore"');
+  });
   it("hides empty headings and shows one calm fallback with essentials and quick tasks", () => {
     const html = renderToStaticMarkup(
       createElement(TodayPage, {

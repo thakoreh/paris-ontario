@@ -17,7 +17,7 @@ beforeEach(() => {
     saved: [], read: [], dismissed: [], reminders: [], ready: true, demo: true,
     guest: true, message: "", areaScope: "nearby", lastVisitAt: null, visitHistoryAvailable: true,
     notify: vi.fn(), enterDemo: vi.fn(), saveLocation: vi.fn(), removeLocation: vi.fn(),
-    savePreferences: vi.fn(), toggleNotice: vi.fn(), remind: vi.fn(), signOut: vi.fn(), setAreaScope: vi.fn(),
+    savePreferences: vi.fn(), toggleNotice: vi.fn(), signOut: vi.fn(), setAreaScope: vi.fn(),
   };
 });
 describe("progressive area setup and private contribution UI", () => {

@@ -25,8 +25,7 @@ export function TodayPage({
   const content = todayContent(notices, deadlines, now);
   const quiet =
     !content.weekend.length &&
-    !content.deadlines.length &&
-    !content.notices.length;
+    !content.deadlines.length;
   return (
     <div className="page-wrap revamp-page today-page">
       <p className="eyebrow">
@@ -82,7 +81,7 @@ export function TodayPage({
               ))}
             </section>
           )}
-          {content.notices.length > 0 && (
+          {!quiet && content.notices.length > 0 && (
             <section>
               <h2>Local notices</h2>
               {content.notices.map((n) => (

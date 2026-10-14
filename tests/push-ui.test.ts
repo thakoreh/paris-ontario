@@ -39,7 +39,6 @@ beforeEach(() => {
     removeLocation: vi.fn(),
     savePreferences: vi.fn(),
     toggleNotice: vi.fn(),
-    remind: vi.fn(),
     signOut: vi.fn(),
   };
 });
