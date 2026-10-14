@@ -1,9 +1,12 @@
 "use client";
-import { useState } from "react";
+import { updateQuery, useQueryState } from "@/lib/query-state";
 import { filterServices, residentServices } from "@/data/resident-services";
 export function ServicesDirectory() {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all");
+  const [query, setQuery] = useQueryState("q");
+  const [category, setCategory] = useQueryState("category", "all", [
+    "all",
+    ...residentServices.map((s) => s.category),
+  ]);
   const services = filterServices(query, category);
   return (
     <>
@@ -32,8 +35,7 @@ export function ServicesDirectory() {
         <button
           className="button outline"
           onClick={() => {
-            setQuery("");
-            setCategory("all");
+            updateQuery({ q: null, category: null });
           }}
         >
           Clear filters

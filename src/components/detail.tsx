@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useQueryState } from "@/lib/query-state";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -181,8 +182,17 @@ export function DeadlinesPage({
   detail?: boolean;
   personal?: boolean;
 }) {
-  const [category, setCategory] = useState("all");
-  const [period, setPeriod] = useState("month");
+  const [category, setCategory] = useQueryState("category", "all", [
+    "all",
+    "recreation",
+    "planning",
+    "event",
+  ]);
+  const [period, setPeriod] = useQueryState("range", "month", [
+    "today",
+    "7d",
+    "month",
+  ]);
   const p = usePersonal();
   const filtered = deadlines.filter(
     (d) =>
@@ -193,7 +203,7 @@ export function DeadlinesPage({
         +new Date(d.deadline_at) - new Date().getTime() <
           (period === "today"
             ? 86400000
-            : period === "week"
+            : period === "7d"
               ? 7 * 86400000
               : 31 * 86400000)),
   );
@@ -212,7 +222,7 @@ export function DeadlinesPage({
             onChange={(e) => setPeriod(e.target.value)}
           >
             <option value="today">Today</option>
-            <option value="week">Next 7 days</option>
+            <option value="7d">Next 7 days</option>
             <option value="month">This month</option>
           </select>
           <select

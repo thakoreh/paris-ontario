@@ -1,4 +1,5 @@
 import React from "react";
+import { SiteSearch } from "./site-search";
 import Link from "next/link";
 import type { Deadline, Notice, Source } from "@/types";
 import {
@@ -52,6 +53,7 @@ export function TodayPage({
           </a>
         ))}
       </nav>
+      <SiteSearch notices={notices} />
       <div className="today-columns">
         {content.deadlines.length > 0 && (
           <section className="today-deadlines">
