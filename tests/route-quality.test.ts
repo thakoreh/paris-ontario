@@ -7,7 +7,7 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 
 describe("live-content route quality", () => {
   it("rejects an unknown content route before querying public data", () => {
-    const page = read("src/app/[[...path]]/page.tsx");
+    const page = read("src/app/[...path]/page.tsx");
     const guard = page.indexOf("if (!isKnownContentRoute(path)) notFound();");
     const publicData = page.indexOf("const data = await publicData();");
 

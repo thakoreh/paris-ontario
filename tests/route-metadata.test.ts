@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/repository", () => mocks);
 
-import { generateMetadata } from "@/app/[[...path]]/page";
+import { generateMetadata } from "@/app/[...path]/page";
 
 const publicNotice = {
   id: "notice-1",
