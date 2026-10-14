@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { withRetry } from "@/lib/retry";
 import type { Notice, Location } from "@/types";
 import { community } from "@/config/community";
 import { noticeKind } from "@/lib/resident-experience";
@@ -31,6 +32,7 @@ export default function NoticeMap({
   const markers = useRef(new Map<string, import("leaflet").Marker>());
   const selectCallback = useRef(onSelectNotice);
   const [failed, setFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     selectCallback.current = onSelectNotice;
@@ -43,8 +45,8 @@ export default function NoticeMap({
     const data: MapData = JSON.parse(dataKey);
     const mapMarkers = markers.current;
     void (async () => {
-      const L = (await import("leaflet")).default;
-      await import("leaflet.markercluster");
+      const L = (await withRetry(() => import("leaflet"))).default;
+      await withRetry(() => import("leaflet.markercluster"));
       if (disposed || !ref.current) return;
       map = L.map(ref.current, { scrollWheelZoom: false }).setView(
         [
@@ -134,7 +136,7 @@ export default function NoticeMap({
       clusterRef.current = null;
       mapMarkers.clear();
     };
-  }, [dataKey, onPick]);
+  }, [dataKey, onPick, retryKey]);
   useEffect(() => {
     if (!selectedNoticeId) return;
     const marker = markers.current.get(selectedNoticeId);
@@ -154,13 +156,24 @@ export default function NoticeMap({
         }
       />
       {failed && (
-        <p
+        <div
           className="map-loading"
           role="status"
           style={{ position: "absolute", inset: 0 }}
         >
-          The map couldn’t load. The same updates are available in the list.
-        </p>
+          <p>
+            The map couldn’t load. The same updates are available in the list.
+          </p>
+          <button
+            className="button outline"
+            onClick={() => {
+              setFailed(false);
+              setRetryKey((value) => value + 1);
+            }}
+          >
+            Retry
+          </button>
+        </div>
       )}
     </div>
   );

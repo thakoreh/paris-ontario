@@ -2517,3 +2517,37 @@ footer > div a { display: inline-flex; align-items: center; min-height: 32px; }
 .event-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .event-search label { width: 100%; }
 .event-search input { min-height: 44px; min-width: 0; flex: 1; }
+
+/* Grand River guides and Today: mobile reading order, desktop two columns. */
+.revamp-page h2 { margin-top: 24px; font-size: 20px; }
+.revamp-page h3 { margin: 0; font-size: 16px; }
+.revamp-page .panel { background: var(--card, white); }
+.explore-grid, .quick-task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.explore-entry { min-width: 0; }
+.explore-entry small, .revamp-page article small { display: block; color: var(--muted); margin-top: 8px; }
+.explore-map-card { margin-top: 16px; }
+.explore-map-card:fullscreen { overflow: auto; padding: 24px; background: var(--paper); }
+.explore-map-card:fullscreen .leaflet-map { height: 75vh; }
+.explore-map-preview { width: 100%; min-height: 110px; margin-top: 12px; padding: 16px; border: 0; border-radius: var(--radius); color: white; background: linear-gradient(135deg, var(--river, #1f7a74), #5aa79f 60%, var(--stone, #c9b79c)); text-align: left; font: inherit; font-weight: 700; cursor: pointer; }
+.service-entry { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; text-decoration: none; min-height: 48px; }
+.service-entry span, .service-row span { color: var(--muted); font-size: 13px; }
+.service-rows { padding: 0 16px; }
+.service-row { display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 48px; padding: 12px 0; border-bottom: 1px solid var(--line); text-decoration: none; }
+.service-row:last-child { border-bottom: 0; }
+.essentials-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 20px 0; }
+.essentials-strip a { padding: 14px 10px; text-decoration: none; display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.essentials-strip span { font-size: 12px; color: var(--muted); }
+.today-columns { display: grid; gap: 16px; }
+.quick-task-grid a { min-height: 64px; display: flex; align-items: center; text-decoration: none; }
+.revamp-page .section-heading a { min-height: 44px; display: inline-flex; align-items: center; }
+.revamp-page .text-link { min-height: 44px; display: inline-flex; align-items: center; }
+@media (max-width: 540px) { .explore-grid { grid-template-columns: 1fr; } .essentials-strip a { font-size: 12px; padding: 12px 8px; } }
+@media (min-width: 900px) {
+  .today-columns { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; column-gap: 28px; }
+  .today-main { grid-column: 1; grid-row: 1 / span 2; }
+  .today-deadlines { grid-column: 2; grid-row: 1; }
+  .today-tasks { grid-column: 2; grid-row: 2; }
+}
+.explore-map-card > .leaflet-map { height: 360px; margin: 12px 0; border-radius: var(--radius); overflow: hidden; }
+.explore-map-card:fullscreen > .leaflet-map { height: 75vh; }
+.explore-entry h2 { margin-top: 0; font-size: 16px; }

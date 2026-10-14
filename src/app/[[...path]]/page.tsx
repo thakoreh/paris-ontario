@@ -1,3 +1,4 @@
+import { TodayPage } from "@/components/today-page";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { publicData, noticeBySlug, deadlineById } from "@/lib/repository";
@@ -242,6 +243,7 @@ export default async function Page({
     return <DeadlinesPage deadlines={[deadline]} detail />;
   }
   const data = await publicData();
+  if (route === "") return <TodayPage {...data} unavailable={!!data.error} />;
   if (data.error)
     return (
       <div className="page-wrap">

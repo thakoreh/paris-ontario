@@ -20,7 +20,7 @@ const notice = (overrides: Partial<Notice> = {}): Notice =>
     official_url: "https://www.brant.ca/news/road-update",
     published_at: "2026-09-10T12:00:00.000Z",
     retrieved_at: "2026-09-10T13:00:00.000Z",
-    verified_at: "2026-09-10T14:00:00.000Z",
+    verified_at: "2026-09-10T17:00:00.000Z",
     source_updated_at: "2026-09-11T12:00:00.000Z",
     end_at: "2099-09-12T00:00:00.000Z",
     expires_at: "2099-09-13T00:00:00.000Z",
@@ -41,12 +41,12 @@ const deadline = (overrides: Partial<Deadline> = {}): Deadline =>
     title: "Verified consultation deadline",
     description: "A verified deadline.",
     category: "planning",
-    deadline_at: "2099-09-14T00:00:00.000Z",
+    deadline_at: "2099-09-17T00:00:00.000Z",
     official_url: "https://www.brant.ca/consultations/one",
     latitude: null,
     longitude: null,
     source_id: "source-1",
-    verified_at: "2026-09-10T14:00:00.000Z",
+    verified_at: "2026-09-10T17:00:00.000Z",
     is_sample: false,
     ...overrides,
   }) as Deadline;
@@ -72,18 +72,24 @@ describe("public sitemap coverage", () => {
       return repositoryData;
     });
 
-    const nextMetadataExport = sitemap as unknown as (
-      params: { id?: string },
-    ) => ReturnType<typeof sitemap>;
+    const nextMetadataExport = sitemap as unknown as (params: {
+      id?: string;
+    }) => ReturnType<typeof sitemap>;
 
-    await expect(nextMetadataExport({ id: undefined })).resolves.toHaveLength(14);
+    await expect(nextMetadataExport({ id: undefined })).resolves.toHaveLength(
+      17,
+    );
     expect(mocks.publicData).toHaveBeenCalledWith(expect.any(Date));
   });
-  it("preserves all 14 static routes and adds only eligible dynamic records", async () => {
+  it("preserves all 17 static routes and adds only eligible dynamic records", async () => {
     mocks.publicData.mockResolvedValue({
       notices: [
         notice(),
-        notice({ id: "notice-draft", slug: "draft", verification_status: "draft" }),
+        notice({
+          id: "notice-draft",
+          slug: "draft",
+          verification_status: "draft",
+        }),
         notice({ id: "notice-sample", slug: "sample", is_sample: true }),
         notice({
           id: "notice-expired",
@@ -95,7 +101,10 @@ describe("public sitemap coverage", () => {
         deadline(),
         deadline({ id: "deadline-sample", is_sample: true }),
         deadline({ id: "deadline-unverified", verified_at: null }),
-        deadline({ id: "deadline-past", deadline_at: "2020-01-01T00:00:00.000Z" }),
+        deadline({
+          id: "deadline-past",
+          deadline_at: "2020-01-01T00:00:00.000Z",
+        }),
       ],
       sources: [],
       demo: false,
@@ -111,10 +120,14 @@ describe("public sitemap coverage", () => {
     expect(staticUrls).toContain("https://parispulse.ca/explore");
     expect(staticUrls).not.toContain("https://parispulse.ca/today");
     expect(staticUrls).not.toContain("https://parispulse.ca/map");
-    for (const absentRoute of ["/explore/trails", "/explore/visiting", "/services/council"])
-      expect(staticUrls).not.toContain(`https://parispulse.ca${absentRoute}`);
-    expect(staticUrls).toHaveLength(14);
-    expect(new Set(staticUrls).size).toBe(14);
+    for (const addedRoute of [
+      "/explore/trails",
+      "/explore/visiting",
+      "/services/council",
+    ])
+      expect(staticUrls).toContain(`https://parispulse.ca${addedRoute}`);
+    expect(staticUrls).toHaveLength(17);
+    expect(new Set(staticUrls).size).toBe(17);
     expect(urls).toEqual(
       expect.arrayContaining([
         "https://parispulse.ca/notice/verified-road-update",
@@ -138,15 +151,25 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(fixedNow);
-    expect(entries.find((entry) => entry.url.endsWith("/notice/verified-road-update")))
-      .toMatchObject({ lastModified: new Date("2026-09-11T12:00:00.000Z") });
-    expect(entries.find((entry) => entry.url.endsWith("/deadline/deadline-1")))
-      .toMatchObject({ lastModified: new Date("2026-09-10T14:00:00.000Z") });
+    expect(
+      entries.find((entry) =>
+        entry.url.endsWith("/notice/verified-road-update"),
+      ),
+    ).toMatchObject({ lastModified: new Date("2026-09-11T12:00:00.000Z") });
+    expect(
+      entries.find((entry) => entry.url.endsWith("/deadline/deadline-1")),
+    ).toMatchObject({ lastModified: new Date("2026-09-10T17:00:00.000Z") });
   });
 
   it("excludes notices that are verified but not published yet", async () => {
     mocks.publicData.mockResolvedValue({
-      notices: [notice({ id: "notice-future", slug: "future", published_at: "2999-01-01T00:00:00.000Z" })],
+      notices: [
+        notice({
+          id: "notice-future",
+          slug: "future",
+          published_at: "2999-01-01T00:00:00.000Z",
+        }),
+      ],
       deadlines: [],
       sources: [],
       demo: false,
@@ -154,7 +177,9 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(new Date("2026-09-15T12:00:00.000Z"));
-    expect(entries.some((entry) => entry.url.endsWith("/notice/future"))).toBe(false);
+    expect(entries.some((entry) => entry.url.endsWith("/notice/future"))).toBe(
+      false,
+    );
   });
 
   it("keeps static coverage but never substitutes preview records when the repository is unavailable", async () => {
@@ -167,7 +192,12 @@ describe("public sitemap coverage", () => {
     });
 
     const entries = await buildSitemap(fixedNow);
-    expect(entries).toHaveLength(14);
-    expect(entries.every((entry) => !entry.url.includes("/notice/") && !entry.url.includes("/deadline/"))).toBe(true);
+    expect(entries).toHaveLength(17);
+    expect(
+      entries.every(
+        (entry) =>
+          !entry.url.includes("/notice/") && !entry.url.includes("/deadline/"),
+      ),
+    ).toBe(true);
   });
 });

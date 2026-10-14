@@ -1,28 +1,54 @@
 import Link from "next/link";
-import type { Metadata } from "next";
 import { publicRouteMetadata } from "@/lib/seo";
-import { ResidentServices } from "@/components/resident-guide";
-export const metadata: Metadata = publicRouteMetadata({
+import { ServicesDirectory } from "@/components/services-directory";
+import "@/components/resident-guide.css";
+export const metadata = publicRouteMetadata({
   title: "Paris Ontario resident services",
   description:
-    "Find official links for Paris, Ontario garbage collection, Brant Transit, library membership, recreation, property taxes and health advice.",
+    "Find official links for council, garbage collection, transit, library, recreation, property tax and help settling into Paris, Ontario.",
   path: "/services",
 });
 export default function Page() {
   return (
-    <>
-      <ResidentServices />
-      <div className="page-wrap action-row">
-        <Link className="button outline" href="/deadlines">
-          Upcoming deadlines
+    <div className="page-wrap revamp-page">
+      <h1>Services</h1>
+      <Link className="panel service-entry" href="/services/council">
+        <strong>Council & elections ›</strong>
+        <span>
+          Meeting information, councillors and wards · County of Brant
+        </span>
+      </Link>
+      <section>
+        <h2>Everyday</h2>
+        <ServicesDirectory />
+      </section>
+      <section>
+        <h2>When things go wrong</h2>
+        <div className="panel service-rows">
+          <Link className="service-row" href="/storm">
+            <strong>Storm & outages ›</strong>
+          </Link>
+          <a
+            className="service-row"
+            href="https://www.municipal511.ca/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <strong>Road closures ↗</strong>
+            <span>Source: Municipal511 · Checked 2026-10-14</span>
+          </a>
+        </div>
+      </section>
+      <section>
+        <h2>New to Paris</h2>
+        <Link className="panel service-entry" href="/new-to-paris">
+          <strong>New to Paris checklist ›</strong>
+          <span>Work through the essentials at your own pace.</span>
         </Link>
-        <Link className="button outline" href="/storm">
-          Storm & disruption
-        </Link>
-        <Link className="button outline" href="/new-to-paris">
-          New to Paris
-        </Link>
-      </div>
-    </>
+      </section>
+      <Link className="button outline" href="/deadlines">
+        Upcoming deadlines
+      </Link>
+    </div>
   );
 }
