@@ -110,3 +110,9 @@ export async function deadlineById(id: string, nowDate = new Date()) {
   const deadline = data as Deadline | null;
   return deadline && isPublicDeadline(deadline, nowDate) ? deadline : null;
 }
+
+// Read-only lookup through the same public-content gates as the events page.
+export async function eventById(id: string, now = new Date()) {
+  const { notices } = await publicData(now);
+  return notices.find(n => n.id === id && n.category === "event" && n.verified_at && n.start_at && Number.isFinite(Date.parse(n.start_at))) || null;
+}

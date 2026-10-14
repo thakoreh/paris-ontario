@@ -2504,3 +2504,16 @@ footer > div a { display: inline-flex; align-items: center; min-height: 32px; }
   .topbar { padding-inline: 12px; gap: 8px; }
   .topbar > .button > svg { display: none; }
 }
+
+/* What's on: wrapping filters and source-linked cards. */
+.event-chips, .event-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.event-chips button { min-height: 44px; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card, white); color: var(--ink); cursor: pointer; }
+.event-chips button[aria-pressed="true"] { background: var(--river-tint, #d7ebe8); border-color: var(--green); }
+.event-date { position: sticky; top: 0; z-index: 2; padding: 12px 0; background: var(--paper); }
+.events-page .panel { margin: 16px 0; }
+.events-page a { overflow-wrap: anywhere; }
+.events-page h3 a, .events-page .muted a { display: inline-flex; align-items: center; min-height: 44px; }
+.events-page .button { min-height: 44px; }
+.event-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.event-search label { width: 100%; }
+.event-search input { min-height: 44px; min-width: 0; flex: 1; }

@@ -43,7 +43,7 @@ insert into public.official_sources (
   'Paris Agricultural Society',
   'Paris Agricultural Society',
   'website',
-  'https://www.parisfairgrounds.com/events/paris-night-market---day-2',
+  'https://www.parisfairgrounds.com/events',
   'Official Paris Fairgrounds events, including community market listings.',
   'trusted_local_org', 'manual', false, 60, '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00', true
 ),
@@ -167,7 +167,7 @@ insert into public.notices (
   'The 11th annual Paris Night Market & Fall Fest runs September 18 from 5 to 10 p.m. and September 19 from 4 to 10 p.m. at the Paris Fairgrounds.',
   'Official Paris Agricultural Society event listing. The event includes artisans, food trucks, entertainment, an outdoor movie on Saturday, and gate admission paid in cash.',
   'event', 'useful',
-  'https://www.parisfairgrounds.com/events/paris-night-market---day-2',
+  'https://www.parisfairgrounds.com/events',
   '2026-09-14T12:00:00-04:00', '2026-09-14T12:00:00-04:00', '2026-09-15T14:24:00-04:00', '2026-09-15T14:24:00-04:00',
   '2026-09-18T17:00:00-04:00', '2026-09-19T22:00:00-04:00', '2026-09-19T22:00:00-04:00',
   'Paris Fairgrounds, 139 Silver Street', 43.2045471, -80.407974,
@@ -283,7 +283,7 @@ insert into public.deadlines (
   'Paris Night Market opens',
   'The Paris Night Market & Fall Fest opens at 5 p.m. on September 18 at the Paris Fairgrounds.',
   'event', '2026-09-18T17:00:00-04:00', '2026-09-18T17:00:00-04:00',
-  'https://www.parisfairgrounds.com/events/paris-night-market---day-2',
+  'https://www.parisfairgrounds.com/events',
   43.2045471, -80.407974, 'cb555555-5555-4555-8555-555555555555', '2026-09-15T14:24:00-04:00', false
 )
 on conflict (id) do update set

@@ -40,7 +40,7 @@
 [5] https://www.brant.ca/council-and-county-administration/elections
 [6] https://www.brant.ca/visit-and-discover-brant/arts-culture-and-heritage/culture-days
 [7] https://www.brantlibrary.ca/en/your-library/hours-and-locations.aspx
-[8] https://www.parisfairgrounds.com/events/paris-night-market---day-2
+[8] https://www.parisfairgrounds.com/events
 [9] https://culturedays.ca/en/events/b43a2522-d9dc-491d-a48a-9dee66fc9b47
 [10] https://culturedays.ca/en/events/403a6f1e-201e-475a-8004-41fd1e8b9ac0
 [11] https://www.brant.ca/news/posts/join-the-accessibility-advisory-committee-for-an-open-house
