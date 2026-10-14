@@ -25,8 +25,10 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "npm run build && npx next start --hostname 127.0.0.1 --port 3017",
-        env: { NEXT_PUBLIC_APP_URL: "https://parispulse.ca" },
+        command:
+          process.env.PLAYWRIGHT_PRODUCTION === "1"
+            ? "npm run build && PORT=3017 HOSTNAME=127.0.0.1 node .next/standalone/server.js"
+            : "NEXT_PUBLIC_APP_URL=https://parispulse.ca NEXT_PUBLIC_SUPPORT_EMAIL=editor@example.org NEXT_PUBLIC_PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_TEST_MODE=1 PARIS_PULSE_RELATIVE_FIXTURES=1 npm run dev -- --hostname 127.0.0.1 --port 3017",
         url: "http://127.0.0.1:3017",
         reuseExistingServer: !process.env.CI,
         timeout: 300000,
