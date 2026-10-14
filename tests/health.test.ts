@@ -126,3 +126,17 @@ describe("public backend readiness", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe("build commit", () => {
+  it("exposes only a hex git SHA from SOURCE_COMMIT", async () => {
+    const { buildCommit } = await import("@/lib/build-info");
+    expect(buildCommit("C52A59A")).toBe("c52a59a");
+    expect(buildCommit("c52a59a0123456789abcdef0123456789abcdef0")).toBe(
+      "c52a59a0123456789abcdef0123456789abcdef0",
+    );
+    expect(buildCommit(undefined)).toBeNull();
+    expect(buildCommit("")).toBeNull();
+    expect(buildCommit("sk_live_secret")).toBeNull();
+    expect(buildCommit("abc")).toBeNull();
+  });
+});
