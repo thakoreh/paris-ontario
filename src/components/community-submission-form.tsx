@@ -44,7 +44,7 @@ export function CommunitySubmissionForm() {
   return <div className="page-wrap contribution-page">
     <div className="contribution-heading"><span className="eyebrow">FROM NEIGHBOURS · CHECKED BY EDITORS</span><h1>Share a local update</h1><p>A new business, an event, a useful change. Help us find the original source so an editor can check it.</p></div>
     <div className="contribution-layout"><section className="panel contribution-form" aria-label="Share a local update">
-      {sent ? <div className="submission-receipt" role="status"><CheckCircle2 size={34} /><h2>Thanks. Your update is pending editor review.</h2><p>It has not been published or sent as an alert. Editors verify the source, details and local relevance before deciding what to include. Publication and review timing are not guaranteed.</p><Link className="button primary" href="/today">Back to Today</Link></div> : <>
+      {sent ? <div className="submission-receipt" role="status"><CheckCircle2 size={34} /><h2>Thanks. Your update is pending editor review.</h2><p>It has not been published or sent as an alert. Editors verify the source, details and local relevance before deciding what to include. Publication and review timing are not guaranteed.</p><Link className="button primary" href="/">Back to Today</Link></div> : <>
         {accepting === null && <p role="status">Checking whether submissions are available…</p>}
         {accepting === false && <p className="message-box" role="status">Private submissions are not available in this environment yet. After you validate a preview, you can optionally prepare a voluntary email instead; opening it sends nothing.</p>}
         {!preview ? <form onSubmit={event => {

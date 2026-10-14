@@ -74,9 +74,7 @@ test("an empty nearby shelf can use the existing All Paris scope state", async (
   const events = page.locator(".section-event");
   await expect(events.getByRole("button", { name: "View all Paris", exact: true })).toBeVisible();
   await events.getByRole("button", { name: "View all Paris", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Your feed area" })).toContainText(
-    "Exploring all Paris",
-  );
+  await expect(page.getByRole("region", { name: "Your feed area" })).toHaveCount(0);
   await expect
     .poll(() => page.evaluate((key) => localStorage.getItem(key), scopeStorageKey))
     .toBe("all");

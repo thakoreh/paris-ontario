@@ -324,7 +324,7 @@ export function Feed({
           <Plus size={17} /> Share a local update
         </Link>
       </header>
-      {dashboard && p.ready && !p.locations.length && (
+      {mode === "app" && p.ready && !p.locations.length && (
         <div className="welcome-area">
           <div>
             <MapPin size={21} />
@@ -589,7 +589,7 @@ export function Feed({
                 description="Clear your filters or try a different street or topic."
               />
             )}
-            <Link className="explore-all" href="/app/feed">
+            <Link className="explore-all" href="/explore">
               Explore all local updates <ArrowRight size={17} />
             </Link>
           </div>
@@ -597,7 +597,7 @@ export function Feed({
             <section className="neighbourhood-map-card">
               <SectionHeading
                 title="Around your area"
-                href="/map"
+                href="/explore"
                 label="Open map"
               />
               {mappedCount > 0 ? (
@@ -621,7 +621,7 @@ export function Feed({
                     <strong>No updates have a map location yet.</strong>
                     Explore the list for every matching update.
                   </p>
-                  <Link href="/app/feed">Explore the update list</Link>
+                  <Link href="/explore">Explore the update list</Link>
                 </div>
               )}
             </section>
@@ -663,7 +663,7 @@ export function Feed({
                         process.env.NEXT_PUBLIC_APP_URL ||
                         "https://parispulse.ca"
                       }
-                      publicPath="/today"
+                      publicPath="/"
                       title="Paris Pulse — Today in Paris"
                     />
                   )}
@@ -679,7 +679,7 @@ export function Feed({
                 </span>
               </div>
             </Link>
-            <Link className="rail-settings" href="/notifications">
+            <Link className="rail-settings" href="/app/alerts#browser-notifications">
               Browser alerts · Check this device <ArrowUpRight size={14} />
             </Link>
             {p.profile && ["editor", "admin"].includes(p.profile.role) && (

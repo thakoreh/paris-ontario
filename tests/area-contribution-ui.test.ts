@@ -5,6 +5,7 @@ import { defaultPreferences } from "@/config/community";
 import type { usePersonal } from "@/components/provider";
 import { MyArea } from "@/components/my-area";
 import { CommunitySubmissionForm, SubmissionReviewQueue } from "@/components/community-submission-form";
+import { AlertsPage } from "@/components/alerts-page";
 import { BrowserNotifications } from "@/components/browser-notifications";
 const state = vi.hoisted(() => ({ personal: {} as ReturnType<typeof usePersonal> }));
 vi.mock("@/components/provider", () => ({ usePersonal: () => state.personal }));
@@ -20,6 +21,16 @@ beforeEach(() => {
   };
 });
 describe("progressive area setup and private contribution UI", () => {
+  it("merges alert preferences and browser controls under one Alerts heading", () => {
+    const html = renderToString(React.createElement(AlertsPage));
+    expect(html.match(/<h1>/g)).toHaveLength(1);
+    expect(html).toContain("<h1>Alerts</h1>");
+    expect(html).toContain('id="alert-preferences-heading"');
+    expect(html).toContain('id="browser-notifications"');
+    expect(html).toContain("<h2>Browser notifications</h2>");
+    expect(html).toContain('href="/app/alerts#browser-notifications"');
+    expect(html).toContain("Sign in to enable notifications");
+  });
   it("starts with private area choice before interests or browser permission", () => {
     const html = renderToString(React.createElement(MyArea, { notices: [] }));
     expect(html).toContain("Make Paris feel local.");

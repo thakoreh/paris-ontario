@@ -85,12 +85,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "/";
   const p = usePersonal();
   const showArea = [
-    "/",
-    "/today",
     "/explore",
     "/events",
-    "/app",
-    "/app/feed",
     "/app/map",
     "/app/saved",
   ].includes(path);
@@ -124,6 +120,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Link
               className="button outline saved-entry"
               href="/app/saved"
+              prefetch={false}
               aria-label="Saved notices"
             >
               <Bookmark size={19} />

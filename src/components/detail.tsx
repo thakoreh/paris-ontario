@@ -53,7 +53,7 @@ export function NoticeDetail({
   });
   return (
     <div className="page-wrap detail-wrap">
-      <Link className="back-link" href="/today">
+      <Link className="back-link" href="/">
         <ArrowLeft size={15} /> Back to local updates
       </Link>
       <div className="card-eyebrow">
@@ -232,7 +232,7 @@ export function DeadlinesPage({
           <DeadlineCard deadline={d} full />
           {detail && d.notice_id && (
             <p>
-              <Link className="text-link" href={`/today`}>
+              <Link className="text-link" href="/">
                 Browse related local updates <ArrowUpRight size={14} />
               </Link>
             </p>

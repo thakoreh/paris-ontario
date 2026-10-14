@@ -21,7 +21,7 @@ test.describe("rendered SEO metadata", () => {
   });
 
   test("does not render public metadata on private routes", async ({ request }) => {
-    for (const path of ["/app", "/notifications", "/login"]) {
+    for (const path of ["/profile", "/app/alerts", "/notifications", "/login"]) {
       const response = await request.get(path);
       expect(response.status(), path).toBe(200);
       expect(metadataPresence(await response.text()), path).toEqual({

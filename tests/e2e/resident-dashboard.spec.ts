@@ -28,12 +28,9 @@ test("Today has a resident briefing, distinct shelves and no repeated notice car
       page.getByRole("heading", { name, exact: true }),
     ).toBeVisible();
   }
-  const area = page.getByRole("region", { name: "Your feed area" });
-  await expect(area).toContainText("Exploring all Paris");
-  await expect(
-    area.getByRole("link", { name: "Set my area", exact: true }),
-  ).toHaveAttribute("href", "/app/area");
-  await expect(area).not.toContainText(/alerts enabled|notifications enabled/i);
+  await expect(page.getByRole("region", { name: "Your feed area" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Set my area", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Your profile", exact: true })).toHaveAttribute("href", "/profile");
   await expect(page.getByRole("region", { name: newUpdates })).toContainText(
     "Your first look around",
   );
@@ -130,11 +127,11 @@ for (const checkpoint of ["not-a-date", "2999-01-01T00:00:00.000Z"]) {
   });
 }
 
-test("the saved area and radius stay consistent on every home, feed and map route", async ({
+test("the saved area and radius stay consistent on Explore and personal map routes", async ({
   page,
 }) => {
   await seedResident(page, { place: true, radius: 2 });
-  for (const path of ["/", "/today", "/app", "/app/feed", "/map", "/app/map"]) {
+  for (const path of ["/explore", "/app/feed", "/map", "/app/map"]) {
     await page.goto(path);
     const area = page.getByRole("region", { name: "Your feed area" });
     await expect(area).toHaveCount(1);
@@ -158,7 +155,7 @@ test("All Paris is an explicit persistent escape from a small neighbourhood radi
   page,
 }, testInfo) => {
   await seedResident(page, { place: true, distant: true, radius: 0.5 });
-  await page.goto("/today");
+  await page.goto("/explore");
   const area = page.getByRole("region", { name: "Your feed area" });
   await expect(area).toContainText("0.5 km radius");
   await expect(page.locator(".notice-card")).toHaveCount(0);
@@ -169,7 +166,7 @@ test("All Paris is an explicit persistent escape from a small neighbourhood radi
   expect(
     await page.evaluate((key) => localStorage.getItem(key), scopeStorageKey),
   ).toBe("all");
-  for (const path of ["/app/feed", "/map", "/app", "/today"]) {
+  for (const path of ["/app/feed", "/map", "/explore", "/app/map"]) {
     await page.goto(path);
     await expect(area).toContainText("Exploring all Paris");
     await expect(

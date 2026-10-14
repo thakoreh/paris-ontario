@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -11,20 +12,28 @@ function inTimezone(zone: string, code: string): unknown {
   const moduleUrl = pathToFileURL(
     path.resolve("src/lib/admin-datetime.ts"),
   ).href;
-  return JSON.parse(
-    execFileSync(
-      process.execPath,
-      [
-        "--import",
-        "tsx",
-        "--input-type=module",
-        "-e",
-        `import { localDateTimeInput, savedLocalDateTime } from ${JSON.stringify(moduleUrl)};
-     console.log(JSON.stringify((() => { ${code} })()));`,
-      ],
-      { env: { ...process.env, TZ: zone }, encoding: "utf8" },
-    ),
+  // Regular files also work in restricted runners that block subprocess pipes.
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "parispulse-datetime-"),
   );
+  const script = path.join(directory, "check.mjs");
+  const output = path.join(directory, "output.json");
+  const outputFd = fs.openSync(output, "w");
+  try {
+    fs.writeFileSync(
+      script,
+      `import { localDateTimeInput, savedLocalDateTime } from ${JSON.stringify(moduleUrl)};
+       console.log(JSON.stringify((() => { ${code} })()));`,
+    );
+    execFileSync(process.execPath, ["--import", "tsx", script], {
+      env: { ...process.env, TZ: zone },
+      stdio: ["ignore", outputFd, outputFd],
+    });
+    return JSON.parse(fs.readFileSync(output, "utf8"));
+  } finally {
+    fs.closeSync(outputFd);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 describe("editor local datetime round trips", () => {

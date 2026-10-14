@@ -19,9 +19,14 @@ export function ProfileHub() {
       {!personal.ready ? (
         <p>Loading your profile…</p>
       ) : personal.profile ? (
-        <nav className="profile-links" aria-label="Profile tools">
+        <nav className="profile-links panel" aria-label="Profile tools">
           {profileLinks.map(([href, label]) => (
-            <Link className="button outline" key={href} href={href}>
+            <Link
+              className="button outline"
+              key={href}
+              href={href}
+              prefetch={false}
+            >
               {label}
             </Link>
           ))}

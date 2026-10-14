@@ -601,7 +601,7 @@ export function PreferencesForm({
             {p.guest
               ? "Sign in and save a place and interests to enable browser alerts. Guest preferences do not enable delivery."
               : "Delivery also requires at least one saved place, selected interests and a browser subscription. Enabling Push resumes matching sends to existing subscribed devices."}{" "}
-            <Link className="text-link" href="/notifications">
+            <Link className="text-link" href="/app/alerts#browser-notifications">
               Set up browser notifications
             </Link>
           </p>

@@ -105,7 +105,7 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
             is not guaranteed.
           </p>
           <p>
-            <Link className="text-link" href="/notifications">
+            <Link className="text-link" href="/app/alerts#browser-notifications">
               Manage browser notifications
             </Link>
           </p>

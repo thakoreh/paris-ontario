@@ -81,6 +81,20 @@ beforeEach(() => {
 });
 
 describe("neighbourhood interface server rendering", () => {
+  it("keeps area setup out of public Today and uses canonical Explore links", () => {
+    const html = feed([], "home");
+    expect(html).not.toContain("Set my area");
+    expect(html).not.toContain("Make this your neighbourhood");
+    expect(html).toContain('href="/explore"');
+    expect(html).not.toContain('href="/map"');
+    expect(html).not.toContain('href="/app/feed"');
+  });
+  it("keeps both list and map controls within Explore", () => {
+    const html = feed([], "map");
+    expect(html).toContain('aria-label="Explore view"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain("Map preview");
+  });
   it("renders each notice once on Today with an honest first-visit explanation", () => {
     const html = feed([
       notice(),

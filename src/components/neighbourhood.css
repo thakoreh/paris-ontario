@@ -975,6 +975,9 @@
   .header-tools .button {
     padding-inline: 11px;
   }
+  .header-tools .profile-entry {
+    padding: 0;
+  }
   .neighbourhood-topbar .brand {
     font-size: 26px;
   }
@@ -1226,7 +1229,7 @@
   }
   .neighbourhood-shell .mobile-nav a {
     min-width: 58px;
-    min-height: 49px;
+    min-height: 56px;
     font-size: 11px;
     gap: 4px;
     padding: 3px 12px;

@@ -183,7 +183,7 @@ test("guest settings cannot enable delivery or prompt for browser permission", a
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Set up browser notifications" }),
-  ).toHaveAttribute("href", "/notifications");
+  ).toHaveAttribute("href", "/app/alerts#browser-notifications");
   await expect(
     page.getByText(/Quiet hours use Paris, Ontario time \(America\/Toronto\)/),
   ).toBeVisible();

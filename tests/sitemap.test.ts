@@ -111,6 +111,8 @@ describe("public sitemap coverage", () => {
     expect(staticUrls).toContain("https://parispulse.ca/explore");
     expect(staticUrls).not.toContain("https://parispulse.ca/today");
     expect(staticUrls).not.toContain("https://parispulse.ca/map");
+    for (const absentRoute of ["/explore/trails", "/explore/visiting", "/services/council"])
+      expect(staticUrls).not.toContain(`https://parispulse.ca${absentRoute}`);
     expect(staticUrls).toHaveLength(14);
     expect(new Set(staticUrls).size).toBe(14);
     expect(urls).toEqual(

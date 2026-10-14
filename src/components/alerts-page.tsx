@@ -1,3 +1,4 @@
+import React from "react";
 import { AccountGate, PreferencesForm } from "./account";
 import { BrowserNotifications } from "./browser-notifications";
 
@@ -10,7 +11,7 @@ export function AlertsPage() {
           <h2 id="alert-preferences-heading">Alert preferences</h2>
           <PreferencesForm />
         </section>
-        <section aria-label="Browser notifications">
+        <section id="browser-notifications" aria-label="Browser notifications">
           <BrowserNotifications embedded />
         </section>
       </div>
