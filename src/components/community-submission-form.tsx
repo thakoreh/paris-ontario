@@ -12,6 +12,8 @@ import {
   type ReviewChecks,
 } from "@/lib/community-submissions";
 import { usePersonal } from "./provider";
+import { CommunityEmailDraft } from "./community-email-draft";
+import { buildCommunityEmailDraft } from "@/lib/community-email";
 import "./contributions.css";
 
 type Draft = {
@@ -93,13 +95,12 @@ export function CommunitySubmissionForm() {
       setBusy(false);
     }
   }
-  if (accepting !== true)
+  if (accepting === null)
     return (
       <div className="page-wrap contribution-page">
         <h1>Share a local update</h1>
-        <Link className="button" href="/contact">
-          Contact Paris Pulse
-        </Link>
+        <p role="status">Checking whether submissions are available…</p>
+        <Link className="button" href="/contact">Contact Paris Pulse</Link>
       </div>
     );
   return (
@@ -132,8 +133,8 @@ export function CommunitySubmissionForm() {
             </div>
           ) : (
             <>
-              {accepting === null && (
-                <p role="status">Checking whether submissions are available…</p>
+              {accepting === false && (
+                <p role="status">Private submissions are not available in this environment yet. You can preview your update, but cannot send it to the editor queue. Opening an email draft sends nothing.</p>
               )}
               {!preview ? (
                 <form
@@ -282,9 +283,7 @@ export function CommunitySubmissionForm() {
                     Check original source
                   </a>
                   <p>
-                    Sending adds this update to a private editor queue. An
-                    editor must check the facts before any separate publication
-                    decision.
+                    {accepting === true ? "Sending adds this update to a private editor queue. An editor must check the facts before any separate publication decision." : "The private queue is unavailable, so nothing will be submitted here."}
                   </p>
                   <div className="action-row">
                     <button
@@ -307,6 +306,7 @@ export function CommunitySubmissionForm() {
                       <ArrowRight size={16} />
                     </button>
                   </div>
+                  {accepting === false && <CommunityEmailDraft draft={buildCommunityEmailDraft({ title: draft.title, body: draft.body, sourceUrl: draft.source_url })} heading="Prepare an email instead" actionLabel="Open email draft" />}
                 </div>
               )}
             </>
