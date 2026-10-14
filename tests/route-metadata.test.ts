@@ -36,7 +36,7 @@ describe("route-aware social metadata", () => {
       const metadata = await generateMetadata({
         params: Promise.resolve({ path }),
       });
-      expect(metadata.alternates).toEqual({ canonical: "/" });
+      expect(metadata.alternates).toEqual({ canonical: "https://parispulse.ca/" });
     },
   );
   it("emits canonical OG and large Twitter metadata for a public guide", async () => {

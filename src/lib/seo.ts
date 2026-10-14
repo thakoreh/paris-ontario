@@ -21,7 +21,7 @@ export function publicRouteMetadata({
   return {
     title,
     description,
-    alternates: { canonical: path },
+    alternates: { canonical: path === "/" ? url : path },
     openGraph: {
       title,
       description,
