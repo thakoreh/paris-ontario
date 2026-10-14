@@ -1,3 +1,5 @@
+import { ShareButton } from "@/components/share-button";
+import { normalizePublicUrl } from "@/lib/site";
 import Link from "next/link";
 import { publicRouteMetadata } from "@/lib/seo";
 import { ServicesDirectory } from "@/components/services-directory";
@@ -12,6 +14,7 @@ export default function Page() {
   return (
     <div className="page-wrap revamp-page">
       <h1>Services</h1>
+      <ShareButton base={normalizePublicUrl()?.toString() || ""} publicPath="/services" title="Paris Ontario resident services" />
       <Link className="panel service-entry" href="/services/council">
         <strong>Council & elections ›</strong>
         <span>
