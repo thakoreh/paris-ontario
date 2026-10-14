@@ -2578,3 +2578,21 @@ h3 { font-size: 16px; font-weight: 700; }
 @media (max-width: 760px) { h1 { font-size: 28px; } }
 
 .chip, .filter-chip, .section-more { min-height: 44px; padding: 10px 14px; }
+
+.neighbourhood-shell .revamp-page h1 { font-family: var(--font-inter), system-ui, sans-serif; font-size: 28px; line-height: 1.2; }
+.explore-chips { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding-bottom: 4px; }
+.explore-chips .button { flex-shrink: 0; border-radius: 999px; }
+.explore-map-card { padding: 0; background: transparent; border: 0; box-shadow: none; }
+.explore-map-preview { margin-top: 0; }
+.map-sources { display: flex; flex-direction: column; font-size: 12px; }
+.map-layer-error { position: absolute; bottom: 0; background: white; z-index: 1000; padding: 8px; }
+@media (min-width: 900px) {
+  .neighbourhood-shell .revamp-page h1 { font-size: 40px; }
+  .today-tasks { grid-row: 1; }
+  .today-deadlines ~ .today-tasks { grid-row: 2; }
+}
+.today-explore { display: none; }
+@media (min-width: 900px) {
+  .today-explore { display: block; }
+  .essentials-strip a { flex-direction: row; align-items: center; justify-content: space-between; }
+}

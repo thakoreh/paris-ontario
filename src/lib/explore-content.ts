@@ -59,6 +59,15 @@ export const trailEntries: ExploreEntry[] = [
 ];
 export const visitingEntries: ExploreEntry[] = [
   {
+    id: "stay",
+    title: "Plan your stay",
+    description: "Open the County’s Visit and Discover Brant guide to plan your stay.",
+    category: "visiting",
+    source_url: "https://www.brant.ca/Visit",
+    reviewed_at: "2026-10-14",
+    organization: "County of Brant",
+  },
+  {
     id: "downtown",
     title: "Downtown & eat",
     description: "Use the BIA's directory to explore places to eat and shop.",

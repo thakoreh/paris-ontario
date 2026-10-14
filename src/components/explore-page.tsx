@@ -41,9 +41,9 @@ export function ExplorePage() {
   const trails = filterExplore(trailEntries, category);
   const visiting = filterExplore(visitingEntries, category);
   return (
-    <div className="page-wrap revamp-page">
+    <div className="page-wrap revamp-page explore-page">
       <h1>Explore Paris</h1>
-      <div className="action-row" aria-label="Explore categories">
+      <div className="action-row explore-chips" aria-label="Explore categories">
         {exploreCategories.map((c) => (
           <button
             key={c}
@@ -56,24 +56,13 @@ export function ExplorePage() {
         ))}
       </div>
       <div className="explore-map-card panel" ref={mapRef}>
-        <div className="action-row" aria-label="Explore view">
-          {(["list", "map"] as const).map((v) => (
-            <button
-              key={v}
-              className={`button ${view === v ? "primary" : "outline"}`}
-              aria-pressed={view === v}
-              onClick={() => setView(v)}
-            >
-              {v === "list" ? "List view" : "Map view"}
-            </button>
-          ))}
-        </div>
         {view === "map" ? (
           <>
             {loading ? (
               <p role="status">Loading notice map…</p>
             ) : failed ? (
               <div role="status">
+                <MapPanel notices={[]} exploreLayers />
                 <p>
                   The notice map couldn’t load. Official guides remain available
                   below.
@@ -86,8 +75,9 @@ export function ExplorePage() {
                 </button>
               </div>
             ) : (
-              <MapPanel notices={notices} />
+              <MapPanel notices={notices} exploreLayers />
             )}
+            <button className="button outline" onClick={() => setView("list")}>Close map</button>
             <button
               className="button outline"
               onClick={() => {
@@ -98,8 +88,7 @@ export function ExplorePage() {
               Toggle full screen
             </button>
             <p>
-              Mapped notices only. Trail access and parking details are on the
-              official pages below.
+              County of Brant trails, river access, parking and local notices.
             </p>
           </>
         ) : (
@@ -107,10 +96,11 @@ export function ExplorePage() {
             className="explore-map-preview"
             onClick={() => setView("map")}
           >
-            Open map · local notices ›
+            Open map · trails, river & parking ›
           </button>
         )}
       </div>
+      <Link href="/paris-ontario">Paris resource guide ›</Link>
       {category === "all" && notices.length > 0 && (
         <section>
           <h2>Local notices</h2>

@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Deadline, Notice } from "@/types";
 
-const mocks = vi.hoisted(() => ({ publicData: vi.fn() }));
+const mocks = vi.hoisted(() => ({ publicData: vi.fn(), createServerClient: vi.fn() }));
 
 vi.mock("@/lib/repository", () => ({ publicData: mocks.publicData }));
+
+vi.mock("@supabase/ssr", () => ({ createServerClient: mocks.createServerClient }));
 
 import sitemap, { buildSitemap } from "@/app/sitemap";
 
@@ -200,4 +202,28 @@ describe("public sitemap coverage", () => {
       ),
     ).toBe(true);
   });
+});
+
+it("every generated sitemap route passes middleware without a 404 rewrite", async () => {
+  const { createMiddleware } = await import("@/middleware");
+  const { NextRequest } = await import("next/server");
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
+  const query = {
+    select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
+    not: vi.fn().mockReturnThis(), lte: vi.fn().mockReturnThis(),
+    gt: vi.fn().mockReturnThis(), or: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { id: "eligible-record" } }),
+  };
+  mocks.createServerClient.mockReturnValue({ auth: { getUser: vi.fn() }, from: vi.fn(() => query) });
+  mocks.publicData.mockResolvedValue({ notices: [notice()], deadlines: [deadline()], sources: [], demo: false, error: null });
+  for (const entry of await buildSitemap(fixedNow)) {
+    const response = await createMiddleware(() => fixedNow)(new NextRequest(entry.url));
+    expect(response.status, entry.url).toBe(200);
+    expect(response.headers.get("x-middleware-rewrite"), entry.url).toBeNull();
+  }
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 });

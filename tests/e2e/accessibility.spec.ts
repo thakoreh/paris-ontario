@@ -4,8 +4,8 @@ test("public pages have no WCAG A/AA automated violations", async ({
   page,
 }) => {
   for (const route of [
-    "/today",
-    "/map",
+    "/",
+    "/explore",
     "/app/area",
     "/share-update",
     "/login",

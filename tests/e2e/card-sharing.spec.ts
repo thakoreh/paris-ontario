@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function firstNoticeCard(page: Page) {
-  await page.goto("/app/feed");
+  await page.goto("/app/map");
   const card = page.locator(".notice-list .notice-card").first();
   await expect(card).toBeVisible();
   return card;

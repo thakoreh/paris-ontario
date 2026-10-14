@@ -31,7 +31,7 @@ describe("event calendars", () => {
   it("exports CRLF, UTC dates, escaped content, location and UTF-8 line folding", () => {
     const ics = calendarEvent({ ...event, title: "Music, art; fun\n" + "é".repeat(100) });
     expect(ics).toContain("BEGIN:VCALENDAR\r\nVERSION:2.0");
-    expect(ics).toContain("DTSTART:20261017T140000Z\r\nDTEND:20261017T160000Z");
+    expect(ics).toContain("DTSTART;TZID=America/Toronto:20261017T100000\r\nDTEND;TZID=America/Toronto:20261017T120000");
     expect(ics).toContain("SUMMARY:Music\\, art\\; fun\\n");
     expect(ics).toContain("LOCATION:Test venue\r\n");
     expect(ics.endsWith("END:VCALENDAR\r\n")).toBe(true);

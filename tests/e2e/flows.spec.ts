@@ -2,11 +2,12 @@ import { test, expect } from "@playwright/test";
 test("public notices, filters, map and source links", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/today");
+  await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Today in Paris", exact: true }),
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening), Paris/ }),
   ).toBeVisible();
   await expect(page.locator(".demo-banner")).toHaveCount(0);
+  await page.goto("/app/map");
   const firstTitle = await page.locator(".notice-title").first().innerText();
   await page
     .getByRole("searchbox", { name: "Search local updates" })
@@ -17,7 +18,8 @@ test("public notices, filters, map and source links", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "Open original source" }),
   ).toHaveAttribute("href", /^https:\/\//);
-  await page.goto("/map");
+  await page.goto("/explore");
+  await page.getByRole("button", { name: /Open map/ }).click();
   await expect(page.locator(".leaflet-container")).toBeVisible();
   await expect(page.locator(".leaflet-marker-icon").first()).toBeVisible();
   expect(errors).toEqual([]);
@@ -27,8 +29,9 @@ test("guest preferences, saved notices and reminders persist without sign-in", a
 }) => {
   await page.goto("/app");
   await expect(
-    page.getByRole("heading", { name: "Today in Paris" }),
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening), Paris/ }),
   ).toBeVisible();
+  await page.goto("/app/map");
   await page.locator(".notice-card .bookmark").first().click();
   await page.goto("/app/saved");
   await expect(page.locator(".notice-card")).toHaveCount(1);
@@ -119,8 +122,9 @@ test("sign-in is optional and guest data can be cleared", async ({ page }) => {
   await page.goto("/login");
   await page.getByRole("link", { name: "Continue without signing in" }).click();
   await expect(
-    page.getByRole("heading", { name: "Today in Paris" }),
+    page.getByRole("heading", { name: /Good (morning|afternoon|evening), Paris/ }),
   ).toBeVisible();
+  await page.goto("/app/map");
   await page.locator(".notice-card .bookmark").first().click();
   await page.goto("/app/settings");
   await expect(

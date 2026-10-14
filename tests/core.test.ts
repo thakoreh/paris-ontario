@@ -111,7 +111,7 @@ describe("deadlines", () => {
   it("exports sample labels and escapes calendar content", () => {
     const ics = calendarEvent({ ...deadlines[0], title: "A, B; C\nD" });
     expect(ics).toContain("SUMMARY:[Sample data] A\\, B\\; C\\nD");
-    expect(ics).toContain("DTSTART:20260908T100000Z");
+    expect(ics).toContain("DTSTART;TZID=America/Toronto:20260908T060000");
   });
   it("shows past deadlines", () =>
     expect(countdown("2026-01-01T00:00:00Z", now)).toBe("Past"));

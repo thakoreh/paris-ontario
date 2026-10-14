@@ -52,7 +52,6 @@ export function TodayPage({
           </a>
         ))}
       </nav>
-      <SiteSearch notices={notices} />
       <div className="today-columns">
         {content.deadlines.length > 0 && (
           <section className="today-deadlines">
@@ -133,8 +132,18 @@ export function TodayPage({
               ),
             )}
           </nav>
+          <div className="today-explore">
+            <h2>Explore</h2>
+            <nav className="quick-task-grid" aria-label="Explore shortcuts">
+              <Link className="panel" href="/explore/trails">Trails & river ›</Link>
+              <Link className="panel" href="/explore/visiting">Visiting Paris ›</Link>
+              <Link className="panel" href="/explore">Open map ›</Link>
+              <Link className="panel" href="/services/council">Council ›</Link>
+            </nav>
+          </div>
         </section>
       </div>
+      <SiteSearch notices={notices} />
     </div>
   );
 }

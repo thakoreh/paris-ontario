@@ -13,3 +13,16 @@ export async function loadExploreNotices(
     return data.notices;
   });
 }
+
+// Called only when a County overlay is enabled, never during page rendering.
+export async function loadExploreLayer(path: string, signal?: AbortSignal) {
+  return withRetry(async () => {
+    signal?.throwIfAborted();
+    const response = await fetch(path, { signal });
+    if (!response.ok) throw new Error("Layer unavailable");
+    const data = await response.json();
+    if (data.type !== "FeatureCollection" || !Array.isArray(data.features))
+      throw new Error("Invalid layer response");
+    return data as import("geojson").FeatureCollection;
+  });
+}

@@ -13,6 +13,8 @@ const securityHeaders = [
 const config: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // Keep descriptions in <head> for HTML-only SEO checks, including Lighthouse.
+  htmlLimitedBots: /.*/,
   outputFileTracingRoot: process.cwd(),
   async redirects() {
     // Explicit 301s meet the legacy URL contract (permanent: true uses 308).

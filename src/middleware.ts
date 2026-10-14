@@ -6,6 +6,14 @@ import { canonicalWwwRedirect } from "@/lib/site";
 
 const staticRoutes = new Set([
   "/",
+  "/data/explore/sources.json",
+  "/data/explore/brant-trails.geojson",
+  "/data/explore/brant-river-access.geojson",
+  "/data/explore/brant-parking.geojson",
+  "/favicon.ico",
+  "/icon.svg",
+  "/icon-192.png",
+  "/apple-touch-icon.png",
   "/today",
   "/storm",
   "/deadlines",

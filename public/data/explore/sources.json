@@ -1,0 +1,26 @@
+[
+  {
+    "id": "trails",
+    "name": "Brant Trail Network",
+    "path": "/data/explore/brant-trails.geojson",
+    "source_url": "https://services1.arcgis.com/ZG34JIhRAfwP1ItJ/arcgis/rest/services/Trail_Network_OpenData_view/FeatureServer/0",
+    "licence_note": "County of Brant Open Data",
+    "checked": "2026-10-14"
+  },
+  {
+    "id": "river-access",
+    "name": "River access points",
+    "path": "/data/explore/brant-river-access.geojson",
+    "source_url": "https://maps.brant.ca/arcgis/rest/services/PublicData/Recreation/MapServer/20",
+    "licence_note": "County of Brant Open Data",
+    "checked": "2026-10-14"
+  },
+  {
+    "id": "parking",
+    "name": "Parking Lots",
+    "path": "/data/explore/brant-parking.geojson",
+    "source_url": "https://maps.brant.ca/arcgis/rest/services/PublicData/Recreation/MapServer/33",
+    "licence_note": "County of Brant Open Data",
+    "checked": "2026-10-14"
+  }
+]

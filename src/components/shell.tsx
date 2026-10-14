@@ -85,7 +85,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "/";
   const p = usePersonal();
   const showArea = [
-    "/explore",
     "/events",
     "/app/map",
     "/app/saved",
@@ -136,13 +135,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         {p.demo && process.env.NEXT_PUBLIC_PARIS_PULSE_TEST_MODE !== "1" && (
-          <div className="demo-banner">
+          <aside className="demo-banner" aria-label="Sample data">
             <span>
               <strong>Sample data</strong>You’re exploring a demo. Notices and
               deadlines are fictional.
             </span>
             <Link href="/about">How it works</Link>
-          </div>
+          </aside>
         )}
         {showArea && <AreaContextBar />}
         <main id="main">{children}</main>

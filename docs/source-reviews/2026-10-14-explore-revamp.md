@@ -14,6 +14,8 @@ New destinations reviewed against official pages:
   https://downtownparis.ca/visiting-us/
 - BIA events index, already reviewed in `events-fallback.ts`:
   https://downtownparis.ca/events/
+- County Visit and Discover Brant (official “Plan your stay” link-out, checked
+  2026-10-14): https://www.brant.ca/Visit
 - County parking information: https://www.brant.ca/bylaws-and-animal-services/parking/
 - County councillors, wards and meeting-calendar navigation:
   https://www.brant.ca/council-and-county-administration/council-and-committees/
@@ -25,8 +27,10 @@ New destinations reviewed against official pages:
 
 No distances, surfaces, hours, prices, parking availability, current river status
 or meeting dates are copied into the guides. Meeting config and election config
-remain empty. The map uses existing public notice coordinates; additional trail,
-river-access and parking geometry needs a reviewed official dataset.
+remain empty. The map uses existing public notice coordinates and toggleable official County
+trail, river-access and parking geometry fetched on 2026-10-14. Provenance and
+clipping bounds are recorded in `../explore-open-data-review.md` and
+`public/data/explore/sources.json`. Geometry is loaded on demand.
 
 The installed Next 15.5.27 package does not contain `dist/docs/`. Version-specific
 official metadata, error boundary and lazy-loading guides were consulted:

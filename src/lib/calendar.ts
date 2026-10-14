@@ -11,16 +11,46 @@ export function calendarEvent(d: Deadline | Notice) {
       .toISOString()
       .replace(/[-:]/g, "")
       .replace(/\.\d{3}Z/, "Z");
+  const start = "deadline_at" in d ? d.deadline_at : d.start_at!;
+  const allDay = /^\d{4}-\d{2}-\d{2}$/.test(start);
+  const end = !allDay && !("deadline_at" in d) && d.end_at ? d.end_at :
+    new Date(+new Date(start) + (allDay ? 86400000 : 3600000)).toISOString();
+  const local = (value: string) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+    }).formatToParts(new Date(value));
+    const part = (name: string) => parts.find((p) => p.type === name)!.value;
+    return `${part("year")}${part("month")}${part("day")}T${part("hour")}${part("minute")}${part("second")}`;
+  };
+  const dateOnly = (value: string) => value.slice(0, 10).replace(/-/g, "");
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Paris Pulse//Calendar//EN",
     "CALSCALE:GREGORIAN",
+    "BEGIN:VTIMEZONE",
+    "TZID:America/Toronto",
+    "BEGIN:STANDARD",
+    "DTSTART:20071104T020000",
+    "TZOFFSETFROM:-0400",
+    "TZOFFSETTO:-0500",
+    "TZNAME:EST",
+    "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU",
+    "END:STANDARD",
+    "BEGIN:DAYLIGHT",
+    "DTSTART:20070311T020000",
+    "TZOFFSETFROM:-0500",
+    "TZOFFSETTO:-0400",
+    "TZNAME:EDT",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU",
+    "END:DAYLIGHT",
+    "END:VTIMEZONE",
     "BEGIN:VEVENT",
     `UID:${d.id}@parispulse.local`,
     `DTSTAMP:${date(new Date().toISOString())}`,
-    `DTSTART:${date("deadline_at" in d ? d.deadline_at : d.start_at!)}`,
-    ...(!("deadline_at" in d) && d.end_at ? [`DTEND:${date(d.end_at)}`] : []),
+    allDay ? `DTSTART;VALUE=DATE:${dateOnly(start)}` : `DTSTART;TZID=America/Toronto:${local(start)}`,
+    allDay ? `DTEND;VALUE=DATE:${dateOnly(end)}` : `DTEND;TZID=America/Toronto:${local(end)}`,
     ...(!("deadline_at" in d) && d.address_text ? [`LOCATION:${escape(d.address_text)}`] : []),
     `SUMMARY:${escape((d.is_sample ? "[Sample data] " : "") + d.title)}`,
     `DESCRIPTION:${escape("description" in d ? d.description : d.summary)}`,
