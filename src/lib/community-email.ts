@@ -123,9 +123,9 @@ function isCanonicalNoticeUrl(value: unknown): value is string {
 
 const strictEmailPattern = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 
-export function normalizeSupportEmail(
-  value = process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-): string | null {
+// Pure draft helpers only. Public UI must not supply or expose a recipient.
+// In particular, never default to a NEXT_PUBLIC environment variable here.
+export function normalizeSupportEmail(value?: string): string | null {
   if (typeof value !== "string") return null;
   if (hasUnsafeControlCharacter(value) || hasHeaderBreak(value)) return null;
   const email = value.trim();
@@ -194,7 +194,7 @@ function makeMailtoDraft({
 
 export function buildCommunityEmailDraft(
   input: CommunityEmailInput,
-  configuredEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+  configuredEmail?: string,
 ): CommunityEmailDraft | null {
   const recipient = normalizeSupportEmail(configuredEmail);
   if (!recipient) return null;
@@ -247,7 +247,7 @@ export function buildCommunityEmailDraft(
 
 export function buildCorrectionEmailDraft(
   input: CorrectionEmailInput,
-  configuredEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+  configuredEmail?: string,
 ): CommunityEmailDraft | null {
   const recipient = normalizeSupportEmail(configuredEmail);
   if (!recipient) return null;

@@ -8,6 +8,9 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      # Deliberately populated legacy setting: public artifacts must ignore it.
+      NEXT_PUBLIC_SUPPORT_EMAIL: privacy-canary@example.invalid
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +22,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: node scripts/verify-contact-privacy.mjs
   publisher-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 5

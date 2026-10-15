@@ -135,13 +135,14 @@ RLS is enabled for every table. Locations, interests, matches, preferences and r
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production core | Public client key; access constrained by RLS |
 | `SUPABASE_SERVICE_ROLE_KEY` | Seed/operator commands | Privileged seed access, never exposed to browsers |
 | `NEXT_PUBLIC_APP_URL` | Production deployment | Canonical public origin for metadata/sitemap |
-| `NEXT_PUBLIC_SUPPORT_EMAIL` | Production launch | Visible corrections/contact address |
 | `RESEND_API_KEY` | Optional | Enables the email provider abstraction |
 | `EMAIL_FROM` | With Resend | Verified sender address |
 | `OPENAI_API_KEY` | Optional/future | Reserved; no AI network call is enabled by default |
 | `CRON_SECRET` | Optional/future | Reserved for a future authenticated scheduler |
 
 With no Supabase configuration, the app enters explicitly labelled local demo mode. With Supabase configured, errors are displayed instead of silently substituting fictional production data. Email fallback returns `not_configured`, never a false delivery success. AI fallback returns original text. Generated summaries, if a provider is supplied, require editorial review.
+
+Correction requests, email contributions and support contact links are currently unavailable. The former public support-email setting is ignored; remove it from deployment build/runtime settings during an authorized rollout. Existing private community intake remains separately gated. See [private correction intake](docs/private-correction-intake.md) for the infrastructure assessment, setup requirements and cache/history limitations.
 
 ## Editorial workflow
 
