@@ -23,6 +23,61 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_real_div_paragraphs_preserve_source_text(self):
+        page = (SCRIPT.parent.parent / 'tests/fixtures/brant_hhw_div_paragraphs.html').read_text(encoding='utf-8')
+        _, paragraphs = publisher.ArticleBodyParser().extract(page)
+        self.assertIn('Friendly reminder that the next Household Hazardous Waste event is this Saturday, October 17.', paragraphs)
+        self.assertIn('Household Hazardous Waste days take place at the Mohawk Street Landfill, located at 20 Morrison Road, Brantford, from 8:00 am to 4:00 pm (ID may be requested to confirm residency in Brant or Brantford).', paragraphs)
+        self.assertIn('October 17', paragraphs)
+        self.assertIn('November 21', paragraphs)
+        self.assertNotIn('', paragraphs)
+
+    def test_empty_div_paragraphs_fail_closed(self):
+        page = ARTICLE[:ARTICLE.index('<div class="text')] + (
+            '<div class="text base-text"><div></div><div> \n </div></div>')
+        with self.assertRaisesRegex(ValueError, 'Official article .* missing or empty'):
+            publisher.review(URL, lambda u: page, NOW)
+
+    def test_fallback_is_per_block_and_only_without_nonempty_paragraphs(self):
+        page = ('<div class="text base-text"><div>Ignored fallback</div><p>Primary paragraph</p></div>'
+                '<div class="text base-text"><p> </p><div><div>Nested <strong>source</strong> text.</div></div>'
+                '<ul><li>List source text.</li></ul></div>')
+        _, paragraphs = publisher.ArticleBodyParser().extract(page)
+        self.assertEqual(paragraphs, ['Primary paragraph', 'Nested source text.', 'List source text.'])
+
+    def test_fallback_preserves_br_and_block_boundaries(self):
+        page = ('<div class="text base-text"><div>Road work starts<br>Monday'
+                '<h2>Morning</h2>and ends Friday.</div></div>')
+        _, paragraphs = publisher.ArticleBodyParser().extract(page)
+        self.assertEqual(paragraphs, ['Road work starts Monday Morning and ends Friday.'])
+
+    def test_li_fallback_keeps_descendants_without_duplicates(self):
+        cases = [
+            ('<li><div>A</div><div>B</div></li>', ['A', 'B']),
+            ('<li>Parent<ul><li>Child</li></ul></li>', ['Child']),
+            ('<li><ul><li>Child</li></ul></li>', ['Child']),
+            ('<li>Before<div>Child</div>After</li>', ['Child']),
+            ('<div>Parent<div>Child</div></div>', ['Child']),
+        ]
+        for markup, expected in cases:
+            with self.subTest(markup=markup):
+                body, paragraphs = publisher.ArticleBodyParser().extract(
+                    '<div class="text base-text"><ul>' + markup + '</ul></div>')
+                self.assertEqual(paragraphs, expected)
+                self.assertEqual(body, publisher.clean(markup))
+
+    def test_review_nested_list_uses_closure_excerpt_instead_of_label(self):
+        closure = 'Main Street in Paris will close on Monday for paving.'
+        page = ARTICLE[:ARTICLE.index('<div class="text')] + (
+            '<div class="text base-text"><ul><li>Affected streets and access arrangements:'
+            '<ul><li>' + closure + '</li></ul></li></ul></div>')
+        row = publisher.review(URL, lambda u: page, NOW)
+        self.assertEqual(row['summary'], closure + ' Check the original County notice for current details.')
+
+    def test_unbalanced_div_fallback_is_held(self):
+        with self.assertRaisesRegex(publisher.EditorialHold, 'Unbalanced'):
+            publisher.ArticleBodyParser().extract('<div class="text base-text"><div>Source text.</div>')
+
     def test_real_nested_article_is_sensitive(self):
         page = (SCRIPT.parent.parent / 'tests/fixtures/brant_grand_river_street_north.html').read_text(encoding='utf-8')
         now = dt.datetime(2026, 10, 10, 12, tzinfo=publisher.UTC)
