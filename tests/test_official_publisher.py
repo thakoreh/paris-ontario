@@ -45,6 +45,26 @@ class PublisherTests(unittest.TestCase):
         _, paragraphs = publisher.ArticleBodyParser().extract(page)
         self.assertEqual(paragraphs, ['Primary paragraph', 'Nested source text.', 'List source text.'])
 
+    def test_fallback_preserves_br_and_block_boundaries(self):
+        page = ('<div class="text base-text"><div>Road work starts<br>Monday'
+                '<h2>Morning</h2>and ends Friday.</div></div>')
+        _, paragraphs = publisher.ArticleBodyParser().extract(page)
+        self.assertEqual(paragraphs, ['Road work starts Monday Morning and ends Friday.'])
+
+    def test_li_fallback_keeps_descendants_without_duplicates(self):
+        cases = [
+            ('<li><div>A</div><div>B</div></li>', ['A', 'B']),
+            ('<li>Parent<ul><li>Child</li></ul></li>', ['Parent', 'Child']),
+            ('<li><ul><li>Child</li></ul></li>', ['Child']),
+            ('<li>Before<div>Child</div>After</li>', ['Before', 'Child', 'After']),
+            ('<div>Parent<div>Child</div></div>', ['Parent', 'Child']),
+        ]
+        for markup, expected in cases:
+            with self.subTest(markup=markup):
+                _, paragraphs = publisher.ArticleBodyParser().extract(
+                    '<div class="text base-text"><ul>' + markup + '</ul></div>')
+                self.assertEqual(paragraphs, expected)
+
     def test_unbalanced_div_fallback_is_held(self):
         with self.assertRaisesRegex(publisher.EditorialHold, 'Unbalanced'):
             publisher.ArticleBodyParser().extract('<div class="text base-text"><div>Source text.</div>')

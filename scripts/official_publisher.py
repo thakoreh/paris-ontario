@@ -256,12 +256,9 @@ class ArticleBodyParser(HTMLParser):
             self.ancestors.update(id(frame) for frame in self.stack)
             if self.region_start is None and (in_main or not self.has_main):
                 self.region_start = self.source_offset()
-        if block is not None and tag in self.BLOCK_CHILDREN:
-            for ancestor in self.stack:
-                candidate = self.fallback_containers.get(id(ancestor))
-                if candidate is not None and ancestor[0] == 'div':
-                    candidate['leaf'] = False
         if block is not None and not excluded:
+            if tag == 'br' or tag in self.BLOCK_CHILDREN:
+                self.separate_fallback_text()
             if tag in ('div', 'p', 'li', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
                 block['text'].append(' ')
                 if paragraph is not None:
@@ -273,7 +270,7 @@ class ArticleBodyParser(HTMLParser):
             frame = (tag, in_main, excluded, block, paragraph)
             self.stack.append(frame)
             if block is not None and not excluded and tag in ('div', 'li') and block is parent[3]:
-                candidate = {'text': [], 'leaf': True}
+                candidate = {'text': []}
                 block['fallback'].append(candidate)
                 self.fallback_containers[id(frame)] = candidate
             if excluded and not parent_excluded:
@@ -290,6 +287,8 @@ class ArticleBodyParser(HTMLParser):
                 _, _, excluded, block, paragraph = self.stack[index]
                 if block is not None and not excluded:
                     block['text'].append(' ')
+                    if tag in self.BLOCK_CHILDREN:
+                        self.separate_fallback_text()
                 for frame in self.stack[index + 1:]:
                     implicit = (frame[0] in ('p', 'li') and not frame[2]
                                 and frame[3] is not None and id(frame) not in self.ancestors)
@@ -314,10 +313,21 @@ class ArticleBodyParser(HTMLParser):
                 block['text'].append(data)
                 if paragraph is not None:
                     paragraph.append(data)
-                for frame in self.stack:
+                # Only the nearest eligible container owns this text. Ancestors
+                # retain their own text without duplicating descendant paragraphs.
+                for frame in reversed(self.stack):
                     candidate = self.fallback_containers.get(id(frame))
                     if candidate is not None:
+                        if block['fallback'][-1] is not candidate:
+                            candidate = {'text': []}
+                            self.fallback_containers[id(frame)] = candidate
+                            block['fallback'].append(candidate)
                         candidate['text'].append(data)
+                        break
+
+    def separate_fallback_text(self):
+        for candidate in self.fallback_containers.values():
+            candidate['text'].append(' ')
 
     def extract(self, page):
         self.page = page
@@ -353,7 +363,6 @@ class ArticleBodyParser(HTMLParser):
                 paragraphs.extend(primary)
             else:
                 paragraphs.extend(text for candidate in block['fallback']
-                                  if candidate['leaf']
                                   if (text := normalize(candidate['text'])))
         return body, paragraphs
 
