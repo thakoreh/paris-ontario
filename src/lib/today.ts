@@ -45,6 +45,14 @@ export function todayContent(
     ),
   };
 }
+export function isQuietWeek(content: ReturnType<typeof todayContent>): boolean {
+  return (
+    content.weekend.length === 0 &&
+    content.deadlines.length === 0 &&
+    content.notices.length === 0
+  );
+}
+
 export function parisGreeting(now = new Date()) {
   const hour = Number(
     new Intl.DateTimeFormat("en-CA", {
