@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Deadline, Notice, Source } from "@/types";
 import {
   essentials,
+  isQuietWeek,
   parisGreeting,
   quickTasks,
   todayContent,
@@ -23,7 +24,7 @@ export function TodayPage({
   now?: Date;
 }) {
   const content = todayContent(notices, deadlines, now);
-  const quiet = !content.weekend.length && !content.deadlines.length;
+  const quiet = isQuietWeek(content);
   return (
     <div className="page-wrap revamp-page today-page">
       <p className="eyebrow">
@@ -78,7 +79,7 @@ export function TodayPage({
               ))}
             </section>
           )}
-          {!quiet && content.notices.length > 0 && (
+          {content.notices.length > 0 && (
             <section>
               <h2>Local notices</h2>
               {content.notices.map((n) => (
