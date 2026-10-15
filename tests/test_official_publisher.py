@@ -54,16 +54,25 @@ class PublisherTests(unittest.TestCase):
     def test_li_fallback_keeps_descendants_without_duplicates(self):
         cases = [
             ('<li><div>A</div><div>B</div></li>', ['A', 'B']),
-            ('<li>Parent<ul><li>Child</li></ul></li>', ['Parent', 'Child']),
+            ('<li>Parent<ul><li>Child</li></ul></li>', ['Child']),
             ('<li><ul><li>Child</li></ul></li>', ['Child']),
-            ('<li>Before<div>Child</div>After</li>', ['Before', 'Child', 'After']),
-            ('<div>Parent<div>Child</div></div>', ['Parent', 'Child']),
+            ('<li>Before<div>Child</div>After</li>', ['Child']),
+            ('<div>Parent<div>Child</div></div>', ['Child']),
         ]
         for markup, expected in cases:
             with self.subTest(markup=markup):
-                _, paragraphs = publisher.ArticleBodyParser().extract(
+                body, paragraphs = publisher.ArticleBodyParser().extract(
                     '<div class="text base-text"><ul>' + markup + '</ul></div>')
                 self.assertEqual(paragraphs, expected)
+                self.assertEqual(body, publisher.clean(markup))
+
+    def test_review_nested_list_uses_closure_excerpt_instead_of_label(self):
+        closure = 'Main Street in Paris will close on Monday for paving.'
+        page = ARTICLE[:ARTICLE.index('<div class="text')] + (
+            '<div class="text base-text"><ul><li>Affected streets and access arrangements:'
+            '<ul><li>' + closure + '</li></ul></li></ul></div>')
+        row = publisher.review(URL, lambda u: page, NOW)
+        self.assertEqual(row['summary'], closure + ' Check the original County notice for current details.')
 
     def test_unbalanced_div_fallback_is_held(self):
         with self.assertRaisesRegex(publisher.EditorialHold, 'Unbalanced'):

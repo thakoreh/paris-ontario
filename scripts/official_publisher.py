@@ -270,7 +270,9 @@ class ArticleBodyParser(HTMLParser):
             frame = (tag, in_main, excluded, block, paragraph)
             self.stack.append(frame)
             if block is not None and not excluded and tag in ('div', 'li') and block is parent[3]:
-                candidate = {'text': []}
+                for ancestor in self.fallback_containers.values():
+                    ancestor['container']['has_children'] = True
+                candidate = {'text': [], 'container': {'has_children': False}}
                 block['fallback'].append(candidate)
                 self.fallback_containers[id(frame)] = candidate
             if excluded and not parent_excluded:
@@ -313,13 +315,13 @@ class ArticleBodyParser(HTMLParser):
                 block['text'].append(data)
                 if paragraph is not None:
                     paragraph.append(data)
-                # Only the nearest eligible container owns this text. Ancestors
-                # retain their own text without duplicating descendant paragraphs.
+                # Only the nearest container owns this text. Shared container
+                # state also excludes fragments before/after children as labels.
                 for frame in reversed(self.stack):
                     candidate = self.fallback_containers.get(id(frame))
                     if candidate is not None:
                         if block['fallback'][-1] is not candidate:
-                            candidate = {'text': []}
+                            candidate = {'text': [], 'container': candidate['container']}
                             self.fallback_containers[id(frame)] = candidate
                             block['fallback'].append(candidate)
                         candidate['text'].append(data)
@@ -363,7 +365,8 @@ class ArticleBodyParser(HTMLParser):
                 paragraphs.extend(primary)
             else:
                 paragraphs.extend(text for candidate in block['fallback']
-                                  if (text := normalize(candidate['text'])))
+                                  if not candidate['container']['has_children']
+                                  and (text := normalize(candidate['text'])))
         return body, paragraphs
 
 
