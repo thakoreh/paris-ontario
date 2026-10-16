@@ -72,6 +72,32 @@ describe("contact privacy build verifier", () => {
     expect((await verify()).status).toBe(0);
   });
 
+  it("rejects excessive nested encoding loudly in under two seconds", async () => {
+    const file = "public/nested/encoded.js";
+    write(file, `const data="${"%" + "25".repeat(100000) + "40"}"`);
+    const { verifyContactPrivacy } = await import(script);
+    const started = performance.now();
+    await expect(verifyContactPrivacy({ root, setting: canary })).rejects.toThrow(
+      `decoding did not converge after 8 passes in ${path.join(root, file)}; treating as unsafe`,
+    );
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  it("decodes a large benign file in under one second", async () => {
+    write("public/large.txt", "benign%20text%21\n".repeat(65536));
+    const { verifyContactPrivacy } = await import(script);
+    const started = performance.now();
+    await expect(verifyContactPrivacy({ root, setting: canary })).resolves.toBeUndefined();
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
+  it("detects a recipient with three layers of percent encoding", async () => {
+    write("public/encoded.txt", "privacy-canary%252540example.invalid");
+    const result = await verify();
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(`Public contact recipient leaked into ${path.join(root, "public/encoded.txt")}`);
+  });
+
   it("accepts a clean tree without optional deployed copies", async () => {
     expect((await verify()).status).toBe(0);
   });

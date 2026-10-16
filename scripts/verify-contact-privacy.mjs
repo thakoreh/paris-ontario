@@ -6,12 +6,12 @@ import { pathToFileURL } from "node:url";
 // Run after a clean production build with this deliberately nonpersonal value.
 // A build without the setting cannot prove removal of build-time inlining.
 const canary = "privacy-canary@example.invalid";
+const MAX_DECODE_PASSES = 8;
 
 // Decode text only: never evaluate scripts found in a build or public asset.
-function normalize(content) {
-  let previous;
-  do {
-    previous = content;
+function normalize(content, file) {
+  for (let pass = 0; pass < MAX_DECODE_PASSES; pass += 1) {
+    const previous = content;
     content = content
       .replace(/\\u\{([\da-f]+)\}|\\u([\da-f]{4})|\\x([\da-f]{2})/gi, (match, braced, unicode, hex) => {
         const code = parseInt(braced ?? unicode ?? hex, 16);
@@ -24,8 +24,9 @@ function normalize(content) {
       .replace(/&(commat|quot|apos|amp);/gi, (_, name) => ({ commat: "@", quot: '"', apos: "'", amp: "&" })[name.toLowerCase()])
       .replace(/%([\da-f]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
       .replace(/["'`]\s*\+\s*["'`]/g, "");
-  } while (content !== previous);
-  return content.toLowerCase();
+    if (content === previous) return content.toLowerCase();
+  }
+  assert.fail(`decoding did not converge after ${MAX_DECODE_PASSES} passes in ${file}; treating as unsafe`);
 }
 
 async function scan(directory, include, optional = false) {
@@ -42,7 +43,7 @@ async function scan(directory, include, optional = false) {
     if (entry.isDirectory()) count += await scan(file, include);
     else if (include(entry.name)) {
       const content = await readFile(file, "utf8");
-      assert.ok(!normalize(content).includes(canary), `Public contact recipient leaked into ${file}`);
+      assert.ok(!normalize(content, file).includes(canary), `Public contact recipient leaked into ${file}`);
       count += 1;
     }
   }
