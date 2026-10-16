@@ -8,7 +8,7 @@ Do not open the site to residents until all of these are true:
 
 - `NEXT_PUBLIC_APP_URL=https://parispulse.ca` is configured before the production build; redirect `www.parispulse.ca` to this apex domain.
 - Supabase migrations are applied, the reviewed production seed is applied, and no fictional demo rows are published.
-- A monitored `NEXT_PUBLIC_SUPPORT_EMAIL` is configured and the contact, privacy and terms pages render it.
+- Verify Contact, Privacy, Terms and notice correction panels show honest unavailable states with no public recipient. Enable private intake only with separate authorization; follow [private correction intake](private-correction-intake.md).
 - At least one editor has a confirmed account and has completed a real publish/correction/expiry test.
 - Auth sign-up, confirmation, password reset, account access and deletion-support flow are tested against production Supabase.
 - Every visible record has an exact original-source URL, a clear expiry or end date where appropriate, and a current verification time.
@@ -41,7 +41,7 @@ Perform this at least once each weekday, and more often during active constructi
 - Open the public feed, events, map, deadlines, storm and sources pages on mobile and desktop.
 - Check at least five original links. Correct any change of title, date, area or status.
 - Review data with no coordinates, vague expiry, missing source date or duplicate title.
-- Review the contact inbox for correction requests and record the resolution in the editorial workspace.
+- Verify Contact, Privacy, Terms and notice correction panels still show honest unavailable states with no public recipient. Only after separate authorization enables private intake, review its private editor queue and record resolutions in the editorial workspace; follow [private correction intake](private-correction-intake.md).
 - Run `npm run test:e2e` after material feature changes.
 
 ## SEO operating checklist
