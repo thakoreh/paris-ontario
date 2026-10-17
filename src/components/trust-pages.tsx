@@ -1,25 +1,7 @@
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
-import { normalizeSupportEmail } from "@/lib/community-email";
-
 export type TrustPageKind =
   "editorial-policy" | "privacy" | "terms" | "contact";
-
-function SupportContact() {
-  const email = normalizeSupportEmail();
-  if (!email)
-    return (
-      <p>
-        A monitored support email must be configured before public launch. Until
-        then, do not rely on Paris Pulse for account or time-sensitive support.
-      </p>
-    );
-  return (
-    <a className="text-link" href={`mailto:${email}`}>
-      {email}
-    </a>
-  );
-}
 
 export function TrustPage({ kind }: { kind: TrustPageKind }) {
   const content = {
@@ -72,12 +54,8 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
           <h2>Service providers</h2>
           <p>
             Map tiles are served by OpenStreetMap. Authentication and private
-            storage use Supabase when configured. A correction or contribution
-            email is voluntary and is composed in your own email app only when
-            you explicitly choose that action. Opening a draft sends nothing;
-            your sender address and email provider are involved if you send it,
-            and response or publication is not guaranteed. This is separate
-            from anonymous database tips.
+            storage use Supabase when configured. Correction requests and email
+            contributions are currently unavailable.
           </p>
           <h2>Address search</h2>
           <p>
@@ -110,7 +88,7 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
             </Link>
           </p>
           <h2>Community submissions and visit history</h2>
-          <p>When enabled, anonymous database tips go to a private editor queue. We ask only for public details, coarse area and a public source, not your name, contact information or home location. A deployment-specific keyed fingerprint of your network address limits spam; neither the raw address nor its fingerprint is stored with submissions. Rate counters are cleaned after their windows expire as new updates arrive. Private submissions are retained for editorial review and are not automatically deleted; an operator must establish a retention policy before enabling intake. Submitting does not publish an update or send notifications. If the queue is unavailable, the separate email option is voluntary: opening a draft sends nothing, and any email you choose to send is handled by your sender address and email provider rather than by an automatic Paris Pulse delivery service.
+          <p>When enabled, anonymous database tips go to a private editor queue. We ask only for public details, coarse area and a public source, not your name, contact information or home location. A deployment-specific keyed fingerprint of your network address limits spam; neither the raw address nor its fingerprint is stored with submissions. Rate counters are cleaned after their windows expire as new updates arrive. Private submissions are retained for editorial review and are not automatically deleted; an operator must establish a retention policy before enabling intake. Submitting does not publish an update or send notifications. If the queue is unavailable, you can preview an update, but nothing can be submitted. Email contributions are currently unavailable.
           </p>
           <p>Your area-scope choice and last-visit timestamp stay in this browser. New-since-last-visit labels compare source update or publication times, not the time an editor last checked a source. Clear browser data in Settings to remove guest data and browser history.</p>
           <h2>Newcomer checklist</h2>
@@ -121,8 +99,8 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
           <h2>Your choices</h2>
           <p>
             You can update or clear browser-stored guest data in Settings. Use
-            the contact route for account-access or deletion requests once the
-            monitored support address is live.
+            the contact page to check support availability for account-access
+            or deletion requests. Support requests are currently unavailable.
           </p>
         </>
       ),
@@ -160,26 +138,21 @@ export function TrustPage({ kind }: { kind: TrustPageKind }) {
         <>
           <h2>Report a correction</h2>
           <p>
-            Notice pages can prepare an email containing the canonical Paris
-            Pulse page, notice title and original source. You describe the
-            correction yourself in your own email app. Opening that draft sends
-            nothing; review it before choosing whether to send. Editors review
-            source-backed corrections and update, expire or remove records as
-            appropriate, but response and publication are not guaranteed.
+            Correction requests are currently unavailable. Please check the
+            original source linked from each notice for current information.
           </p>
-          <h2>Voluntary email contributions</h2>
+          <h2>Local contributions</h2>
           <p>
-            When anonymous database intake is unavailable, a validated public
-            tip can be prepared as a voluntary email instead. It is not a
-            database submission or receipt: your email app, sender address and
-            provider are involved only if you choose to send it.
+            Email contributions are currently unavailable. The Share a local
+            update page checks whether private submissions are open. When they
+            are unavailable, you can preview an update, but cannot submit it.
           </p>
           <h2>Account and privacy requests</h2>
           <p>
-            Use the support contact for account-access, deletion or privacy
-            questions. Never send home addresses or emergency details by email.
+            Support requests are currently unavailable, including account-access,
+            deletion and privacy requests. Do not rely on Paris Pulse for
+            time-sensitive support.
           </p>
-          <SupportContact />
         </>
       ),
     },

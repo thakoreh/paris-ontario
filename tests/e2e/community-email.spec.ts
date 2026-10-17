@@ -38,24 +38,26 @@ async function mockIntake(page: Page, accepting: boolean) {
   return posts;
 }
 
-test("disabled intake offers an explicit email draft and complete selectable fallback without a receipt", async ({ page }) => {
+async function expectNoPublicRecipient(page: Page) {
+  await expect(page.locator('a[href^="mailto:"]:not([href^="mailto:?"])')).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Open email draft", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Open correction email", exact: true })).toHaveCount(0);
+  expect(await page.content()).not.toContain("editor@example.org");
+  expect(await page.content()).not.toContain("editor%40example.org");
+}
+
+test("disabled intake keeps a preview without exposing a recipient or claiming receipt", async ({ page }) => {
   const posts = await mockIntake(page, false);
   await page.goto("/share-update");
   await expect(page.getByRole("status")).toContainText("Private submissions are not available");
   await fillDraft(page);
   await page.getByRole("button", { name: "Review my update", exact: true }).click();
 
-  const emailLink = page.getByRole("link", { name: "Open email draft", exact: true });
-  await expect(emailLink).toBeVisible();
-  const href = await emailLink.getAttribute("href");
-  expect(href).toMatch(/^mailto:editor%40example\.org\?/);
-  expect(href?.length).toBeLessThanOrEqual(2000);
-  expect(href).toContain("%C3%A9"); // encoded subject/body remains URI-safe when Unicode is present in input
+  await expect(page.getByRole("status")).toContainText("Email contributions are currently unavailable");
+  await expectNoPublicRecipient(page);
   await expect(page.getByRole("button", { name: "Send for editor review", exact: true })).toBeDisabled();
   await expect(page.getByRole("heading", { name: "Thanks. Your update is pending editor review.", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Full details to copy or select")).toHaveValue(/A local café open house/);
-  await page.getByRole("button", { name: "Select full details", exact: true }).click();
-  await expect(page.getByLabel("Full details to copy or select")).toBeFocused();
+  await expect(page.getByRole("heading", { name: draft.title, exact: true })).toBeVisible();
   expect(posts).toEqual([]);
   await expectNoHorizontalOverflow(page);
 });
@@ -70,15 +72,23 @@ test("enabled private intake keeps its database review action and does not show 
   expect(posts).toEqual([]);
 });
 
-test("notice correction email uses only the canonical public notice and original source context", async ({ page }) => {
+test("notice corrections stay honestly unavailable with the legacy public email configured", async ({ page }, testInfo) => {
   await page.goto("/notice/street-lighting-installation-on-powerline-road");
   const correction = page.getByRole("region", { name: "Suggest a correction", exact: true });
   await expect(correction).toBeVisible();
-  const href = await correction.getByRole("link", { name: "Open correction email", exact: true }).getAttribute("href");
-  expect(href).toMatch(/^mailto:editor%40example\.org\?/);
-  expect(href).toContain("parispulse.ca%2Fnotice%2Fstreet-lighting-installation-on-powerline-road");
-  expect(href).not.toContain("Private%20test%20address");
-  expect(href).not.toContain("radius");
-  await expect(correction.getByLabel("Full details to copy or select")).toHaveValue(/Notice title:/);
-  await expect(correction.getByLabel("Full details to copy or select")).toHaveValue(/Original source:/);
+  await expect(correction).toContainText("Correction requests are currently unavailable");
+  await expect(correction.locator("input, textarea, button, a")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Open original source", exact: true })).toBeVisible();
+  await expectNoPublicRecipient(page);
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("neighbourhood-correction-unavailable.png"), fullPage: true });
+});
+
+test("contact and privacy pages do not advertise an email correction or support path", async ({ page }) => {
+  for (const route of ["/contact", "/privacy"]) {
+    const response = await page.goto(route);
+    expect(await response?.text()).not.toContain("editor@example.org");
+    await expect(page.getByText(/Support requests are currently unavailable/)).toBeVisible();
+    await expectNoPublicRecipient(page);
+  }
 });

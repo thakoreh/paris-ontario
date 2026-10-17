@@ -12,8 +12,6 @@ import {
   type ReviewChecks,
 } from "@/lib/community-submissions";
 import { usePersonal } from "./provider";
-import { CommunityEmailDraft } from "./community-email-draft";
-import { buildCommunityEmailDraft } from "@/lib/community-email";
 import "./contributions.css";
 
 type Draft = {
@@ -134,7 +132,7 @@ export function CommunitySubmissionForm() {
           ) : (
             <>
               {accepting === false && (
-                <p role="status">Private submissions are not available in this environment yet. You can preview your update, but cannot send it to the editor queue. Opening an email draft sends nothing.</p>
+                <p role="status">Private submissions are not available in this environment yet. You can preview your update, but cannot send it to the editor queue. Email contributions are currently unavailable.</p>
               )}
               {!preview ? (
                 <form
@@ -306,7 +304,6 @@ export function CommunitySubmissionForm() {
                       <ArrowRight size={16} />
                     </button>
                   </div>
-                  {accepting === false && <CommunityEmailDraft draft={buildCommunityEmailDraft({ title: draft.title, body: draft.body, sourceUrl: draft.source_url })} heading="Prepare an email instead" actionLabel="Open email draft" />}
                 </div>
               )}
             </>
@@ -327,9 +324,8 @@ export function CommunitySubmissionForm() {
           </ol>
           <p>
             No account or contact information is needed. The private queue uses
-            only the public details you provide. If you choose the separate
-            email path while the queue is unavailable, your email app supplies
-            your sender address and provider; opening the draft sends nothing.
+            only the public details you provide. If the queue is unavailable,
+            you can preview your update, but nothing can be submitted.
           </p>
           <Link href="/editorial-policy">Our editorial policy</Link>
           <Link href="/privacy">Privacy details</Link>
