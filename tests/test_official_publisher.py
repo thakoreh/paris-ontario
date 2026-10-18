@@ -44,18 +44,15 @@ class PublisherTests(unittest.TestCase):
             with self.subTest(initial_drafts=initial_drafts):
                 now = dt.datetime.now(publisher.UTC)
                 titles = ['Paris recreation update one', 'Paris recreation update two',
-                          'Paris garbage collection delayed one day for Thanksgiving']
+                          'Paris paving update']
                 urls = [publisher.CANONICAL_LIST_URL + 'posts/' + slug + '/' for slug in
-                        ('recreation-one', 'recreation-two', 'thanksgiving-collection')]
+                        ('recreation-one', 'recreation-two', 'paris-paving')]
                 pages = {}
                 items = []
                 for index, (url, title) in enumerate(zip(urls, titles)):
                     page = ARTICLE.replace('Paris paving update', title).replace(
                         'Sep 28, 2026', now.strftime('%b %d, %Y')).replace(
-                        'Road Construction', 'Recreation' if index < 2 else 'Garbage and Recycling')
-                    if index == 2:
-                        page = page.replace('Road work on Paris Main Street is scheduled this week.',
-                                            'Paris garbage collection is delayed one day for Thanksgiving.')
+                        'Road Construction', 'Recreation' if index < 2 else 'Road Construction')
                     pages[url] = page
                     items.append(f'<item><title>{title}</title><link>{url}</link>'
                                  f'<pubDate>{now.strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate></item>')
