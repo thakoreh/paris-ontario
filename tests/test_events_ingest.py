@@ -165,6 +165,55 @@ class EventsTests(unittest.TestCase):
         self.assertEqual(calls, [ingest.ROBOTS_URL])
         self.assertTrue(result['errors'])
 
+    def test_robots_encoded_feed_disallowed_before_fetch(self):
+        result, calls, _ = self.run_policy('User-agent: *\nDisallow: /%65vents.rss')
+        self.assertEqual(calls, [ingest.ROBOTS_URL])
+        self.assertEqual(result['candidates'], [])
+        self.assertIn('robots.txt disallowed', result['errors'][0]['error'])
+
+    def test_robots_encoded_page_disallowed_before_fetch(self):
+        url = 'https://brantevents.org/events/probe/'
+        fetcher = Mock(side_effect=[
+            'User-agent: *\nDisallow: /events/%70robe/',
+            f'<rss><channel><item><link>{url}</link></item></channel></rss>',
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            result = ingest.run(fetcher=fetcher, sleep=Mock(), now=NOW, state_dir=directory)
+        self.assertEqual([call.args[0] for call in fetcher.call_args_list],
+                         [ingest.ROBOTS_URL, ingest.FEED_URL])
+        self.assertEqual(result['candidates'], [])
+        self.assertEqual(result['errors'], [{'url': url, 'error': 'robots.txt disallowed'}])
+
+    def test_robots_normalized_paths(self):
+        cases = [
+            ('/%65vents.rss', '/events.rss', False),
+            ('/events/%70robe/', '/events/probe/', False),
+            ('/events/probe/', '/%65vents/%70robe/', False),
+            ('/literal%2Fpath', '/literal/path', True),
+            ('/literal/path', '/literal%2Fpath', True),
+            ('/literal%2fpath', '/literal%2Fpath', False),
+            ('/literal%2Fpath', '/literal%2fpath', False),
+            ('/café/', '/caf%c3%a9/', False),
+            ('/caf%C3%A9/', '/café/', False),
+            ('/%65vents/*%70robe$', '/events/a/probe', False),
+            ('/%65vents/*%70robe$', '/events/a/probe/extra', True),
+        ]
+        for rule, path, permitted in cases:
+            with self.subTest(rule=rule, path=path):
+                policy, _ = ingest.robots_policy('User-agent: *\nDisallow: ' + rule)
+                self.assertEqual(policy.can_fetch(ingest.UA_TOKEN,
+                                                 'https://brantevents.org' + path), permitted)
+
+    def test_robots_normalized_specificity(self):
+        policy, _ = ingest.robots_policy(
+            'User-agent: *\nDisallow: /%65%76%65%6e%74%73/\nAllow: /events/probe/')
+        self.assertTrue(policy.can_fetch(ingest.UA_TOKEN,
+                                         'https://brantevents.org/events/probe/'))
+
+    def test_robots_normalizes_nonprintable_octets(self):
+        self.assertEqual(ingest.normalize_robots_path('/a \x00\x7fé*$/%7e%2f%3f'),
+                         '/a%20%00%7F%C3%A9*$/~%2F%3F')
+
     def test_robots_unavailable_or_malformed(self):
         failures = [urllib.error.HTTPError(ingest.ROBOTS_URL, code, 'failure', {}, None)
                     for code in (403, 404, 500, 302)]

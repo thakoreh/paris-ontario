@@ -68,8 +68,22 @@ def fetch(url):
         return content.decode('utf-8', 'strict')
 
 
+def normalize_robots_path(value):
+    """Normalize RFC 9309 path octets while preserving wildcard operators."""
+    unreserved = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+
+    def normalize_token(match):
+        token = match.group()
+        if token.startswith('%'):
+            char = chr(int(token[1:], 16))
+            return char if char in unreserved else token.upper()
+        return ''.join(f'%{byte:02X}' for byte in token.encode('utf-8'))
+
+    return re.sub(r'%[0-9A-Fa-f]{2}|[^\x21-\x7e]', normalize_token, value)
+
+
 class RobotsPolicy:
-    """Match raw path/query rules in the selected RFC 9309 agent groups."""
+    """Match normalized path/query rules in selected RFC 9309 agent groups."""
 
     def __init__(self, groups):
         self.groups = groups
@@ -82,11 +96,13 @@ class RobotsPolicy:
     def can_fetch(self, agent, url):
         parts = urllib.parse.urlsplit(url)
         target = (parts.path or '/') + ('?' + parts.query if parts.query else '')
+        target = normalize_robots_path(target)
         matches = []
         for group in self.selected_groups(agent):
             for allow, rule in group['rules']:
                 if not rule:
                     continue
+                rule = normalize_robots_path(rule)
                 anchored = rule.endswith('$')
                 pattern = rule[:-1] if anchored else rule
                 expression = '.*'.join(re.escape(part) for part in pattern.split('*'))
