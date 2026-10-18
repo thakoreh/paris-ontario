@@ -77,6 +77,13 @@ parser or backend failures are not. Manual/link-only sources are never marked
 checked by this job. The scheduler disables adapters' legacy audit writes to
 avoid duplicates and to keep recording under its own flag.
 
+`ingestion_runs.records_created` counts all rows written: published notices plus
+held drafts (Events writes drafts only). The table has no JSON details column,
+so the News `breakdown` (`published`, `held`, `held_drafts_created`, `duplicates`,
+and `capped` when tracked) lives in the local `audit.jsonl` record and console
+summary, never in the database row. `held` counts editorial holds, including
+those that did not produce a draft.
+
 ## Source feasibility
 
 Based on the read-only findings of 2026-10-18; access and source formats can change.

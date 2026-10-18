@@ -63,7 +63,7 @@ class ScheduledIngestTests(unittest.TestCase):
         self.enable()
         self.news.return_value = {
             'fetched': True, 'found': 17, 'created': 3, 'held_drafts_created': 2,
-            'held': [{'id': i} for i in range(7)],
+            'held': [{'id': i} for i in range(7)], 'duplicates': 5,
         }
         self.events.return_value = {
             'fetched': True, 'found': 13, 'created': 4,
@@ -81,6 +81,11 @@ class ScheduledIngestTests(unittest.TestCase):
                 if call.args[0] == 'ingestion_runs']
         self.assertEqual(len(runs), 2)
         self.assertEqual(client.request.call_count, 4)
+        self.assertFalse(self.news.call_args.kwargs['record_checks'])
+        self.assertFalse(self.events.call_args.kwargs['record_checks'])
+        self.assertEqual(summary['sources'][0]['breakdown'], {
+            'published': 3, 'held': 7, 'held_drafts_created': 2, 'duplicates': 5})
+        self.assertTrue(all('breakdown' not in row for row in runs))
         for source, row, source_id, found, created, drafts, held, total in zip(
                 summary['sources'], runs,
                 [scheduled.official_publisher.SOURCE_ID, scheduled.events_ingest.BRANT_EVENTS_SOURCE_ID],

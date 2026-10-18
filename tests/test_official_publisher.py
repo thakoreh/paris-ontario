@@ -1,11 +1,12 @@
 import datetime as dt
 import importlib.util
+import json
 import os
 import pathlib
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / 'scripts' / 'official_publisher.py'
 spec = importlib.util.spec_from_file_location('official_publisher', SCRIPT)
@@ -23,6 +24,62 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_drafts_only_run_records_actual_writes(self):
+        db = publisher.Supabase('https://example.supabase.co', 'test-only')
+        db.request = Mock()
+        hold = publisher.EditorialHold('Needs review')
+        hold.row = {'official_url': URL, 'external_id': 'brant-news:paris-paving-update',
+                    'title': 'Paris update', 'summary': 'Review required',
+                    'verification_status': 'draft', 'is_sample': False, 'expires_at': None}
+        hold.reasons = ['Needs review']
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+                os.environ, {'PARIS_PULSE_WRITE_HELD_DRAFTS': '1'}), patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value={URL: 'Paris update'}), patch.object(
+                publisher, 'review', side_effect=hold), patch.object(
+                publisher, 'hold_record', return_value=hold.row), patch.object(
+                publisher, 'Supabase', return_value=db), patch.object(
+                db, 'source_ready', return_value=True), patch.object(
+                db, 'existing', return_value=None), patch.object(
+                db, 'draft_count', return_value=0), patch.object(
+                db, 'create', return_value={'id': 'draft'}) as create, patch.object(
+                db, 'read', return_value=hold.row):
+            outcome = publisher.run(True)
+            local = json.loads((pathlib.Path(tmp) / 'audit.jsonl').read_text())
+        self.assertEqual(outcome['run_status'], 'ok')
+        create.assert_called_once_with(hold.row)
+        self.assertEqual(outcome['created'], 0)
+        self.assertEqual(outcome['breakdown'], {
+            'published': 0, 'held': 1, 'held_drafts_created': 1, 'duplicates': 0})
+        self.assertEqual(local['breakdown'], outcome['breakdown'])
+        posts = [c for c in db.request.call_args_list
+                 if c.args[0] == 'ingestion_runs' and c.kwargs['method'] == 'POST']
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(posts[0].kwargs['payload']['records_created'], 1)
+
+    def test_audit_counts_drafts_and_local_breakdown(self):
+        for published, drafts in ((0, 2), (3, 2)):
+            with self.subTest(published=published), tempfile.TemporaryDirectory() as tmp:
+                db = publisher.Supabase('https://example.supabase.co', 'test-only')
+                db.request = Mock()
+                outcome = {'at': NOW.isoformat(), 'mode': 'publish', 'run_status': 'ok',
+                           'found': 10, 'created': published, 'held_drafts_created': drafts,
+                           'held': [{}, {}, {}], 'duplicates': 4, 'capped': 1, 'errors': []}
+                outcome['breakdown'] = publisher.run_breakdown(outcome)
+                expected = {'published': published, 'held': 3, 'held_drafts_created': drafts,
+                            'duplicates': 4, 'capped': 1}
+                self.assertEqual(outcome['breakdown'], expected)
+                db.audit_run(outcome)
+                posts = [c for c in db.request.call_args_list
+                         if c.args[0] == 'ingestion_runs' and c.kwargs['method'] == 'POST']
+                self.assertEqual(len(posts), 1)
+                self.assertEqual(posts[0].kwargs['payload']['records_created'], published + drafts)
+                self.assertNotIn('breakdown', posts[0].kwargs['payload'])
+                with patch.object(publisher, 'STATE_DIR', pathlib.Path(tmp)):
+                    publisher.record(outcome)
+                self.assertEqual(json.loads((pathlib.Path(tmp) / 'audit.jsonl').read_text())['breakdown'], expected)
+
     def test_daily_count_queries_separate_verified_and_draft_utc_buckets(self):
         db = publisher.Supabase('https://example.supabase.co', 'test-only')
         local_now = dt.datetime(2026, 9, 28, 23, tzinfo=dt.timezone(dt.timedelta(hours=-4)))
@@ -92,6 +149,9 @@ class PublisherTests(unittest.TestCase):
                                  ['draft'] * expected_drafts + ['verified'])
                 self.assertEqual(outcome['held_drafts_created'], expected_drafts)
                 self.assertEqual(outcome['created'], 1)
+                self.assertEqual(outcome['breakdown'], {
+                    'published': 1, 'held': 2, 'held_drafts_created': expected_drafts,
+                    'duplicates': 0})
                 self.assertEqual(outcome['published'], [urls[2]])
                 self.assertEqual(outcome['eligible'], 1)
                 self.assertEqual(len(outcome['held']), 2)

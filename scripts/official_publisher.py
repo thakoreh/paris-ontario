@@ -483,7 +483,7 @@ class Supabase:
             'source_id': SOURCE_ID, 'started_at': at,
             'completed_at': dt.datetime.now(UTC).isoformat(),
             'status': status, 'records_found': outcome['found'],
-            'records_created': outcome['created'], 'records_updated': 0,
+            'records_created': outcome['created'] + outcome.get('held_drafts_created', 0), 'records_updated': 0,
             'records_failed': len(outcome['errors']),
             'error_message': '; '.join(str(x.get('error', '')) for x in outcome['errors'])[:400] or None,
         })
@@ -533,6 +533,16 @@ def record(event):
         tmp = path.with_suffix('.tmp')
         tmp.write_text(json.dumps(event, indent=2))
         os.replace(tmp, path)
+
+
+def run_breakdown(outcome):
+    breakdown = {'published': outcome.get('created', 0),
+                 'held': len(outcome.get('held', [])),
+                 'held_drafts_created': outcome.get('held_drafts_created', 0),
+                 'duplicates': outcome.get('duplicates', 0)}
+    if 'capped' in outcome:
+        breakdown['capped'] = outcome['capped']
+    return breakdown
 
 
 def run(publish_enabled=False, env_file=None, *, record_checks=True):
@@ -596,6 +606,7 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                     outcome['run_status'] = 'partial'
     except Exception as e:
         outcome['errors'].append({'error': type(e).__name__ + ': ' + str(e)[:180]})
+    outcome['breakdown'] = run_breakdown(outcome)
     record(outcome)
     return outcome
 
