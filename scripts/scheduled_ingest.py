@@ -30,16 +30,6 @@ class SourceChecks(official_publisher.Supabase):
             raise ValueError('Invalid project HTTPS URL')
         super().__init__(url, key)
 
-    def request(self, table, params='', method='GET', payload=None):
-        request = urllib.request.Request(
-            self.url + '/rest/v1/' + table + ('?' + params if params else ''),
-            data=json.dumps(payload).encode() if payload is not None else None,
-            method=method, headers={'apikey': self.key, 'Authorization': 'Bearer ' + self.key,
-                                    'Content-Type': 'application/json',
-                                    'Prefer': 'return=representation'})
-        with urllib.request.build_opener(official_publisher.NoRedirect()).open(request, timeout=15) as response:
-            return json.loads(response.read())
-
     def record(self, row):
         stamp = {'last_checked_at': row['completed_at']}
         if row['status'] == 'success':

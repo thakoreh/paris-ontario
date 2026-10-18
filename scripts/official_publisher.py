@@ -426,6 +426,13 @@ def review(url, independent_fetch, now, expected_title=None):
     return row
 
 
+class SupabaseNoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never replay service credentials, even to the same host."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(
+            req.full_url, code, 'Supabase redirect refused', headers, fp)
+
+
 class Supabase:
     def __init__(self, url, key):
         p = urllib.parse.urlsplit(url)
@@ -438,7 +445,7 @@ class Supabase:
         req = urllib.request.Request(self.url + '/rest/v1/' + table + ('?' + params if params else ''), data=data, method=method,
             headers={'apikey': self.key, 'Authorization': 'Bearer ' + self.key,
                      'Content-Type': 'application/json', 'Prefer': 'return=representation'})
-        with urllib.request.urlopen(req, timeout=15) as res:
+        with urllib.request.build_opener(SupabaseNoRedirect()).open(req, timeout=15) as res:
             return json.loads(res.read())
     def existing(self, url, external_id=None):
         canonical = canonical_article_url(url)
