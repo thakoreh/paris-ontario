@@ -5,6 +5,7 @@ import type { Source } from "@/types";
 import {
   canonicalWwwRedirect,
   contentFreshness,
+  formatSourceCheck,
   normalizePublicUrl,
   sitePath,
 } from "@/lib/site";
@@ -80,6 +81,23 @@ describe("public-site configuration", () => {
 });
 
 describe("content freshness", () => {
+  it("rejects checks beyond five minutes of clock skew", () => {
+    const now = new Date("2026-10-18T19:00:00Z");
+    for (const value of ["2099-01-01T00:00:00Z", "2026-10-18T19:05:00.001Z"]) {
+      expect(formatSourceCheck(value, now)).toBe("Check time unavailable");
+      expect(contentFreshness([source(value)], now)).toEqual({
+        state: "attention", checkedSources: 0, staleSources: 1, newestCheck: null,
+      });
+    }
+    const tolerated = "2026-10-18T19:05:00.000Z";
+    expect(formatSourceCheck(tolerated, now)).toMatch(/^Last checked /);
+    expect(contentFreshness([source(tolerated)], now)).toEqual({
+      state: "current", checkedSources: 1, staleSources: 0, newestCheck: tolerated,
+    });
+    expect(formatSourceCheck(null, now)).toBe("Not checked yet");
+    expect(formatSourceCheck("invalid", now)).toBe("Not checked yet");
+  });
+
   it("marks sources current only when every active source was checked on schedule", () => {
     const now = new Date("2026-09-15T16:00:00.000Z");
     expect(contentFreshness([source("2026-09-15T15:15:00.000Z")], now)).toMatchObject({

@@ -56,9 +56,13 @@ export function canonicalWwwRedirect(
   return redirect;
 }
 
-export function formatSourceCheck(value: string | null): string {
+const CLOCK_SKEW_MS = 5 * 60_000;
+
+export function formatSourceCheck(value: string | null, now = new Date()): string {
   const checked = value ? new Date(value) : null;
   if (!checked || Number.isNaN(checked.getTime())) return "Not checked yet";
+  if (checked.getTime() > now.getTime() + CLOCK_SKEW_MS)
+    return "Check time unavailable";
   return `Last checked ${new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Toronto",
     year: "numeric",
@@ -92,7 +96,8 @@ export function contentFreshness(
   const checks = active
     .map((source) => {
       const checked = source.last_checked_at ? new Date(source.last_checked_at) : null;
-      const validCheck = checked && !Number.isNaN(checked.getTime()) ? checked : null;
+      const validCheck = checked && !Number.isNaN(checked.getTime())
+        && checked.getTime() <= now.getTime() + CLOCK_SKEW_MS ? checked : null;
       const intervalMs = Math.max(source.refresh_interval_minutes, 15) * 60_000;
       const overdue = !validCheck || now.getTime() - validCheck.getTime() > intervalMs;
       return { validCheck, overdue };
