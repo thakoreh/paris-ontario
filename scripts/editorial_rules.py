@@ -45,7 +45,9 @@ def decide(candidate):
     """Dates are date/datetime or ISO strings; now is an explicit date/datetime.
 
     published_at (or published) takes precedence over starts_at. Freshness uses
-    calendar days, matching the County publication-date review.
+    calendar days, matching the County publication-date review. Event candidates
+    instead use starts_at and a forward 120-day window, skipping only the
+    County routine-category gate; authority and all other checks still apply.
     """
     reasons = []
     def text(key):
@@ -53,7 +55,7 @@ def decide(candidate):
         return value if isinstance(value, str) else ''
     if text('authority_level') not in TRUSTED_AUTO_PUBLISH_SOURCES:
         reasons.append('untrusted_source')
-    if text('category_text') not in ROUTINE_COUNTY_CATEGORIES:
+    if text('kind') != 'event' and text('category_text') not in ROUTINE_COUNTY_CATEGORIES:
         reasons.append('non_routine_category')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
@@ -61,7 +63,8 @@ def decide(candidate):
         reasons.append('sensitive_keyword')
     if candidate.get('parse_ok') is not True:
         reasons.append('parse_failure')
-    raw = next((candidate.get(k) for k in ('published_at', 'published', 'starts_at')
+    date_keys = ('starts_at',) if text('kind') == 'event' else ('published_at', 'published', 'starts_at')
+    raw = next((candidate.get(k) for k in date_keys
                 if candidate.get(k) is not None and candidate.get(k) != ''), None)
     if raw is None:
         reasons.append('missing_date')
@@ -74,7 +77,9 @@ def decide(candidate):
                     return value
                 return dt.datetime.fromisoformat(value).date()
             age = date(candidate.get('now')) - date(raw)
-            if not dt.timedelta(0) <= age <= dt.timedelta(days=5):
+            window_ok = (-dt.timedelta(days=120) <= age <= dt.timedelta(0)
+                         if text('kind') == 'event' else dt.timedelta(0) <= age <= dt.timedelta(days=5))
+            if not window_ok:
                 reasons.append('stale_or_future')
         except (ValueError, TypeError, OverflowError):
             reasons.append('parse_failure') if 'parse_failure' not in reasons else None
