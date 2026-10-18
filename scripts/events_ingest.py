@@ -26,7 +26,7 @@ BRANT_EVENTS_SOURCE_ID = 'cbaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
 MAX_PAGES = 40
 MAX_BYTES = 2 * 1024 * 1024
-STATE_DIR = Path(__file__).resolve().parents[1] / '.events-ingest-state'
+STATE_DIR = Path(os.environ.get('PARIS_PULSE_STATE_DIR') or Path.home() / '.hermes' / 'paris-pulse-publisher') / 'events'
 ATTRIBUTION = ' Details and changes: Brant Events.'
 
 
@@ -203,7 +203,7 @@ class HeldDraftStore(Supabase):
 
 
 def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
-        state_dir=STATE_DIR, max_pages=MAX_PAGES):
+        state_dir=STATE_DIR, max_pages=MAX_PAGES, record_checks=True):
     now = now or dt.datetime.now(UTC)
     outcome = {'found': 0, 'candidates': [], 'errors': [], 'created': 0,
                'at': now.isoformat(), 'mode': 'held-drafts' if write_held_drafts else 'dry-run'}
@@ -218,7 +218,9 @@ def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
             if write_held_drafts:
                 db = HeldDraftStore(os.environ.get('NEXT_PUBLIC_SUPABASE_URL', ''),
                                     os.environ.get('SUPABASE_SERVICE_ROLE_KEY', ''))
-            root = ET.fromstring(fetcher(FEED_URL))
+            feed = fetcher(FEED_URL)
+            outcome['fetched'] = True
+            root = ET.fromstring(feed)
             items = root.findall('./channel/item')
             if root.tag != 'rss' or not items:
                 raise ValueError('Expected nonempty RSS discovery feed')
@@ -239,7 +241,7 @@ def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
                         outcome['created'] += int(db.write_held(row))
                 except Exception as error:
                     outcome['errors'].append({'url': url, 'error': type(error).__name__ + ': ' + str(error)[:180]})
-            if db:
+            if db and record_checks:
                 db.request('ingestion_runs', method='POST', payload={
                     'source_id': BRANT_EVENTS_SOURCE_ID, 'started_at': outcome['at'],
                     'completed_at': dt.datetime.now(UTC).isoformat(),

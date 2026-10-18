@@ -2,6 +2,8 @@
 
 Prepared 2026-09-30. This is an operating proposal, not evidence that new jobs, integrations, notifications or live content have been activated. Source destinations below were checked through public official pages on that date; check the original item again before publication.
 
+See [scheduled content pipeline](content-pipeline.md) for the proposed Coolify four-hour task, source feasibility and staged rollout. Production prerequisites remain unverified.
+
 ## Recommendation
 
 Keep the narrow County road-construction publisher and add a small, explicit human editorial routine. Start with one owner and one backup, daily notice review and twice-weekly event curation. Do not try to fill every category automatically or promise a minimum number of posts. A successful source check with nothing new is a valid result.

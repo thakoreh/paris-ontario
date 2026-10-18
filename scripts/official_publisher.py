@@ -36,7 +36,7 @@ LIST_URLS = (LIST_URL, CANONICAL_LIST_URL)
 HOST = 'www.brant.ca'
 SOURCE_ID = 'cb111111-1111-4111-8111-111111111111'
 COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
-STATE_DIR = Path.home() / '.hermes' / 'paris-pulse-publisher'
+STATE_DIR = Path(os.environ.get('PARIS_PULSE_STATE_DIR') or Path.home() / '.hermes' / 'paris-pulse-publisher')
 MAX_PER_DAY = 2
 SPACE = re.compile(r'\s+')
 ARTICLE_PATH = re.compile(r'/news(?:-and-notices)?/posts/([a-z0-9-]+)/')
@@ -520,7 +520,7 @@ def record(event):
         os.replace(tmp, path)
 
 
-def run(publish_enabled=False, env_file=None):
+def run(publish_enabled=False, env_file=None, *, record_checks=True):
     now = dt.datetime.now(UTC)
     outcome = {'at': now.isoformat(), 'mode': 'publish' if publish_enabled else 'dry-run',
                'run_status': 'failed', 'found': 0, 'eligible': 0, 'created': 0, 'published': [], 'duplicates': 0, 'held': [], 'errors': []}
@@ -530,6 +530,7 @@ def run(publish_enabled=False, env_file=None):
             try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError: raise RuntimeError('Previous publisher run still active')
             page, final = fetch(FEED_URL)
+            outcome['fetched'] = True
             if final not in FEED_URLS: raise RuntimeError('News feed redirected')
             candidates = collect_feed(page, now)
             outcome['found'] = len(candidates)
@@ -572,7 +573,7 @@ def run(publish_enabled=False, env_file=None):
                 except Exception as e:
                     outcome['errors'].append({'url': url, 'error': type(e).__name__ + ': ' + str(e)[:180]})
             outcome['run_status'] = 'partial' if outcome['errors'] else 'ok'
-            if db:
+            if db and record_checks:
                 try: db.audit_run(outcome)
                 except Exception as e:
                     outcome['errors'].append({'error': 'Backend audit failed: ' + type(e).__name__ + ': ' + str(e)[:180]})
