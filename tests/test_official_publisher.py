@@ -23,6 +23,87 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_daily_count_queries_separate_verified_and_draft_utc_buckets(self):
+        db = publisher.Supabase('https://example.supabase.co', 'test-only')
+        local_now = dt.datetime(2026, 9, 28, 23, tzinfo=dt.timezone(dt.timedelta(hours=-4)))
+        for method, status, limit in [(db.today_count, 'verified', publisher.MAX_PER_DAY),
+                                      (db.draft_count, 'draft', publisher.MAX_HELD_DRAFTS_PER_DAY)]:
+            with self.subTest(status=status), patch.object(db, 'request', return_value=[{'id': '1'}]) as request:
+                self.assertEqual(method(local_now), 1)
+                table, query = request.call_args.args
+                self.assertEqual(table, 'notices')
+                self.assertEqual(publisher.urllib.parse.parse_qs(query), {
+                    'select': ['id'], 'source_id': ['eq.' + publisher.SOURCE_ID],
+                    'verification_status': ['eq.' + status],
+                    'created_at': ['gte.2026-09-29T00:00:00+00:00'], 'limit': [str(limit)],
+                })
+
+    def test_held_draft_quota_does_not_starve_publication(self):
+        for initial_drafts in (0, publisher.MAX_HELD_DRAFTS_PER_DAY - 1,
+                               publisher.MAX_HELD_DRAFTS_PER_DAY):
+            with self.subTest(initial_drafts=initial_drafts):
+                now = dt.datetime.now(publisher.UTC)
+                titles = ['Paris recreation update one', 'Paris recreation update two',
+                          'Paris garbage collection delayed one day for Thanksgiving']
+                urls = [publisher.CANONICAL_LIST_URL + 'posts/' + slug + '/' for slug in
+                        ('recreation-one', 'recreation-two', 'thanksgiving-collection')]
+                pages = {}
+                items = []
+                for index, (url, title) in enumerate(zip(urls, titles)):
+                    page = ARTICLE.replace('Paris paving update', title).replace(
+                        'Sep 28, 2026', now.strftime('%b %d, %Y')).replace(
+                        'Road Construction', 'Recreation' if index < 2 else 'Garbage and Recycling')
+                    if index == 2:
+                        page = page.replace('Road work on Paris Main Street is scheduled this week.',
+                                            'Paris garbage collection is delayed one day for Thanksgiving.')
+                    pages[url] = page
+                    items.append(f'<item><title>{title}</title><link>{url}</link>'
+                                 f'<pubDate>{now.strftime("%a, %d %b %Y %H:%M:%S GMT")}</pubDate></item>')
+                feed = '<rss><channel>' + ''.join(items) + '</channel></rss>'
+                db = publisher.Supabase('https://example.supabase.co', 'test-only')
+                rows = []
+                queries = []
+
+                def request(table, params='', method='GET', payload=None):
+                    self.assertEqual(table, 'notices')
+                    self.assertEqual(method, 'GET')
+                    query = publisher.urllib.parse.parse_qs(params)
+                    queries.append(query)
+                    status = query['verification_status'][0].removeprefix('eq.')
+                    count = sum(row['verification_status'] == status for row in rows)
+                    if status == 'draft':
+                        count += initial_drafts
+                    return [{'id': str(i)} for i in range(min(count, int(query['limit'][0]))) ]
+
+                def create(row):
+                    rows.append(dict(row))
+                    return {'id': str(len(rows) - 1)}
+
+                with tempfile.TemporaryDirectory() as tmp, patch.dict(
+                        os.environ, {'PARIS_PULSE_WRITE_HELD_DRAFTS': '1'}), patch.object(
+                        publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                        publisher, 'fetch', side_effect=lambda url: (feed if url == publisher.FEED_URL else pages[url], url)), patch.object(
+                        publisher, 'Supabase', return_value=db), patch.object(
+                        db, 'request', side_effect=request), patch.object(
+                        db, 'source_ready', return_value=True), patch.object(
+                        db, 'existing', return_value=None), patch.object(
+                        db, 'create', side_effect=create), patch.object(
+                        db, 'read', side_effect=lambda id: rows[int(id)]):
+                    outcome = publisher.run(True, record_checks=False)
+                expected_drafts = min(2, publisher.MAX_HELD_DRAFTS_PER_DAY - initial_drafts)
+                self.assertEqual([r['verification_status'] for r in rows],
+                                 ['draft'] * expected_drafts + ['verified'])
+                self.assertEqual(outcome['held_drafts_created'], expected_drafts)
+                self.assertEqual(outcome['created'], 1)
+                self.assertEqual(outcome['published'], [urls[2]])
+                self.assertEqual(outcome['eligible'], 1)
+                self.assertEqual(len(outcome['held']), 2)
+                self.assertEqual(len(outcome['errors']), 2 - expected_drafts)
+                for error in outcome['errors']:
+                    self.assertEqual(error['error'], 'Daily held-draft cap reached')
+                self.assertEqual(outcome['run_status'], 'ok' if expected_drafts == 2 else 'partial')
+                self.assertTrue(any(q['verification_status'] == ['eq.verified'] for q in queries))
+
     def test_real_div_paragraphs_preserve_source_text(self):
         page = (SCRIPT.parent.parent / 'tests/fixtures/brant_hhw_div_paragraphs.html').read_text(encoding='utf-8')
         _, paragraphs = publisher.ArticleBodyParser().extract(page)

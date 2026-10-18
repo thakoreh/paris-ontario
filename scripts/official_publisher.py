@@ -38,6 +38,7 @@ SOURCE_ID = 'cb111111-1111-4111-8111-111111111111'
 COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
 STATE_DIR = Path(os.environ.get('PARIS_PULSE_STATE_DIR') or Path.home() / '.hermes' / 'paris-pulse-publisher')
 MAX_PER_DAY = 2
+MAX_HELD_DRAFTS_PER_DAY = 10
 SPACE = re.compile(r'\s+')
 ARTICLE_PATH = re.compile(r'/news(?:-and-notices)?/posts/([a-z0-9-]+)/')
 
@@ -450,8 +451,16 @@ class Supabase:
         rows = self.request('notices', q)
         return rows[0] if rows else None
     def today_count(self, now):
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-        q = urllib.parse.urlencode({'select': 'id', 'source_id': 'eq.' + SOURCE_ID, 'created_at': 'gte.' + start, 'limit': MAX_PER_DAY})
+        return self._day_count(now, 'verified', MAX_PER_DAY)
+    def draft_count(self, now):
+        return self._day_count(now, 'draft', MAX_HELD_DRAFTS_PER_DAY)
+    def _day_count(self, now, status, limit):
+        # Both quotas retain the created_at bucket starting at midnight UTC,
+        # independent of the Toronto calendar day.
+        start = now.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        q = urllib.parse.urlencode({'select': 'id', 'source_id': 'eq.' + SOURCE_ID,
+                                    'verification_status': 'eq.' + status,
+                                    'created_at': 'gte.' + start, 'limit': limit})
         return len(self.request('notices', q))
     def source_ready(self):
         q = urllib.parse.urlencode({'select': 'id,active,authority_level,url', 'id': 'eq.' + SOURCE_ID})
@@ -525,7 +534,7 @@ def record(event):
 def run(publish_enabled=False, env_file=None, *, record_checks=True):
     now = dt.datetime.now(UTC)
     outcome = {'at': now.isoformat(), 'mode': 'publish' if publish_enabled else 'dry-run',
-               'run_status': 'failed', 'found': 0, 'eligible': 0, 'created': 0, 'published': [], 'duplicates': 0, 'held': [], 'errors': []}
+               'run_status': 'failed', 'found': 0, 'eligible': 0, 'created': 0, 'held_drafts_created': 0, 'published': [], 'duplicates': 0, 'held': [], 'errors': []}
     STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:
         with (STATE_DIR / 'lock').open('w') as lock:
@@ -561,8 +570,8 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                         try:
                             draft = hold_record(e.row, e.reasons)
                             if not db.existing(draft['official_url'], draft['external_id']):
-                                if db.today_count(now) >= MAX_PER_DAY:
-                                    raise EditorialHold('Daily publish cap reached')
+                                if db.draft_count(now) >= MAX_HELD_DRAFTS_PER_DAY:
+                                    raise EditorialHold('Daily held-draft cap reached')
                                 if not db.source_ready():
                                     raise ValueError('Configured official source not approved')
                                 created = db.create(draft)
@@ -570,6 +579,7 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                                 if not actual or any(actual.get(k) != draft[k] for k in
                                         ('official_url', 'title', 'summary', 'verification_status', 'is_sample', 'expires_at')):
                                     raise RuntimeError('Draft write readback failed')
+                                outcome['held_drafts_created'] += 1
                         except Exception as error:
                             outcome['errors'].append({'url': url, 'error': str(error)[:180]})
                 except Exception as e:

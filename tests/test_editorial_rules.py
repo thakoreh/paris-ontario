@@ -162,7 +162,8 @@ class EditorialRulesTests(unittest.TestCase):
                 self.rows = []
             def source_ready(self): return True
             def existing(self, *args): return None
-            def today_count(self, now): return len(self.rows)
+            def today_count(self, now): return sum(r['verification_status'] == 'verified' for r in self.rows)
+            def draft_count(self, now): return sum(r['verification_status'] == 'draft' for r in self.rows)
             def create(self, row):
                 self.rows.append(row)
                 return {'id': 'draft'}
