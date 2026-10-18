@@ -9,8 +9,7 @@ import {
 import type { Notice, Source } from "@/types";
 import { NoticeCard, SectionHeading } from "./cards";
 import { isExpired } from "@/lib/relevance";
-import { formatDate } from "@/lib/utils";
-import { contentFreshness } from "@/lib/site";
+import { contentFreshness, formatSourceCheck } from "@/lib/site";
 export function StormPage({
   notices,
   sources,
@@ -158,14 +157,12 @@ export function SourcesPage({ sources, demo = false }: { sources: Source[]; demo
               </div>
               <div>
                 <dt>Review status</dt>
-                <dd>{contentFreshness([s]).state === "current" ? "Within schedule" : "Needs review"}</dd>
+                <dd>{!s.last_checked_at ? "Not checked yet" : contentFreshness([s]).state === "current" ? "Within schedule" : "Needs review"}</dd>
               </div>
               <div>
                 <dt>Last checked</dt>
                 <dd>
-                  {s.last_checked_at
-                    ? formatDate(s.last_checked_at)
-                    : "Not yet checked"}
+                  {formatSourceCheck(s.last_checked_at)}
                 </dd>
               </div>
             </dl>

@@ -13,7 +13,7 @@ const source: Source = {
   authority_level: "official",
   ingestion_type: "manual",
   ingestion_enabled: false,
-  refresh_interval_minutes: 60,
+  refresh_interval_minutes: 360,
   last_checked_at: "2026-09-15T14:24:00-04:00",
   last_success_at: "2026-09-15T14:24:00-04:00",
   active: true,

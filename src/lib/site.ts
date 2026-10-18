@@ -56,6 +56,19 @@ export function canonicalWwwRedirect(
   return redirect;
 }
 
+export function formatSourceCheck(value: string | null): string {
+  const checked = value ? new Date(value) : null;
+  if (!checked || Number.isNaN(checked.getTime())) return "Not checked yet";
+  return `Last checked ${new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(checked)} ET`;
+}
+
 export type ContentFreshness = {
   state: "current" | "attention" | "unknown";
   checkedSources: number;

@@ -89,6 +89,21 @@ describe("content freshness", () => {
     });
   });
 
+  it("uses each source's interval and treats never-checked sources as needing attention", () => {
+    const now = new Date("2026-10-18T19:00:00Z");
+    const weekly = { ...source("2026-10-16T19:00:00Z"), refresh_interval_minutes: 10080 };
+    const automated = { ...source("2026-10-18T13:00:00Z"), refresh_interval_minutes: 360 };
+    expect(contentFreshness([weekly, automated], now)).toMatchObject({
+      state: "current", staleSources: 0,
+    });
+    expect(contentFreshness([weekly, automated], new Date("2026-10-18T20:00:00Z"))).toMatchObject({
+      state: "attention", staleSources: 1,
+    });
+    expect(contentFreshness([source(null)], now)).toMatchObject({
+      state: "attention", checkedSources: 0, staleSources: 1, newestCheck: null,
+    });
+  });
+
   it("shows attention needed when a source has never been checked or is overdue", () => {
     const now = new Date("2026-09-15T16:00:00.000Z");
     expect(
