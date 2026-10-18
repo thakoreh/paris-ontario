@@ -79,10 +79,25 @@ avoid duplicates and to keep recording under its own flag.
 
 `ingestion_runs.records_created` counts all rows written: published notices plus
 held drafts (Events writes drafts only). The table has no JSON details column,
-so the News `breakdown` (`published`, `held`, `held_drafts_created`, `duplicates`,
-and `capped` when tracked) lives in the local `audit.jsonl` record and console
-summary, never in the database row. `held` counts editorial holds, including
-those that did not produce a draft.
+so the News `breakdown` lives in the local `audit.jsonl` record and scheduler
+console summary, never in the database row. Every discovered News candidate
+belongs to exactly one bucket:
+
+- `published`: successfully published notices (`created`).
+- `would_publish`: eligible dry-run candidates; dry runs have zero duplicates.
+- `held`: editorial holds, including successful drafts and holds without drafts.
+- `duplicates`: candidates already present during publication.
+- `errors`: candidate failures, including failed draft inserts/readbacks. A failed
+  draft is an error only, never also held.
+
+Every run asserts `found == published + would_publish + held + duplicates + errors`;
+only one of `published` and `would_publish` can be nonzero for a run.
+`capped` and `draft_capped` are sub-counts of `held`, not additional buckets.
+`held_drafts_created` is also a sub-count of `held`. Run-level diagnostics (such
+as feed, setup, or backend audit failures) remain in the raw `errors` list but
+are excluded from the breakdown's item count. If setup fails after discovery,
+each unprocessed candidate counts as an error. Scheduler News summaries carry
+the same buckets; database write counts still include successful held drafts.
 
 ## Source feasibility
 

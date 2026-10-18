@@ -32,11 +32,65 @@ class PublisherTests(unittest.TestCase):
                 publisher, 'review', side_effect=[{'title': 'One'}, {'title': 'Two'},
                                                   publisher.EditorialHold('Needs review')]):
             outcome = publisher.run()
+        publisher.assert_partition(outcome)
+        self.assertEqual(outcome['breakdown']['duplicates'], 0)
         self.assertEqual(outcome['breakdown']['would_publish'], 2)
         self.assertEqual(outcome['breakdown']['held'], 1)
         self.assertEqual(outcome['created'], 0)
         self.assertEqual(outcome['run_status'], 'ok')
         self.assertEqual(outcome['errors'], [])
+
+    def test_publish_partition_with_failed_draft_and_review_exception(self):
+        def hold(message, draft=False):
+            error = publisher.EditorialHold(message)
+            if draft:
+                error.row = {'title': message}
+                error.reasons = [message]
+            return error
+
+        db = Mock()
+        db.existing.return_value = None
+        db.draft_count.side_effect = [0, 0, publisher.MAX_HELD_DRAFTS_PER_DAY]
+        db.create.side_effect = [{'id': 'draft'}, RuntimeError('Insert failed')]
+        draft = {'official_url': 'draft', 'external_id': 'draft', 'title': 'Draft',
+                 'summary': 'Review', 'verification_status': 'draft',
+                 'is_sample': False, 'expires_at': None}
+        db.read.return_value = draft
+        candidates = {str(i): str(i) for i in range(8)}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+                os.environ, {'PARIS_PULSE_WRITE_HELD_DRAFTS': '1'}), patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value=candidates), patch.object(
+                publisher, 'Supabase', return_value=db), patch.object(
+                publisher, 'review', side_effect=[{}, {}, hold('Editorial'),
+                    hold('Daily publish cap reached'), hold('Draft', True),
+                    hold('Failed draft', True), RuntimeError('Review failed'),
+                    hold('Draft capped', True)]), patch.object(
+                publisher, 'publish', side_effect=['created', 'duplicate']), patch.object(
+                publisher, 'hold_record', return_value=draft):
+            outcome = publisher.run(True, record_checks=False)
+        self.assertEqual(publisher.assert_partition(outcome), {
+            'published': 1, 'would_publish': 0, 'held': 4, 'duplicates': 1,
+            'errors': 2, 'held_drafts_created': 1, 'capped': 1, 'draft_capped': 1})
+        self.assertNotIn('5', [item['url'] for item in outcome['held']])
+        self.assertEqual([item['url'] for item in outcome['errors']], ['5', '6'])
+
+    def test_setup_failure_after_discovery_partitions_unprocessed_candidates(self):
+        db = Mock()
+        db.source_ready.side_effect = RuntimeError('Setup failed')
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value={'one': 'One'}), patch.object(
+                publisher, 'Supabase', return_value=db):
+            outcome = publisher.run(True)
+        self.assertEqual(publisher.assert_partition(outcome)['errors'], 1)
+        self.assertEqual(len(outcome['errors']), 2)  # One run diagnostic, one item.
+
+    def test_partition_rejects_missing_candidate(self):
+        with self.assertRaises(AssertionError):
+            publisher.assert_partition({'found': 1})
 
     def test_publish_cap_is_counted_as_hold(self):
         db = Mock()
@@ -85,7 +139,7 @@ class PublisherTests(unittest.TestCase):
         create.assert_called_once_with(hold.row)
         self.assertEqual(outcome['created'], 0)
         self.assertEqual(outcome['breakdown'], {
-            'published': 0, 'held': 1, 'held_drafts_created': 1, 'duplicates': 0, 'would_publish': 0, 'capped': 0, 'draft_capped': 0})
+            'published': 0, 'held': 1, 'held_drafts_created': 1, 'errors': 0, 'duplicates': 0, 'would_publish': 0, 'capped': 0, 'draft_capped': 0})
         self.assertEqual(local['breakdown'], outcome['breakdown'])
         posts = [c for c in db.request.call_args_list
                  if c.args[0] == 'ingestion_runs' and c.kwargs['method'] == 'POST']
@@ -99,10 +153,10 @@ class PublisherTests(unittest.TestCase):
                 db.request = Mock()
                 outcome = {'at': NOW.isoformat(), 'mode': 'publish', 'run_status': 'ok',
                            'found': 10, 'created': published, 'held_drafts_created': drafts,
-                           'held': [{}, {}, {}], 'duplicates': 4, 'capped': 1, 'errors': []}
+                           'held': [{}, {}, {}], 'errors': 0, 'duplicates': 4, 'capped': 1, 'errors': []}
                 outcome['breakdown'] = publisher.run_breakdown(outcome)
                 expected = {'published': published, 'held': 3, 'held_drafts_created': drafts,
-                            'duplicates': 4, 'capped': 1, 'would_publish': 0, 'draft_capped': 0}
+                            'errors': 0, 'duplicates': 4, 'capped': 1, 'would_publish': 0, 'draft_capped': 0}
                 self.assertEqual(outcome['breakdown'], expected)
                 db.audit_run(outcome)
                 posts = [c for c in db.request.call_args_list
@@ -185,7 +239,7 @@ class PublisherTests(unittest.TestCase):
                 self.assertEqual(outcome['created'], 1)
                 self.assertEqual(outcome['breakdown'], {
                     'published': 1, 'held': 2, 'held_drafts_created': expected_drafts,
-                    'duplicates': 0, 'would_publish': 0, 'capped': 0,
+                    'errors': 0, 'duplicates': 0, 'would_publish': 0, 'capped': 0,
                     'draft_capped': 2 - expected_drafts})
                 self.assertEqual(outcome['published'], [urls[2]])
                 self.assertEqual(outcome['eligible'], 1)

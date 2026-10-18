@@ -548,11 +548,22 @@ def run_breakdown(outcome):
     breakdown = {'published': outcome.get('created', 0),
                  'held': sum(item.get('decision') != 'would-publish' for item in outcome.get('held', [])),
                  'held_drafts_created': outcome.get('held_drafts_created', 0),
-                 'duplicates': outcome.get('duplicates', 0)}
+                 'duplicates': outcome.get('duplicates', 0),
+                 'errors': sum('url' in item for item in outcome.get('errors', []))}
     breakdown['would_publish'] = sum(item.get('decision') == 'would-publish' for item in outcome.get('held', []))
     for name in ('capped', 'draft_capped'):
         breakdown[name] = outcome.get(name, 0)
     return breakdown
+
+
+def assert_partition(outcome):
+    """Assert candidate buckets; run-level diagnostics are not item errors."""
+    counts = run_breakdown(outcome)
+    assert outcome['found'] == sum(counts[name] for name in
+                                   ('published', 'would_publish', 'held', 'duplicates', 'errors')), counts
+    assert counts['capped'] <= counts['held'], counts
+    assert counts['draft_capped'] <= counts['held'], counts
+    return counts
 
 
 def run(publish_enabled=False, env_file=None, *, record_checks=True):
@@ -560,6 +571,8 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
     outcome = {'at': now.isoformat(), 'mode': 'publish' if publish_enabled else 'dry-run',
                'run_status': 'failed', 'found': 0, 'eligible': 0, 'created': 0, 'held_drafts_created': 0, 'published': [], 'duplicates': 0, 'held': [], 'errors': []}
     STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    candidates = {}
+    processed = set()
     try:
         with (STATE_DIR / 'lock').open('w') as lock:
             try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -576,6 +589,7 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                               os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or values.get('SUPABASE_SERVICE_ROLE_KEY', ''))
                 if not db.source_ready(): raise RuntimeError('Production source registry is not authoritative/active')
             for url, title in candidates.items():
+                processed.add(url)
                 try:
                     # RSS discovers URLs; independent reviewer re-opens the original.
                     row = review(url, fetch, now, expected_title=title)
@@ -609,6 +623,9 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                                     raise RuntimeError('Draft write readback failed')
                                 outcome['held_drafts_created'] += 1
                         except Exception as error:
+                            outcome['held'].pop()
+                            if str(e) == 'Daily publish cap reached':
+                                outcome['capped'] -= 1
                             outcome['errors'].append({'url': url, 'error': str(error)[:180]})
                 except Exception as e:
                     outcome['errors'].append({'url': url, 'error': type(e).__name__ + ': ' + str(e)[:180]})
@@ -620,7 +637,9 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                     outcome['run_status'] = 'partial'
     except Exception as e:
         outcome['errors'].append({'error': type(e).__name__ + ': ' + str(e)[:180]})
-    outcome['breakdown'] = run_breakdown(outcome)
+    for url in candidates.keys() - processed:
+        outcome['errors'].append({'url': url, 'error': 'Run failed before candidate processing'})
+    outcome['breakdown'] = assert_partition(outcome)
     record(outcome)
     return outcome
 

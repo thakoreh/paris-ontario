@@ -87,7 +87,7 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                 if not is_events:
                     counts['breakdown'] = official_publisher.run_breakdown(result)
                     counts['held'] = counts['breakdown']['held']
-                    for name in ('would_publish', 'capped', 'draft_capped'):
+                    for name in ('published', 'would_publish', 'duplicates', 'errors', 'capped', 'draft_capped'):
                         counts[name] = counts['breakdown'][name]
                 for name in ('capped', 'draft_limit', 'draft_limit_reached', 'drafts_capped'):
                     if name in result:

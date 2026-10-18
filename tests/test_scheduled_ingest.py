@@ -52,6 +52,25 @@ class ScheduledIngestTests(unittest.TestCase):
             self.assertEqual(source['breakdown'][name], expected)
         self.assertEqual(source['records_created'], 0)
 
+    def test_news_summary_preserves_candidate_partition(self):
+        self.news.return_value = {
+            'run_status': 'partial', 'fetched': True, 'found': 8, 'created': 1,
+            'held_drafts_created': 1, 'held': [{'url': str(i)} for i in range(4)],
+            'duplicates': 1, 'capped': 1, 'draft_capped': 1,
+            'errors': [{'url': 'failed-draft'}, {'url': 'failed-review'},
+                       {'error': 'Run-level diagnostic'}],
+        }
+        code, summary, _ = self.invoke()
+        self.assertEqual(code, 1)
+        source = summary['sources'][0]
+        self.assertEqual(source['records_found'], sum(source[name] for name in
+            ('published', 'would_publish', 'held', 'duplicates', 'errors')))
+        self.assertEqual(source['errors'], 2)
+        self.assertEqual(source['held_drafts_created'], 1)
+        for name in ('published', 'would_publish', 'held', 'duplicates', 'errors',
+                     'capped', 'draft_capped'):
+            self.assertEqual(source[name], source['breakdown'][name])
+
     def test_flags_off(self):
         self.assertEqual(self.invoke()[0], 0)
         self.factory.assert_not_called()
@@ -100,7 +119,7 @@ class ScheduledIngestTests(unittest.TestCase):
         self.assertFalse(self.news.call_args.kwargs['record_checks'])
         self.assertFalse(self.events.call_args.kwargs['record_checks'])
         self.assertEqual(summary['sources'][0]['breakdown'], {
-            'published': 3, 'held': 7, 'held_drafts_created': 2, 'duplicates': 5, 'would_publish': 0, 'capped': 0, 'draft_capped': 0})
+            'published': 3, 'held': 7, 'held_drafts_created': 2, 'errors': 0, 'duplicates': 5, 'would_publish': 0, 'capped': 0, 'draft_capped': 0})
         self.assertTrue(all('breakdown' not in row for row in runs))
         for source, row, source_id, found, created, drafts, held, total in zip(
                 summary['sources'], runs,
