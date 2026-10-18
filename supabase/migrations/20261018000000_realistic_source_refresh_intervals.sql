@@ -1,3 +1,19 @@
+-- Rollback: restore the previous 60-minute budget for the same id+name rows.
+-- update public.official_sources as source
+-- set refresh_interval_minutes = 60
+-- from (values
+--   ('cb111111-1111-4111-8111-111111111111'::uuid, 'County of Brant News'),
+--   ('cb222222-2222-4222-8222-222222222222'::uuid, 'County of Brant Culture Days'),
+--   ('cb333333-3333-4333-8333-333333333333'::uuid, 'County of Brant Elections'),
+--   ('cb444444-4444-4444-8444-444444444444'::uuid, 'County of Brant Public Library'),
+--   ('cb555555-5555-4555-8555-555555555555'::uuid, 'Paris Agricultural Society'),
+--   ('cb666666-6666-4666-8666-666666666666'::uuid, 'Flood messages'),
+--   ('cb777777-7777-4777-8777-777777777777'::uuid, 'Municipal511'),
+--   ('cb888888-8888-4888-8888-888888888888'::uuid, 'GrandBridge outage map'),
+--   ('cb999999-9999-4999-8999-999999999999'::uuid, 'Brant Transit')
+-- ) as original(id, name)
+-- where source.id = original.id and source.name = original.name;
+
 -- Review budgets only: preserve recorded checks and the existing >= 15 minute constraint.
 -- Match both id and name so unrelated or renamed sources are not changed. Safe to rerun.
 update public.official_sources as source
