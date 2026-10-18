@@ -36,6 +36,22 @@ class ScheduledIngestTests(unittest.TestCase):
                           PARIS_PULSE_AUTOPUBLISH='1', PARIS_PULSE_WRITE_HELD_DRAFTS='1',
                           PARIS_PULSE_RECORD_CHECKS='1')
 
+    def test_summary_passes_through_publish_decisions(self):
+        self.news.return_value = {
+            'run_status': 'ok', 'fetched': True, 'created': 0,
+            'held': [{'decision': 'would-publish'}, {'decision': 'would-publish'},
+                     {'reason': 'Daily publish cap reached'},
+                     {'reason': 'Held-draft daily limit reached'}],
+            'capped': 1, 'draft_capped': 1,
+        }
+        code, summary, _ = self.invoke(['--dry-run'])
+        self.assertEqual(code, 0)
+        source = summary['sources'][0]
+        for name, expected in [('would_publish', 2), ('capped', 1), ('draft_capped', 1), ('held', 2)]:
+            self.assertEqual(source[name], expected)
+            self.assertEqual(source['breakdown'][name], expected)
+        self.assertEqual(source['records_created'], 0)
+
     def test_flags_off(self):
         self.assertEqual(self.invoke()[0], 0)
         self.factory.assert_not_called()
@@ -84,7 +100,7 @@ class ScheduledIngestTests(unittest.TestCase):
         self.assertFalse(self.news.call_args.kwargs['record_checks'])
         self.assertFalse(self.events.call_args.kwargs['record_checks'])
         self.assertEqual(summary['sources'][0]['breakdown'], {
-            'published': 3, 'held': 7, 'held_drafts_created': 2, 'duplicates': 5})
+            'published': 3, 'held': 7, 'held_drafts_created': 2, 'duplicates': 5, 'would_publish': 0, 'capped': 0, 'draft_capped': 0})
         self.assertTrue(all('breakdown' not in row for row in runs))
         for source, row, source_id, found, created, drafts, held, total in zip(
                 summary['sources'], runs,

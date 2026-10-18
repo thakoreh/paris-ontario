@@ -545,11 +545,12 @@ def record(event):
 
 def run_breakdown(outcome):
     breakdown = {'published': outcome.get('created', 0),
-                 'held': len(outcome.get('held', [])),
+                 'held': sum(item.get('decision') != 'would-publish' for item in outcome.get('held', [])),
                  'held_drafts_created': outcome.get('held_drafts_created', 0),
                  'duplicates': outcome.get('duplicates', 0)}
-    if 'capped' in outcome:
-        breakdown['capped'] = outcome['capped']
+    breakdown['would_publish'] = sum(item.get('decision') == 'would-publish' for item in outcome.get('held', []))
+    for name in ('capped', 'draft_capped'):
+        breakdown[name] = outcome.get(name, 0)
     return breakdown
 
 
@@ -587,13 +588,17 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                     else: outcome['held'].append({'url': url, 'title': row['title'], 'decision': 'would-publish'})
                 except EditorialHold as e:
                     outcome['held'].append({'url': url, 'reason': str(e)})
+                    if str(e) == 'Daily publish cap reached':
+                        outcome['capped'] = outcome.get('capped', 0) + 1
                     if (db and os.environ.get('PARIS_PULSE_WRITE_HELD_DRAFTS') == '1'
                             and hasattr(e, 'row')):
                         try:
                             draft = hold_record(e.row, e.reasons)
                             if not db.existing(draft['official_url'], draft['external_id']):
                                 if db.draft_count(now) >= MAX_HELD_DRAFTS_PER_DAY:
-                                    raise EditorialHold('Daily held-draft cap reached')
+                                    outcome['held'][-1]['reason'] = 'Held-draft daily limit reached'
+                                    outcome['draft_capped'] = outcome.get('draft_capped', 0) + 1
+                                    continue
                                 if not db.source_ready():
                                     raise ValueError('Configured official source not approved')
                                 created = db.create(draft)

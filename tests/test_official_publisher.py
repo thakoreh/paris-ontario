@@ -24,6 +24,40 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_dry_run_separates_would_publish_from_held(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value={'one': 'One', 'two': 'Two', 'three': 'Three'}), patch.object(
+                publisher, 'review', side_effect=[{'title': 'One'}, {'title': 'Two'},
+                                                  publisher.EditorialHold('Needs review')]):
+            outcome = publisher.run()
+        self.assertEqual(outcome['breakdown']['would_publish'], 2)
+        self.assertEqual(outcome['breakdown']['held'], 1)
+        self.assertEqual(outcome['created'], 0)
+        self.assertEqual(outcome['run_status'], 'ok')
+        self.assertEqual(outcome['errors'], [])
+
+    def test_publish_cap_is_counted_as_hold(self):
+        db = Mock()
+        db.existing.return_value = None
+        db.today_count.return_value = publisher.MAX_PER_DAY
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value={URL: 'Paris paving update'}), patch.object(
+                publisher, 'Supabase', return_value=db):
+            now = dt.datetime.now(publisher.UTC)
+            page = ARTICLE.replace('Sep 28, 2026', now.strftime('%b %d, %Y'))
+            with patch.object(publisher, 'review', return_value=publisher.review(URL, lambda u: page, now)):
+                outcome = publisher.run(True, record_checks=False)
+        self.assertEqual(outcome['held'], [{'url': URL, 'reason': 'Daily publish cap reached'}])
+        self.assertEqual(outcome['breakdown']['capped'], 1)
+        self.assertEqual(outcome['breakdown']['held'], 1)
+        self.assertEqual(outcome['errors'], [])
+        self.assertEqual(outcome['run_status'], 'ok')
+        db.create.assert_not_called()
+
     def test_drafts_only_run_records_actual_writes(self):
         db = publisher.Supabase('https://example.supabase.co', 'test-only')
         db.request = Mock()
@@ -51,7 +85,7 @@ class PublisherTests(unittest.TestCase):
         create.assert_called_once_with(hold.row)
         self.assertEqual(outcome['created'], 0)
         self.assertEqual(outcome['breakdown'], {
-            'published': 0, 'held': 1, 'held_drafts_created': 1, 'duplicates': 0})
+            'published': 0, 'held': 1, 'held_drafts_created': 1, 'duplicates': 0, 'would_publish': 0, 'capped': 0, 'draft_capped': 0})
         self.assertEqual(local['breakdown'], outcome['breakdown'])
         posts = [c for c in db.request.call_args_list
                  if c.args[0] == 'ingestion_runs' and c.kwargs['method'] == 'POST']
@@ -68,7 +102,7 @@ class PublisherTests(unittest.TestCase):
                            'held': [{}, {}, {}], 'duplicates': 4, 'capped': 1, 'errors': []}
                 outcome['breakdown'] = publisher.run_breakdown(outcome)
                 expected = {'published': published, 'held': 3, 'held_drafts_created': drafts,
-                            'duplicates': 4, 'capped': 1}
+                            'duplicates': 4, 'capped': 1, 'would_publish': 0, 'draft_capped': 0}
                 self.assertEqual(outcome['breakdown'], expected)
                 db.audit_run(outcome)
                 posts = [c for c in db.request.call_args_list
@@ -151,14 +185,15 @@ class PublisherTests(unittest.TestCase):
                 self.assertEqual(outcome['created'], 1)
                 self.assertEqual(outcome['breakdown'], {
                     'published': 1, 'held': 2, 'held_drafts_created': expected_drafts,
-                    'duplicates': 0})
+                    'duplicates': 0, 'would_publish': 0, 'capped': 0,
+                    'draft_capped': 2 - expected_drafts})
                 self.assertEqual(outcome['published'], [urls[2]])
                 self.assertEqual(outcome['eligible'], 1)
                 self.assertEqual(len(outcome['held']), 2)
-                self.assertEqual(len(outcome['errors']), 2 - expected_drafts)
-                for error in outcome['errors']:
-                    self.assertEqual(error['error'], 'Daily held-draft cap reached')
-                self.assertEqual(outcome['run_status'], 'ok' if expected_drafts == 2 else 'partial')
+                self.assertEqual(outcome['errors'], [])
+                self.assertEqual(sum(h['reason'] == 'Held-draft daily limit reached'
+                                     for h in outcome['held']), 2 - expected_drafts)
+                self.assertEqual(outcome['run_status'], 'ok')
                 self.assertTrue(any(q['verification_status'] == ['eq.verified'] for q in queries))
 
     def test_real_div_paragraphs_preserve_source_text(self):
