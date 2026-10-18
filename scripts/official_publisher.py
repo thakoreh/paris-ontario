@@ -22,9 +22,9 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
 try:
-    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, normalize_label, category_requires_editor_review
+    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review
 except ModuleNotFoundError:  # Direct execution: python3 scripts/official_publisher.py
-    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, normalize_label, category_requires_editor_review
+    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review
 
 UTC = dt.timezone.utc
 LIST_URL = 'https://www.brant.ca/news/'
@@ -375,10 +375,11 @@ def review(url, independent_fetch, now, expected_title=None):
     excerpt = next((p for p in paragraphs if len(p) >= 30 and len(p) <= 400), '')
     if not any(paragraphs): raise ValueError('Official article paragraphs missing or empty')
     # Source structure failures above retain their error/hold semantics.
-    category_labels = [clean(label) for label in re.findall(
+    category_labels = [html.unescape(re.sub(r'<[^>]+>', '', label)).strip(' \t\n\r\v\f')
+                       for label in re.findall(
         r'<a\b[^>]*>(.*?)</a>', section.group(1), re.I | re.S)]
-    category_text = next((label for label in ROUTINE_COUNTY_CATEGORIES
-                          if normalize_label(label) in {normalize_label(value) for value in category_labels}), category.replace(date_string, '').strip())
+    category_text = ('Road Construction' if 'Road Construction' in category_labels
+                     else category.replace(date_string, '').strip())
     decision = decide({
         'authority_level': 'official', 'category_text': category_text,
         'category_labels': category_labels or [category_text],

@@ -186,13 +186,39 @@ class EditorialRulesTests(unittest.TestCase):
                     self.assertEqual(held.exception.row['verification_status'], 'draft')
                     self.assertIsNone(held.exception.row['verified_at'])
 
-    def test_review_normalized_road_publishes(self):
-        for label in ['Road Construction', ' road construction ']:
+    def test_review_exact_road_label_publishes(self):
+        for label in ['Road Construction', ' \t\r\n\v\fRoad Construction \t\r\n\v\f']:
             with self.subTest(label=label):
                 page = ARTICLE.replace('Road Construction', label)
                 row = publisher.review(URL, lambda url: page, NOW)
                 self.assertEqual(row['category'], 'construction')
                 self.assertEqual(row['verification_status'], 'verified')
+
+    def test_review_non_exact_road_labels_hold(self):
+        labels = [' road construction ', 'Road construction', 'ROAD CONSTRUCTION',
+                  'Road Con\u200bstruction', 'Road  Construction',
+                  'Road\tConstruction', '\u00a0Road Construction\u00a0',
+                  'Ｒｏａｄ Construction']
+        for label in labels:
+            with self.subTest(label=label):
+                self.hold('non_routine_category', category_labels=[label])
+                page = ARTICLE.replace('Road Construction', label)
+                with self.assertRaises(publisher.EditorialHold) as held:
+                    publisher.review(URL, lambda url: page, NOW)
+                self.assertIn('non_routine_category', held.exception.reasons)
+
+    def test_review_non_exact_road_labels_with_sensitive_bodies_hold(self):
+        for label in ['Road construction', 'ROAD CONSTRUCTION', 'Road Con\u200bstruction']:
+            for body in ['Hazmat response in Paris after a tanker crash.',
+                         'Waste collection in Paris.',
+                         'Used needles and sharps found along Paris sidewalks.',
+                         'A sinkhole opened in Paris.']:
+                with self.subTest(label=label, body=body):
+                    page = ARTICLE.replace('Road Construction', label).replace(
+                        'Road work on Paris Main Street is scheduled this week.', body)
+                    with self.assertRaises(publisher.EditorialHold) as held:
+                        publisher.review(URL, lambda url: page, NOW)
+                    self.assertIn('non_routine_category', held.exception.reasons)
 
     def test_review_paris_road_publishes(self):
         row = publisher.review(URL, lambda url: ARTICLE, NOW)

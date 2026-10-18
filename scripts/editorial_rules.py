@@ -21,7 +21,7 @@ _CONFUSABLES = str.maketrans({
 
 
 def normalize_label(text):
-    """Canonicalize source category labels before applying editorial policy."""
+    """Canonicalize labels for fail-closed editor and hazard screening."""
     text = unicodedata.normalize('NFKC', text)
     text = ''.join(char for char in text if unicodedata.category(char) != 'Cf')
     text = text.translate(_CONFUSABLES).casefold()
@@ -85,12 +85,11 @@ def decide(candidate):
         reasons.append('untrusted_source')
     labels = candidate.get('category_labels', [text('category_text')])
     labels = labels if isinstance(labels, list) else []
-    labels = [normalize_label(label) for label in labels if isinstance(label, str)]
+    labels = [label.strip(' \t\n\r\v\f') for label in labels if isinstance(label, str)]
     if any(category_requires_editor_review(label) for label in labels):
         reasons.append('category_requires_editor_review')
     elif text('kind') != 'event' and not any(
-            normalize_label(label) in labels for label in ROUTINE_COUNTY_CATEGORIES
-            if not category_requires_editor_review(label)):
+            label == 'Road Construction' for label in labels):
         reasons.append('non_routine_category')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
