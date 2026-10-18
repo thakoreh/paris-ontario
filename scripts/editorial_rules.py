@@ -29,13 +29,35 @@ def normalize_label(text):
     return re.sub(r'[\W_]+', ' ', text).strip()
 
 
+EDITOR_REQUIRED_LABELS = re.compile(
+    r'\b(?:green bin|blue box|recyclables?|recycling|organics|compost|'
+    r'garbage|waste|wastewater|sewers?)\b')
+
+
 def category_requires_editor_review(label):
     normalized = normalize_label(label)
     return (normalized in {normalize_label(value) for value in EDITOR_REQUIRED_CATEGORIES}
-            or any(token in normalized for token in ('garbage', 'recycling', 'waste')))
+            or EDITOR_REQUIRED_LABELS.search(normalized) is not None)
 
 
-BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|chemical\s+spill|spill\w*|toxic|hazardous|contaminat\w*|asbestos|gas\s+leak\w*|shelter.in.place|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
+BLOCK = re.compile(
+    r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|'
+    r'spills?(?!-|way)|spilled|spilling|toxic|hazardous|hazmat|contaminant|'
+    r'contaminat\w*|needles?|sharps|recall\w*|chemicals?|explosions?|explod\w*|'
+    r'sinkholes?|leak|leaks|leaking|leaked|asbestos|gas\s+leak\w*|'
+    r'shelter.in.place|boil.water|drinking.water|school|medical|health|outage|'
+    r'ignore previous instructions|system prompt)\b', re.I)
+
+
+def contains_hazard(value):
+    # Fold accents as well as the existing compatibility/confusable handling.
+    folded = ''.join(char for char in unicodedata.normalize('NFKD', value)
+                     if not unicodedata.combining(char))
+    # Preserve hyphens in the first normalized copy so spill-over stays benign.
+    normalized = '-'.join(normalize_label(part) for part in folded.split('-'))
+    # Also screen joined word/line splits, e.g. haz-\nardous and con-tamination.
+    joined = normalize_label(re.sub(r'-\s*', '', folded))
+    return any(BLOCK.search(copy) for copy in (value, normalized, joined))
 
 
 
@@ -95,7 +117,7 @@ def decide(candidate):
         reasons.append('uncertain_locality')
     sensitive_fields = [text('sensitive_text'), text('category_text'), *labels]
     if not text('sensitive_text').strip() or any(
-            BLOCK.search(value) or BLOCK.search(normalize_label(value))
+            contains_hazard(value)
             for value in sensitive_fields):
         reasons.append('sensitive_keyword')
     if candidate.get('parse_ok') is not True:

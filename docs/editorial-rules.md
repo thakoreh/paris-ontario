@@ -45,3 +45,18 @@ must review every waste notice before verification, including routine schedule
 changes and household hazardous waste events. No waste auto-publish path exists.
 The waste category mapping is retained for held draft rows. Road Construction
 rules are unchanged. All other editorial checks still apply.
+
+Editor-required labels match whole normalized words or phrases: Green Bin,
+Blue Box, Recyclable(s), Recycling, Organics, Compost, Garbage, Waste,
+Wastewater and Sewer(s). Any matching label alongside Road Construction requires
+editor review in either order. Substrings such as “wastebasket” do not qualify.
+Wastewater and sewer notices are draft-only for safety; over-holds are acceptable.
+
+Hazard screening covers bodies and labels, folds accents, and checks joined
+hyphenated word or line splits (such as “con-tamination” and “haz-\nardous”).
+It includes hazmat, contaminants/contamination, needles, sharps, recalls,
+chemicals, explosions, sinkholes and leaks. Spill, spills, spilled and spilling
+match whole words; “Spillway Road” and “spill-over lane closure” remain benign.
+Toxic remains a hazard keyword, including in proper names; uncertain cases may
+be held for editor review. Exact single-label Road Construction notices still
+publish when all checks pass.

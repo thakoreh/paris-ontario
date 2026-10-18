@@ -46,6 +46,41 @@ class EditorialRulesTests(unittest.TestCase):
                 self.hold('sensitive_keyword', category_labels=['Road Construction', hazard])
                 self.hold('sensitive_keyword', sensitive_text=hazard)
 
+    def test_added_body_hazards(self):
+        hazards = [
+            'hazmat', 'contaminant', 'contamination', 'contaminated',
+            'needle', 'needles', 'sharps', 'recall', 'recalled', 'recalls',
+            'chemical', 'chemicals', 'explosion', 'explosions', 'explode',
+            'exploded', 'exploding', 'sinkhole', 'sinkholes',
+            'leak', 'leaks', 'leaking', 'leaked', 'spill', 'spills',
+            'spilled', 'spilling', 'haz-\nardous spill', 'haz-\nardous',
+            'con-tamination', 'cóntaminant',
+        ]
+        for hazard in hazards:
+            with self.subTest(hazard=hazard):
+                self.hold('sensitive_keyword', sensitive_text=f'Paris update: {hazard}.')
+
+    def test_benign_spill_names_and_compounds_publish(self):
+        for body in ['Spillway Road resurfacing in Paris.',
+                     'Paris spill-over lane closure.']:
+            with self.subTest(body=body):
+                candidate = self.candidate()
+                candidate['sensitive_text'] = body
+                self.assertEqual(rules.decide(candidate),
+                                 ('publish', []))
+                page = ARTICLE.replace(
+                    'Road work on Paris Main Street is scheduled this week.', body)
+                self.assertEqual(publisher.review(URL, lambda url: page, NOW)[
+                    'verification_status'], 'verified')
+
+    def test_editor_label_substrings_do_not_require_review(self):
+        for label in ['Wastebasket collection', 'Sewerage', 'Composting',
+                      'Organicsville', 'Green Binsville', 'Recyclablesville']:
+            with self.subTest(label=label):
+                self.assertFalse(rules.category_requires_editor_review(label))
+                self.assertEqual(rules.decide(self.candidate(
+                    category_labels=['Road Construction', label])), ('publish', []))
+
     def test_review_screens_all_metadata_and_article_text(self):
         pages = []
         for hazard in ['Chemical Spill', 'Emergency', 'Emer\u200bgency']:
@@ -174,6 +209,9 @@ class EditorialRulesTests(unittest.TestCase):
             'Gar\u2060bage and Recycling', 'Gar\ufeffbage and Recycling',
             'Gar\u00adbage and Recycling', 'Gαrbαge and Recycling',
             'Recycling service update',
+            'Green Bin', 'Blue Box', 'Recyclable', 'Recyclables', 'Recycling',
+            'Organics', 'Compost', 'Garbage', 'Waste', 'Wastewater', 'Sewer',
+            'Sewers', 'GREEN-BIN collection', 'Blue Box service',
         ]
         for label in labels:
             for ordered in [('Road Construction', label), (label, 'Road Construction')]:
