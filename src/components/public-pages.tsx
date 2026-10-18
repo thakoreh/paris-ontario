@@ -9,7 +9,7 @@ import {
 import type { Notice, Source } from "@/types";
 import { NoticeCard, SectionHeading } from "./cards";
 import { isExpired } from "@/lib/relevance";
-import { contentFreshness, formatSourceCheck } from "@/lib/site";
+import { contentFreshness, formatSourceCheckTime } from "@/lib/site";
 export function StormPage({
   notices,
   sources,
@@ -137,6 +137,7 @@ export function SourcesPage({ sources, demo = false }: { sources: Source[]; demo
         {freshness.state === "unknown"
           ? "No active source has a recorded review time."
           : `${freshness.checkedSources} of ${sources.filter((s) => s.active).length} active sources have a recorded check; ${freshness.staleSources} need review.`}
+        {freshness.futureOrInvalidChecks > 0 && ` ${freshness.futureOrInvalidChecks} active source${freshness.futureOrInvalidChecks === 1 ? " has an unusable check time" : "s have unusable check times"}.`}
       </div>
       <div className="two-grid">
         {sources.map((s) => (
@@ -157,12 +158,12 @@ export function SourcesPage({ sources, demo = false }: { sources: Source[]; demo
               </div>
               <div>
                 <dt>Review status</dt>
-                <dd>{!s.last_checked_at ? "Not checked yet" : contentFreshness([s]).state === "current" ? "Within schedule" : "Needs review"}</dd>
+                <dd>{s.last_checked_at === null ? "Not checked yet" : contentFreshness([s]).state === "current" ? "Within schedule" : "Needs review"}</dd>
               </div>
               <div>
                 <dt>Last checked</dt>
                 <dd>
-                  {formatSourceCheck(s.last_checked_at)}
+                  {formatSourceCheckTime(s.last_checked_at)}
                 </dd>
               </div>
             </dl>

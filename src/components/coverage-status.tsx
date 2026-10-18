@@ -40,20 +40,20 @@ export function CoverageStatus({
 
   const freshness = contentFreshness(sources);
   const activeSources = sources.filter((source) => source.active).length;
-  const missingChecks = Math.max(0, activeSources - freshness.checkedSources);
+  const missingChecks = Math.max(0, activeSources - freshness.checkedSources - freshness.futureOrInvalidChecks);
   const content =
     freshness.state === "current" ? (
       <>
         <strong>Source checks are within schedule</strong>
         <p>{sourceCount(freshness.checkedSources)} checked within schedule.</p>
       </>
-    ) : freshness.state === "attention" && missingChecks > 0 ? (
+    ) : freshness.state === "attention" && (missingChecks > 0 || freshness.futureOrInvalidChecks > 0) ? (
       <>
         <strong>Source check history is incomplete</strong>
         <p>
-          {missingChecks} active source
-          {missingChecks === 1 ? " has" : "s have"} no recorded check. Updates
-          may be incomplete.
+          {missingChecks > 0 && `${sourceCount(missingChecks)} ${missingChecks === 1 ? "has" : "have"} no recorded check. `}
+          {freshness.futureOrInvalidChecks > 0 && `${sourceCount(freshness.futureOrInvalidChecks)} ${freshness.futureOrInvalidChecks === 1 ? "has an unusable check time" : "have unusable check times"}. `}
+          Updates may be incomplete.
         </p>
       </>
     ) : freshness.state === "attention" ? (

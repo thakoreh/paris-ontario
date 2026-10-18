@@ -1,3 +1,4 @@
+import { contentFreshness, formatSourceCheck } from "@/lib/site";
 import { SourcesPage } from "@/components/public-pages";
 import { CoverageStatus } from "@/components/coverage-status";
 import React from "react";
@@ -115,16 +116,53 @@ describe("Internal source coverage notice", () => {
     expect(html.replace(/<!-- -->/g, "")).toContain("1 active source is overdue");
   });
 
-  it("renders the recorded check time in Toronto with a zone label", () => {
+  it("distinguishes Toronto daylight and standard times, including the repeated fall-back hour", () => {
+    const now = new Date("2026-12-01T00:00:00Z");
     for (const [timestamp, expected] of [
-      ["2026-10-18T19:00:00Z", "Last checked Oct 18, 2026, 3:00 PM ET"],
-      ["2026-01-18T20:00:00Z", "Last checked Jan 18, 2026, 3:00 PM ET"],
+      ["2026-10-18T19:00:00Z", "Oct 18, 2026, 3:00 PM EDT"],
+      ["2026-07-18T19:00:00Z", "Jul 18, 2026, 3:00 PM EDT"],
+      ["2026-11-01T05:30:00Z", "Nov 1, 2026, 1:30 AM EDT"],
+      ["2026-11-01T06:30:00Z", "Nov 1, 2026, 1:30 AM EST"],
     ]) {
-      const html = renderToString(React.createElement(SourcesPage, {
-        sources: [source(timestamp)],
-      }));
-      expect(html).toContain(expected);
+      expect(formatSourceCheck(timestamp, now)).toBe(`Last checked ${expected}`);
     }
+  });
+
+  it("renders the source card check time without duplicating its label", () => {
+    const html = renderToString(React.createElement(SourcesPage, {
+      sources: [source("2026-07-18T19:00:00Z")],
+    }));
+    expect(html).toContain("<dt>Last checked</dt><dd>Jul 18, 2026, 3:00 PM EDT</dd>");
+    expect(html.match(/Last checked/g)).toHaveLength(1);
+  });
+
+  it("reports one missing check and one future check separately", () => {
+    const sources = [source(null), { ...source("2099-01-01T00:00:00Z"), id: "future" }];
+    expect(contentFreshness(sources)).toMatchObject({
+      state: "attention", checkedSources: 0, futureOrInvalidChecks: 1, staleSources: 2,
+    });
+    const html = renderToString(React.createElement(SourcesPage, { sources })).replace(/<!-- -->/g, "");
+    expect(html).toContain("1 active source has no recorded check.");
+    expect(html).toContain("1 active source has an unusable check time.");
+    expect(html).toContain("0 of 2 active sources have a recorded check; 2 need review.");
+    expect(html).not.toContain("2 active sources have no recorded check");
+  });
+
+  it.each(["2099-01-01T00:00:00Z", "invalid", ""])("separates missing checks from unusable checks (%s)", (value) => {
+    const sources = [source(null), { ...source(value), id: "unusable" },
+      { ...source(new Date(Date.now() - 60_000).toISOString()), id: "valid" }];
+    expect(contentFreshness(sources)).toMatchObject({
+      state: "attention", checkedSources: 1, futureOrInvalidChecks: 1, staleSources: 2,
+    });
+    const banner = coverage(sources).replace(/<!-- -->/g, "");
+    expect(banner).toContain("1 active source has no recorded check.");
+    expect(banner).toContain("1 active source has an unusable check time.");
+    const html = renderToString(React.createElement(SourcesPage, { sources })).replace(/<!-- -->/g, "");
+    expect(html).toContain("1 of 3 active sources have a recorded check; 2 need review.");
+    expect(html).toContain("1 active source has an unusable check time.");
+    expect(html).toContain("<dt>Review status</dt><dd>Needs review</dd>");
+    expect(html).toContain("<dt>Last checked</dt><dd>Check time unavailable</dd>");
+    expect(html).toContain("<dt>Last checked</dt><dd>Not checked yet</dd>");
   });
 
   it("labels a never-checked source without inventing a timestamp", () => {
