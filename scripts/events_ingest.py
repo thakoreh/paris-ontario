@@ -21,6 +21,10 @@ except ModuleNotFoundError:
     from official_publisher import NoRedirect, Supabase, clean
 
 UTC = dt.timezone.utc
+ROBOTS_URL = 'https://brantevents.org/robots.txt'
+USER_AGENT = 'ParisPulseBot/1.0 (+https://parispulse.ca)'
+UA_TOKEN = 'ParisPulseBot'
+ROBOTS_MAX_BYTES = 64 * 1024
 FEED_URL = 'https://brantevents.org/events.rss'
 BRANT_EVENTS_SOURCE_ID = 'cbaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
@@ -42,16 +46,100 @@ def allowed(url):
 
 
 def fetch(url):
-    if not allowed(url):
+    if url != ROBOTS_URL and not allowed(url):
         raise ValueError('Source URL outside fixed allowlist')
-    req = urllib.request.Request(url, headers={'User-Agent': 'ParisPulseBot/1.0 (+https://parispulse.ca)'})
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
     with urllib.request.build_opener(NoRedirect()).open(req, timeout=12) as response:
         if response.status != 200 or response.geturl() != url:
             raise ValueError('Source non-200 or redirect rejected')
-        content = response.read(MAX_BYTES + 1)
-        if len(content) > MAX_BYTES:
+        limit = ROBOTS_MAX_BYTES if url == ROBOTS_URL else MAX_BYTES
+        if url == ROBOTS_URL:
+            media_type = response.headers.get_content_type()
+            if media_type != 'text/plain':
+                raise ValueError('Robots must be text/plain')
+        content = response.read(limit + 1)
+        if len(content) > limit:
             raise ValueError('Source too large')
         return content.decode('utf-8', 'strict')
+
+
+class RobotsPolicy:
+    """Match raw path/query rules in the selected RFC 9309 agent groups."""
+
+    def __init__(self, groups):
+        self.groups = groups
+
+    def selected_groups(self, agent):
+        token = agent.split('/', 1)[0].lower()
+        specific = [group for group in self.groups if token in group['agents']]
+        return specific or [group for group in self.groups if '*' in group['agents']]
+
+    def can_fetch(self, agent, url):
+        parts = urllib.parse.urlsplit(url)
+        target = (parts.path or '/') + ('?' + parts.query if parts.query else '')
+        matches = []
+        for group in self.selected_groups(agent):
+            for allow, rule in group['rules']:
+                if not rule:
+                    continue
+                anchored = rule.endswith('$')
+                pattern = rule[:-1] if anchored else rule
+                expression = '.*'.join(re.escape(part) for part in pattern.split('*'))
+                if re.match(expression + (r'\Z' if anchored else ''), target):
+                    specificity = len(pattern.replace('*', '').encode('utf-8'))
+                    matches.append((specificity, allow))
+        return max(matches)[1] if matches else True
+
+    def crawl_delay(self, agent):
+        return max((group['delay'] for group in self.selected_groups(agent)), default=0)
+
+
+def robots_policy(text):
+    """Validate strictly and parse groups without normalising rule strings."""
+    if (not isinstance(text, str) or len(text.encode('utf-8')) > ROBOTS_MAX_BYTES
+            or any(ord(c) < 32 and c not in '\t\r\n' for c in text)
+            or any(c in text for c in '<>') or '\x7f' in text):
+        raise ValueError('Invalid robots text')
+    groups = []
+    group = None
+    has_rule = False
+    group_started = False
+    for raw in text.splitlines():
+        line = raw.split('#', 1)[0].strip()
+        if not line:
+            continue
+        key, separator, value = line.partition(':')
+        key, value = key.strip().lower(), value.strip()
+        if not separator or not re.fullmatch(r'[a-z-]+', key):
+            raise ValueError('Invalid robots directive')
+        if key == 'user-agent':
+            if not re.fullmatch(r'[A-Za-z0-9_*.-]+', value):
+                raise ValueError('Invalid robots agent')
+            if group is None or group_started:
+                group = {'agents': [], 'rules': [], 'delay': 0}
+                groups.append(group)
+                group_started = False
+            group['agents'].append(value.lower())
+        elif key in ('allow', 'disallow', 'crawl-delay'):
+            if group is None:
+                raise ValueError('Robots rule without agent')
+            group_started = True
+            if key == 'crawl-delay':
+                if not re.fullmatch(r'[0-9]+', value):
+                    raise ValueError('Invalid crawl delay')
+                group['delay'] = max(group['delay'], int(value))
+            else:
+                if value and not value.startswith('/'):
+                    raise ValueError('Invalid robots path')
+                group['rules'].append((key == 'allow', value))
+                has_rule = True
+    if not groups or not has_rule:
+        raise ValueError('No parsable robots rules')
+    policy = RobotsPolicy(groups)
+    delay = max(1, policy.crawl_delay(UA_TOKEN))
+    if delay > 30:
+        raise ValueError('Crawl delay exceeds bounded run')
+    return policy, delay
 
 
 class JsonLD(HTMLParser):
@@ -214,10 +302,17 @@ def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if not isinstance(max_pages, int) or not 1 <= max_pages <= MAX_PAGES:
                 raise ValueError('Page cap must be between 1 and 40')
+            try:
+                policy, delay = robots_policy(fetcher(ROBOTS_URL))
+            except Exception as error:
+                raise ValueError('robots.txt unavailable or malformed') from error
+            if not policy.can_fetch(UA_TOKEN, FEED_URL):
+                raise ValueError('robots.txt disallowed: ' + FEED_URL)
             db = None
             if write_held_drafts:
                 db = HeldDraftStore(os.environ.get('NEXT_PUBLIC_SUPABASE_URL', ''),
                                     os.environ.get('SUPABASE_SERVICE_ROLE_KEY', ''))
+            sleep(delay)  # Robots -> RSS also honours the selected crawl delay.
             feed = fetcher(FEED_URL)
             outcome['fetched'] = True
             root = ET.fromstring(feed)
@@ -233,8 +328,11 @@ def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
                     urls.append(url)
             outcome['found'] = len(urls)
             for url in urls[:max_pages]:
+                if not policy.can_fetch(UA_TOKEN, url):
+                    outcome['errors'].append({'url': url, 'error': 'robots.txt disallowed'})
+                    continue
                 try:
-                    sleep(1.0)  # Includes RSS -> first page, and failed requests.
+                    sleep(delay)  # Includes failed requests.
                     row, candidate = review(url, fetcher(url), now)
                     outcome['candidates'].append(candidate)
                     if db:

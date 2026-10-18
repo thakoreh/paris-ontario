@@ -11,6 +11,7 @@ from scripts import events_ingest as ingest
 FIXTURES = Path(__file__).parent / 'fixtures' / 'pipeline'
 NOW = dt.datetime(2026, 10, 18, 19, tzinfo=dt.timezone.utc)
 URL = 'https://brantevents.org/events/synthetic/'
+ROBOTS = 'User-agent: *\nDisallow:\n'
 
 
 class EventsTests(unittest.TestCase):
@@ -81,14 +82,14 @@ class EventsTests(unittest.TestCase):
         calls, sleeps = [], []
         def fetcher(url):
             calls.append(url)
-            return self.rss if url == ingest.FEED_URL else self.real
+            return ROBOTS if url == ingest.ROBOTS_URL else self.rss if url == ingest.FEED_URL else self.real
         with tempfile.TemporaryDirectory() as directory, patch.object(ingest, 'HeldDraftStore') as client:
             result = ingest.run(fetcher=fetcher, sleep=sleeps.append, now=NOW, state_dir=directory)
             client.assert_not_called()
             self.assertEqual(result['found'], 3)
             self.assertEqual(len(result['candidates']), 3)
-            self.assertEqual(sleeps, [1.0] * 3)
-            self.assertEqual(calls[0], ingest.FEED_URL)
+            self.assertEqual(sleeps, [1.0] * 4)
+            self.assertEqual(calls[:2], [ingest.ROBOTS_URL, ingest.FEED_URL])
             for candidate in result['candidates']:
                 self.assertIn('untrusted_source', candidate['reasons'])
                 self.assertIn('uncertain_locality', candidate['reasons'])
@@ -97,22 +98,142 @@ class EventsTests(unittest.TestCase):
     def test_page_cap_and_bad_discovery(self):
         urls = [f'https://brantevents.org/events/item-{i}/' for i in range(45)] + [URL + '?q=x']
         rss = '<rss><channel>' + ''.join('<item><link>' + url + '</link></item>' for url in urls) + '</channel></rss>'
-        fetcher = Mock(side_effect=lambda url: rss if url == ingest.FEED_URL else self.paris)
+        fetcher = Mock(side_effect=lambda url: ROBOTS if url == ingest.ROBOTS_URL else rss if url == ingest.FEED_URL else self.paris)
         sleep = Mock()
         with tempfile.TemporaryDirectory() as directory:
             result = ingest.run(fetcher=fetcher, sleep=sleep, now=NOW, state_dir=directory)
         self.assertEqual(result['found'], 45)
         self.assertEqual(len(result['candidates']), 40)
-        self.assertEqual(fetcher.call_count, 41)
-        self.assertEqual(sleep.call_count, 40)
+        self.assertEqual(fetcher.call_count, 42)
+        self.assertEqual(sleep.call_count, 41)
         self.assertEqual(len(result['errors']), 1)
 
     def test_empty_feed_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
-            result = ingest.run(fetcher=lambda url: '<rss><channel/></rss>',
+            result = ingest.run(fetcher=lambda url: ROBOTS if url == ingest.ROBOTS_URL else '<rss><channel/></rss>',
                                 sleep=Mock(), now=NOW, state_dir=directory)
         self.assertEqual(result['candidates'], [])
         self.assertTrue(result['errors'])
+
+    def run_policy(self, robots):
+        def fetcher(url):
+            if url == ingest.ROBOTS_URL:
+                if isinstance(robots, Exception):
+                    raise robots
+                return robots
+            return self.rss if url == ingest.FEED_URL else self.paris
+        fetcher = Mock(side_effect=fetcher)
+        sleep = Mock()
+        with tempfile.TemporaryDirectory() as directory:
+            result = ingest.run(fetcher=fetcher, sleep=sleep, now=NOW, state_dir=directory)
+        return result, [call.args[0] for call in fetcher.call_args_list], sleep
+
+    def test_robots_disallow_pages_and_feed(self):
+        result, calls, _ = self.run_policy('User-agent: *\nDisallow: /events/\n')
+        self.assertEqual(calls, [ingest.ROBOTS_URL, ingest.FEED_URL])
+        self.assertEqual(len(result['errors']), 3)
+        self.assertEqual(result['candidates'], [])
+        result, calls, _ = self.run_policy('User-agent: *\nDisallow: /events.rss\n')
+        self.assertEqual(calls, [ingest.ROBOTS_URL])
+        self.assertTrue(result['errors'])
+
+    def test_robots_unavailable_or_malformed(self):
+        failures = [urllib.error.HTTPError(ingest.ROBOTS_URL, code, 'failure', {}, None)
+                    for code in (403, 404, 500, 302)]
+        failures += [TimeoutError(), '<html>error</html>', 'not robots',
+                     b'User-agent: *', 'User-agent: *\nDisallow: /\x00',
+                     'User-agent: *', 'Sitemap: https://brantevents.org/map.xml',
+                     'User-agent: *\nDisallow:\nCrawl-delay: 31',
+                     'User-agent: *\nDisallow:\nCrawl-delay: invalid']
+        for robots in failures:
+            with self.subTest(robots=robots):
+                result, calls, sleep = self.run_policy(robots)
+                self.assertEqual(calls, [ingest.ROBOTS_URL])
+                self.assertEqual(result['candidates'], [])
+                self.assertIn('robots.txt unavailable or malformed', result['errors'][0]['error'])
+                sleep.assert_not_called()
+
+    def test_robots_delay_and_specific_group(self):
+        result, calls, sleep = self.run_policy(
+            'User-agent: *\nDisallow: /\n\n'
+            'User-agent: ParisPulseBot\nDisallow:\nCrawl-delay: 5\n')
+        self.assertEqual(result['errors'], [])
+        self.assertEqual(calls[:2], [ingest.ROBOTS_URL, ingest.FEED_URL])
+        self.assertEqual(len(result['candidates']), 3)
+        self.assertEqual(sleep.call_count, 4)
+        for call in sleep.call_args_list:
+            self.assertEqual(call.args, (5,))
+        result, calls, _ = self.run_policy(
+            'User-agent: *\nDisallow:\n\nUser-agent: ParisPulseBot\nDisallow: /\n')
+        self.assertEqual(calls, [ingest.ROBOTS_URL])
+        self.assertTrue(result['errors'])
+
+    def test_real_robots_raw_query_rule(self):
+        robots = (FIXTURES / 'brantevents-robots.txt').read_text()
+        policy, delay = ingest.robots_policy(robots)
+        self.assertEqual(delay, 1)
+        for path, permitted in [('/events.rss', True), ('/events/some-slug/', True),
+                                ('/?page=2', False), ('/api/x', False),
+                                ('/events.geojson', False), ('/', True)]:
+            with self.subTest(path=path):
+                self.assertEqual(policy.can_fetch(ingest.UA_TOKEN,
+                                                 'https://brantevents.org' + path), permitted)
+        result, calls, _ = self.run_policy(robots)
+        self.assertEqual(result['errors'], [])
+        self.assertEqual(calls[:2], [ingest.ROBOTS_URL, ingest.FEED_URL])
+        self.assertEqual(len(result['candidates']), 3)
+
+    def test_robots_wildcards_anchors_and_precedence(self):
+        policy, _ = ingest.robots_policy(
+            'User-agent: *\nDisallow: /private/*\nAllow: /private/public/\n'
+            'Disallow: /private/public/secret\nDisallow: /*.pdf$\n'
+            'Disallow: /tie*\nAllow: /tie*\nDisallow: /literal%2F\n')
+        for path, permitted in [('/private/a', False), ('/private/public/a', True),
+                                ('/private/public/secret', False), ('/a/b.pdf', False),
+                                ('/a.pdf?download=1', True), ('/a.pdf/extra', True),
+                                ('/tie', True), ('/tie/more', True),
+                                ('/literal%2Fpath', False), ('/literal/path', True)]:
+            with self.subTest(path=path):
+                self.assertEqual(policy.can_fetch(ingest.UA_TOKEN,
+                                                 'https://brantevents.org' + path), permitted)
+
+    def test_robots_combines_matching_groups_and_group_delays(self):
+        policy, delay = ingest.robots_policy(
+            'User-agent: *\nDisallow: /\nCrawl-delay: 30\n'
+            'User-agent: OtherBot\nUser-agent: parispulsebot\n'
+            'Disallow: /one\nCrawl-delay: 2\n'
+            'User-agent: ParisPulseBot\nDisallow: /two\nCrawl-delay: 4\n')
+        self.assertEqual(delay, 4)
+        for path, permitted in [('/one', False), ('/two', False), ('/three', True)]:
+            self.assertEqual(policy.can_fetch(ingest.UA_TOKEN,
+                                             'https://brantevents.org' + path), permitted)
+        self.assertFalse(policy.can_fetch('UnknownBot', ingest.FEED_URL))
+        self.assertEqual(policy.crawl_delay('UnknownBot'), 30)
+
+    def test_robots_transport_limits(self):
+        response = Mock(status=200)
+        response.geturl.return_value = ingest.ROBOTS_URL
+        response.headers.get_content_type.return_value = 'text/plain'
+        response.read.return_value = ROBOTS.encode()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        with patch.object(ingest.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value = response
+            self.assertEqual(ingest.fetch(ingest.ROBOTS_URL), ROBOTS)
+            request = opener.return_value.open.call_args.args[0]
+            self.assertEqual(request.get_header('User-agent'), ingest.USER_AGENT)
+            self.assertEqual(opener.return_value.open.call_args.kwargs['timeout'], 12)
+            response.read.assert_called_once_with(64 * 1024 + 1)
+            response.read.return_value = b'x' * (64 * 1024 + 1)
+            with self.assertRaises(ValueError):
+                ingest.fetch(ingest.ROBOTS_URL)
+            response.headers.get_content_type.return_value = 'text/html'
+            with self.assertRaises(ValueError):
+                ingest.fetch(ingest.ROBOTS_URL)
+            response.headers.get_content_type.return_value = 'text/plain'
+            response.geturl.return_value = 'https://example.org/robots.txt'
+            with self.assertRaises(ValueError):
+                ingest.fetch(ingest.ROBOTS_URL)
 
     def test_write_gate_dedupe_and_draft_only(self):
         row, _ = ingest.review(URL, self.paris, NOW)

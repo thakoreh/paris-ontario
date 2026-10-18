@@ -109,3 +109,5 @@ published records. Keep `scripts/official_publisher_cron.py` unchanged for the
 existing box routine. Once the Coolify task is verified, a human should decide to
 retire the box routine to avoid two schedulers; do not leave overlapping jobs
 unattended. No task, environment or database change is activated by this document.
+
+Each Brant Events run first fetches fresh `https://brantevents.org/robots.txt` with the identifying ParisPulseBot UA, a 12-second timeout, no redirects, and a 64 KiB cap. Only plain UTF-8 text with parsable agent/rule directives is accepted. Unavailable or malformed robots (including 404, 403, 5xx, timeout, HTML or binary) fail closed with `robots.txt unavailable or malformed`; no feed or event pages are fetched. The ParisPulseBot group takes precedence over `*`; disallowed feed/pages are recorded as errors and never requested. All subsequent requests wait `max(1 second, Crawl-delay)`, including robots-to-feed. Crawl-delay must be a nonnegative integer; delays above 30 seconds fail closed to bound the run. Existing URL allowlists and held-draft gates still apply.
