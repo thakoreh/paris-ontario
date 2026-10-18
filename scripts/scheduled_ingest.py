@@ -89,10 +89,18 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                         error = 'Source ingestion failed or incomplete'
                 except Exception:
                     error = 'Source ingestion raised an exception'
+                is_events = source_id == events_ingest.BRANT_EVENTS_SOURCE_ID
+                created = int(result.get('created', 0))
+                drafts = created if is_events else int(result.get('held_drafts_created', 0))
+                held = len(result.get('candidates' if is_events else 'held', []))
+                counts = {'created': created, 'held': held, 'held_drafts_created': drafts}
+                for name in ('capped', 'draft_limit', 'draft_limit_reached', 'drafts_capped'):
+                    if name in result:
+                        counts[name] = int(result[name])
                 row = {'source_id': source_id, 'started_at': started, 'completed_at': timestamp(),
                        'status': ('partial' if result.get('fetched') else 'failed') if error else 'success',
                        'records_found': int(result.get('found', 0)),
-                       'records_created': int(result.get('created', 0)),
+                       'records_created': created if is_events else created + drafts,
                        'records_failed': max(len(result.get('errors', [])), int(bool(error))),
                        'error_message': error[:400] if error else None}
                 if enabled('PARIS_PULSE_RECORD_CHECKS') and result.get('fetched'):
@@ -100,7 +108,7 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                         checks_factory(url, key).record(row)
                     except Exception:
                         error = 'Source check recording failed'
-                summary['sources'].append({**row, 'fetched': bool(result.get('fetched')),
+                summary['sources'].append({**row, **counts, 'fetched': bool(result.get('fetched')),
                                            'check_error': error})
                 if error:
                     summary['run_status'] = 'failed'

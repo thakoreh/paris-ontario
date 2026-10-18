@@ -59,6 +59,46 @@ class ScheduledIngestTests(unittest.TestCase):
         self.assertEqual([r['source_id'] for r in rows], [
             scheduled.official_publisher.SOURCE_ID, scheduled.events_ingest.BRANT_EVENTS_SOURCE_ID])
 
+    def test_summary_and_ingestion_runs_preserve_real_counts(self):
+        self.enable()
+        self.news.return_value = {
+            'fetched': True, 'found': 17, 'created': 3, 'held_drafts_created': 2,
+            'held': [{'id': i} for i in range(7)],
+        }
+        self.events.return_value = {
+            'fetched': True, 'found': 13, 'created': 4,
+            'candidates': [{'id': i} for i in range(9)],
+        }
+        # Exercise the real recording adapter with all remote requests mocked.
+        client = scheduled.SourceChecks('https://example.supabase.co', 'private')
+        client.request = Mock()
+        self.factory.return_value = client
+        code, summary, _ = self.invoke()
+        self.assertEqual(code, 0)
+        self.assertEqual(summary['run_status'], 'ok')
+        self.assertEqual(len(summary['sources']), 2)
+        runs = [call.kwargs['payload'] for call in client.request.call_args_list
+                if call.args[0] == 'ingestion_runs']
+        self.assertEqual(len(runs), 2)
+        self.assertEqual(client.request.call_count, 4)
+        for source, row, source_id, found, created, drafts, held, total in zip(
+                summary['sources'], runs,
+                [scheduled.official_publisher.SOURCE_ID, scheduled.events_ingest.BRANT_EVENTS_SOURCE_ID],
+                [17, 13], [3, 4], [2, 4], [7, 9], [5, 4]):
+            with self.subTest(source_id=source_id):
+                self.assertEqual(source['source_id'], source_id)
+                self.assertEqual(source['created'], created)
+                self.assertEqual(source['held_drafts_created'], drafts)
+                self.assertEqual(source['held'], held)
+                self.assertEqual(source['records_created'], total)
+                self.assertEqual(source['records_found'], found)
+                self.assertEqual(row['source_id'], source_id)
+                self.assertEqual(row['records_created'], total)
+                self.assertEqual(row['records_found'], found)
+                self.assertEqual(row['records_failed'], 0)
+                self.assertEqual(row['status'], 'success')
+                self.assertEqual({key: source[key] for key in row}, row)
+
     def test_missing_credentials_and_exact_flags(self):
         os.environ['PARIS_PULSE_AUTOPUBLISH'] = '1'
         self.invoke()
