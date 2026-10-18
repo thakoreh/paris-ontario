@@ -381,6 +381,7 @@ def review(url, independent_fetch, now, expected_title=None):
     decision = decide({
         'authority_level': 'official', 'category_text': category_text,
         'locality_text': title + ' ' + body,
+        'routine_text': title + ' ' + body,
         'sensitive_text': title + ' ' + body + ' ' + parser.loose_text,
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
@@ -403,6 +404,7 @@ def review(url, independent_fetch, now, expected_title=None):
     if decision.action == 'hold':
         messages = {
             'non_routine_category': 'Not in official road-construction category',
+            'non_routine_waste': 'Non-routine or hazardous waste article requires human review',
             'stale_or_future': 'Source article is stale or future-dated',
             'missing_excerpt': 'No short complete source excerpt',
             'uncertain_locality': 'Not demonstrably Paris-specific',
@@ -410,7 +412,7 @@ def review(url, independent_fetch, now, expected_title=None):
         }
         # Preserve the historical first-message precedence.
         priority = ('non_routine_category', 'stale_or_future', 'missing_excerpt',
-                    'uncertain_locality', 'sensitive_keyword')
+                    'uncertain_locality', 'sensitive_keyword', 'non_routine_waste')
         reason = next((r for r in priority if r in decision.reasons), decision.reasons[0])
         error = EditorialHold(messages.get(reason, reason))
         error.row, error.reasons = row, decision.reasons

@@ -27,6 +27,7 @@ class EditorialRulesTests(unittest.TestCase):
     def test_publish_waste(self):
         candidate = self.candidate()
         candidate['category_text'] = 'Garbage and Recycling'
+        candidate['routine_text'] = 'Paris collection schedule changes Tuesday.'
         self.assertEqual(rules.decide(candidate).action, 'publish')
 
     def test_untrusted_source(self):
@@ -93,6 +94,61 @@ class EditorialRulesTests(unittest.TestCase):
         self.assertEqual(publisher.review(URL, lambda url: page, NOW)['category'], 'waste')
         with self.assertRaisesRegex(publisher.EditorialHold, 'Not demonstrably Paris-specific'):
             publisher.review(URL, lambda url: page.replace('Paris', 'Brantford'), NOW)
+
+    def waste_page(self, title, body, loose=''):
+        return f'''<main><h1 class="main">{title}</h1>
+<section class="gs-news-details-meta"><span class="gs-news-details-date">Sep 28, 2026</span>
+<a>Garbage and Recycling</a></section><div class="text base-text">
+<p>{body}</p></div>{loose}</main>'''
+
+    def test_review_waste_incidents_held(self):
+        cases = [
+            ('Paris hazardous spill', 'A hazardous chemical spill in Paris has contaminated the collection site.'),
+            ('Paris waste update', 'Toxic waste has leaked at the Paris collection site.'),
+            ('Paris collection schedule', 'Contamination affects the Paris collection site.'),
+            ('Paris collection schedule', 'Evacuation is required near the Paris collection site.'),
+            ('Paris collection schedule', 'A safety warning applies to the Paris collection site.'),
+            ('Paris hazardous material', 'The Paris collection schedule has changed today.'),
+            ('Paris waste update', 'The Paris waste facility has a new manager this week.'),
+        ]
+        for title, body in cases:
+            with self.subTest(title=title, body=body):
+                with self.assertRaises(publisher.EditorialHold) as held:
+                    publisher.review(URL, lambda url: self.waste_page(title, body), NOW)
+                self.assertIn('non_routine_waste', held.exception.reasons)
+
+    def test_review_routine_waste_publishes(self):
+        for title in [
+            'Paris garbage collection delayed one day for Thanksgiving',
+            'Household hazardous waste drop-off event in Paris on Saturday',
+        ]:
+            with self.subTest(title=title):
+                page = self.waste_page(title, title + '.')
+                row = publisher.review(URL, lambda url: page, NOW)
+                self.assertEqual(row['category'], 'waste')
+                self.assertEqual(row['verification_status'], 'verified')
+
+    def test_review_waste_hazards_in_all_text(self):
+        hazards = ['spillages', 'toxic', 'chemicals', 'contaminated', 'leaking',
+                   'safety', 'unsafe', 'emergency', 'evacuating', 'hazmat',
+                   'fumes', 'smoke', 'explosion', 'injuries', 'warning',
+                   'advisory', 'do not', 'avoid', 'hazardous material']
+        for hazard in hazards:
+            for location in ['title', 'body', 'loose']:
+                with self.subTest(hazard=hazard, location=location):
+                    title = 'Paris collection schedule'
+                    body = 'Paris garbage collection is scheduled for Tuesday this week.'
+                    loose = ''
+                    if location == 'title':
+                        title += ' ' + hazard
+                    elif location == 'body':
+                        body += ' ' + hazard
+                    else:
+                        loose = '<aside>' + hazard + '</aside>'
+                    page = self.waste_page(title, body, loose)
+                    with self.assertRaises(publisher.EditorialHold) as held:
+                        publisher.review(URL, lambda url: page, NOW)
+                    self.assertIn('non_routine_waste', held.exception.reasons)
 
     def test_held_draft_flag_and_dry_run(self):
         import pathlib

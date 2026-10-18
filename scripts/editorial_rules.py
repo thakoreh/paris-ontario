@@ -11,6 +11,22 @@ ROUTINE_COUNTY_CATEGORIES = {
 
 BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
 
+# Positive evidence is restricted to the article title/body. Hazard screening
+# also includes loose article text so an excerpt cannot hide an incident.
+ROUTINE_WASTE = re.compile(
+    r'\b(?:(?:collection|pickup|pick-up)\s+(?:schedule|date|delayed)|'
+    r'(?:collection|pickup|pick-up)\s+(?:is\s+)?(?:scheduled|delayed)|'
+    r'(?:collection|pickup|pick-up)\s+in\s+Paris\s+is\s+scheduled|'
+    r'date\s+change|holiday\s+schedule|delayed\s+(?:collection|pickup|pick-up)|'
+    r'drop-off\s+(?:day|event)|yard\s+waste|leaf|bulky\s+item|green\s+bin|blue\s+box)\b',
+    re.I)
+WASTE_HAZARD = re.compile(
+    r'\b(?:spill\w*|toxic|chemical\w*|contaminat\w*|leak\w*|safety|unsafe|'
+    r'emergency|evacuat\w*|hazmat|fume\w*|smoke|explosion|injur\w*|warning|'
+    r'advisory|do\s+not|avoid|hazardous)\b', re.I)
+HOUSEHOLD_HAZARDOUS_WASTE = re.compile(r'\bhousehold\s+hazardous\s+waste\b', re.I)
+
+
 def mentions_paris(text):
     # Singular Road/Rd/Rd. denotes a street only when the next word is not
     # road activity. Plural roads is generic; area/town/downtown/local/county
@@ -57,6 +73,10 @@ def decide(candidate):
         reasons.append('untrusted_source')
     if text('kind') != 'event' and text('category_text') not in ROUTINE_COUNTY_CATEGORIES:
         reasons.append('non_routine_category')
+    if text('category_text') == 'Garbage and Recycling':
+        screening = HOUSEHOLD_HAZARDOUS_WASTE.sub(' ', text('sensitive_text'))
+        if not ROUTINE_WASTE.search(text('routine_text')) or WASTE_HAZARD.search(screening):
+            reasons.append('non_routine_waste')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
     if not text('sensitive_text').strip() or BLOCK.search(text('sensitive_text')):
