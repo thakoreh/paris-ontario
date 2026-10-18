@@ -154,8 +154,10 @@ def robots_policy(text):
             or any(ord(c) < 32 and c not in '\t\r\n' for c in text)
             or any(c in text for c in '<>') or '\x7f' in text):
         raise IngestError('Invalid robots text')
+    text = text.removeprefix('\ufeff')
     groups = []
     group = None
+    has_directive = False
     has_rule = False
     group_started = False
     for raw in text.splitlines():
@@ -166,6 +168,10 @@ def robots_policy(text):
         key, value = key.strip().lower(), value.strip()
         if not separator or not re.fullmatch(r'[a-z-]+', key):
             raise IngestError('Invalid robots directive')
+        # RFC 9309: rules outside a user-agent group have no effect.
+        if group is None and key in ('allow', 'disallow'):
+            continue
+        has_directive = True
         if key == 'user-agent':
             if not re.fullmatch(r'[A-Za-z0-9_*.-]+', value):
                 raise IngestError('Invalid robots agent')
@@ -187,7 +193,7 @@ def robots_policy(text):
                     raise IngestError('Invalid robots path')
                 group['rules'].append((key == 'allow', value))
                 has_rule = True
-    if not groups or not has_rule:
+    if has_directive and (not groups or not has_rule):
         raise IngestError('No parsable robots rules')
     policy = RobotsPolicy(groups)
     delay = max(1, policy.crawl_delay(UA_TOKEN))
