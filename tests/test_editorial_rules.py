@@ -133,6 +133,36 @@ class EditorialRulesTests(unittest.TestCase):
                     self.assertIsNone(held.exception.row['verified_at'])
                     self.assertIn('category_requires_editor_review', held.exception.row['tags_json'])
 
+    def test_review_normalized_editor_categories_in_both_orders(self):
+        labels = [
+            'Garbage and recycling', 'GARBAGE & RECYCLING',
+            'Garbage  and\tRecycling', 'Ｇａｒｂａｇｅ and Recycling',
+            'Gar\u200bbage and Recycling', 'Gаrbаge and Recycling',
+            'Waste Collection', 'Garbage + Recycling',
+            'Gar\u200cbage and Recycling', 'Gar\u200dbage and Recycling',
+            'Gar\u2060bage and Recycling', 'Gar\ufeffbage and Recycling',
+            'Gar\u00adbage and Recycling', 'Gαrbαge and Recycling',
+            'Recycling service update',
+        ]
+        for label in labels:
+            for ordered in [('Road Construction', label), (label, 'Road Construction')]:
+                with self.subTest(labels=ordered):
+                    page = ARTICLE.replace('Road Construction', '</a><a>'.join(ordered))
+                    with self.assertRaises(publisher.EditorialHold) as held:
+                        publisher.review(URL, lambda url: page, NOW)
+                    self.assertIn('category_requires_editor_review', held.exception.reasons)
+                    self.assertEqual(held.exception.row['category'], 'waste')
+                    self.assertEqual(held.exception.row['verification_status'], 'draft')
+                    self.assertIsNone(held.exception.row['verified_at'])
+
+    def test_review_normalized_road_publishes(self):
+        for label in ['Road Construction', ' road construction ']:
+            with self.subTest(label=label):
+                page = ARTICLE.replace('Road Construction', label)
+                row = publisher.review(URL, lambda url: page, NOW)
+                self.assertEqual(row['category'], 'construction')
+                self.assertEqual(row['verification_status'], 'verified')
+
     def test_review_paris_road_publishes(self):
         row = publisher.review(URL, lambda url: ARTICLE, NOW)
         self.assertEqual(row['category'], 'construction')

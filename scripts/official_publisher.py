@@ -22,9 +22,9 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
 try:
-    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, EDITOR_REQUIRED_CATEGORIES
+    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, normalize_label, category_requires_editor_review
 except ModuleNotFoundError:  # Direct execution: python3 scripts/official_publisher.py
-    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, EDITOR_REQUIRED_CATEGORIES
+    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, normalize_label, category_requires_editor_review
 
 UTC = dt.timezone.utc
 LIST_URL = 'https://www.brant.ca/news/'
@@ -378,7 +378,7 @@ def review(url, independent_fetch, now, expected_title=None):
     category_labels = [clean(label) for label in re.findall(
         r'<a\b[^>]*>(.*?)</a>', section.group(1), re.I | re.S)]
     category_text = next((label for label in ROUTINE_COUNTY_CATEGORIES
-                          if label in category_labels), category.replace(date_string, '').strip())
+                          if normalize_label(label) in {normalize_label(value) for value in category_labels}), category.replace(date_string, '').strip())
     decision = decide({
         'authority_level': 'official', 'category_text': category_text,
         'category_labels': category_labels or [category_text],
@@ -386,7 +386,8 @@ def review(url, independent_fetch, now, expected_title=None):
         'sensitive_text': title + ' ' + body + ' ' + parser.loose_text,
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
-    if any(label in EDITOR_REQUIRED_CATEGORIES for label in category_labels):
+    if any(category_requires_editor_review(label)
+           for label in category_labels or [category_text]):
         category_text = 'Garbage and Recycling'
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)

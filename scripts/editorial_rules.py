@@ -1,6 +1,7 @@
 """Pure, fail-closed editorial policy; callers supply an explicit reference time."""
 import datetime as dt
 import re
+import unicodedata
 from typing import NamedTuple
 
 TRUSTED_AUTO_PUBLISH_SOURCES = frozenset({'official'})
@@ -9,6 +10,30 @@ ROUTINE_COUNTY_CATEGORIES = {
     'Road Construction': 'construction',
     'Garbage and Recycling': 'waste',
 }
+
+# Common Cyrillic and Greek visual substitutes, including their capitals.
+_CONFUSABLES = str.maketrans({
+    **dict(zip('аеорсхуіѕјкмтнв', 'aeopcxyisjkmthb')),
+    **dict(zip('АЕОРСХУІЅЈКМТНВ', 'AEOPCXYISJKMTHB')),
+    **dict(zip('αεορϲχυιѕκτν', 'aeopcxyisktv')),
+    **dict(zip('ΑΕΟΡϹΧΥΙΚΤΝΖΒΜΗ', 'AEOPCXYIKTNZBMH')),
+})
+
+
+def normalize_label(text):
+    """Canonicalize source category labels before applying editorial policy."""
+    text = unicodedata.normalize('NFKC', text)
+    text = ''.join(char for char in text if unicodedata.category(char) != 'Cf')
+    text = text.translate(_CONFUSABLES).casefold()
+    text = text.replace('&', ' and ').replace('+', ' and ')
+    return re.sub(r'[\W_]+', ' ', text).strip()
+
+
+def category_requires_editor_review(label):
+    normalized = normalize_label(label)
+    return (normalized in {normalize_label(value) for value in EDITOR_REQUIRED_CATEGORIES}
+            or any(token in normalized for token in ('garbage', 'recycling', 'waste')))
+
 
 BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
 
@@ -60,9 +85,12 @@ def decide(candidate):
         reasons.append('untrusted_source')
     labels = candidate.get('category_labels', [text('category_text')])
     labels = labels if isinstance(labels, list) else []
-    if any(label in EDITOR_REQUIRED_CATEGORIES for label in labels if isinstance(label, str)):
+    labels = [normalize_label(label) for label in labels if isinstance(label, str)]
+    if any(category_requires_editor_review(label) for label in labels):
         reasons.append('category_requires_editor_review')
-    elif text('kind') != 'event' and 'Road Construction' not in labels:
+    elif text('kind') != 'event' and not any(
+            normalize_label(label) in labels for label in ROUTINE_COUNTY_CATEGORIES
+            if not category_requires_editor_review(label)):
         reasons.append('non_routine_category')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
