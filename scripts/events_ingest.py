@@ -34,6 +34,11 @@ STATE_DIR = Path(os.environ.get('PARIS_PULSE_STATE_DIR') or Path.home() / '.herm
 ATTRIBUTION = ' Details and changes: Brant Events.'
 
 
+def redact_url_details(value):
+    """Remove query/fragment contents from URLs and exception text before recording."""
+    return re.sub(r"([?#])[^\s'\"<>]*", r"\1[redacted]", value)
+
+
 def event_slug(url):
     if not isinstance(url, str):
         return None
@@ -257,7 +262,7 @@ def review(url, page, now):
         'body': json.dumps({'location': location, 'organizer': event.get('organizer'),
                             'url': event.get('url'), 'source': url}, ensure_ascii=False),
     }
-    return row, {'url': url, 'title': title, 'starts_at': row['start_at'],
+    return row, {'url': redact_url_details(url), 'title': title, 'starts_at': row['start_at'],
                  'decision': 'hold', 'reasons': reasons}
 
 
@@ -323,13 +328,13 @@ def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
             for item in items:
                 url = (item.findtext('link') or '').strip()
                 if event_slug(url) is None:
-                    outcome['errors'].append({'url': url, 'error': 'URL outside fixed allowlist'})
+                    outcome['errors'].append({'url': redact_url_details(url), 'error': 'URL outside fixed allowlist'})
                 elif url not in urls:
                     urls.append(url)
             outcome['found'] = len(urls)
             for url in urls[:max_pages]:
                 if not policy.can_fetch(UA_TOKEN, url):
-                    outcome['errors'].append({'url': url, 'error': 'robots.txt disallowed'})
+                    outcome['errors'].append({'url': redact_url_details(url), 'error': 'robots.txt disallowed'})
                     continue
                 try:
                     sleep(delay)  # Includes failed requests.
@@ -338,7 +343,7 @@ def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
                     if db:
                         outcome['created'] += int(db.write_held(row))
                 except Exception as error:
-                    outcome['errors'].append({'url': url, 'error': type(error).__name__ + ': ' + str(error)[:180]})
+                    outcome['errors'].append({'url': redact_url_details(url), 'error': type(error).__name__ + ': ' + redact_url_details(str(error))[:180]})
             if db and record_checks:
                 db.request('ingestion_runs', method='POST', payload={
                     'source_id': BRANT_EVENTS_SOURCE_ID, 'started_at': outcome['at'],
@@ -349,7 +354,7 @@ def run(write_held_drafts=False, *, fetcher=fetch, sleep=time.sleep, now=None,
             with (state_dir / 'audit.jsonl').open('a') as audit:
                 audit.write(json.dumps(outcome, sort_keys=True) + '\n')
     except Exception as error:
-        outcome['errors'].append({'error': type(error).__name__ + ': ' + str(error)[:180]})
+        outcome['errors'].append({'error': type(error).__name__ + ': ' + redact_url_details(str(error))[:180]})
         with (state_dir / 'audit.jsonl').open('a') as audit:
             audit.write(json.dumps(outcome, sort_keys=True) + '\n')
     return outcome

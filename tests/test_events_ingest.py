@@ -108,6 +108,34 @@ class EventsTests(unittest.TestCase):
         self.assertEqual(sleep.call_count, 41)
         self.assertEqual(len(result['errors']), 1)
 
+    def test_redacts_query_and_fragment_details(self):
+        for suffix, expected in [('?token=SECRET', '?[redacted]'),
+                                 ('#SECRET', '#[redacted]'),
+                                 ('?token=SECRET#SECRET', '?[redacted]')]:
+            self.assertEqual(ingest.redact_url_details('https://evil.example/' + suffix),
+                             'https://evil.example/' + expected)
+        self.assertEqual(ingest.redact_url_details(URL), URL)
+
+    def test_rejected_link_and_errors_redact_secrets(self):
+        secret_url = 'https://evil.example/?token=FAKE-SECRET-CANARY#PRIVATE-FRAGMENT'
+        rss = '<rss><channel><item><link>' + secret_url + '</link></item></channel></rss>'
+        for feed in [rss, self.rss, None]:
+            with self.subTest(feed=feed):
+                def fetcher(url):
+                    if url == ingest.ROBOTS_URL:
+                        return ROBOTS
+                    if url == ingest.FEED_URL and feed is not None:
+                        return feed
+                    raise ValueError('Failed fetching ' + secret_url)
+                with tempfile.TemporaryDirectory() as directory:
+                    result = ingest.run(fetcher=fetcher, sleep=Mock(), now=NOW, state_dir=directory)
+                    audit = (Path(directory) / 'audit.jsonl').read_text()
+                for output in (json.dumps(result), audit):
+                    self.assertNotIn('FAKE-SECRET-CANARY', output)
+                    self.assertNotIn('PRIVATE-FRAGMENT', output)
+                    self.assertIn('https://evil.example/?[redacted]', output)
+                self.assertTrue(result['errors'])
+
     def test_empty_feed_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             result = ingest.run(fetcher=lambda url: ROBOTS if url == ingest.ROBOTS_URL else '<rss><channel/></rss>',
