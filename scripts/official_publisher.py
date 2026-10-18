@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Conservative County of Brant -> Paris Pulse publisher. Standard library only.
 
-This is deliberately narrow: only recent Paris-specific Road Construction news,
+This is deliberately narrow: only recent Paris-specific routine road and waste news,
 source excerpts rather than AI-generated claims, short TTL, and no safety alerts.
 The independent review pass re-fetches each article. Fail closed on uncertainty.
 """
@@ -21,6 +21,11 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
+try:
+    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES
+except ModuleNotFoundError:  # Direct execution: python3 scripts/official_publisher.py
+    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES
+
 UTC = dt.timezone.utc
 LIST_URL = 'https://www.brant.ca/news/'
 CANONICAL_LIST_URL = 'https://www.brant.ca/news-and-notices/'
@@ -33,7 +38,6 @@ SOURCE_ID = 'cb111111-1111-4111-8111-111111111111'
 COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
 STATE_DIR = Path.home() / '.hermes' / 'paris-pulse-publisher'
 MAX_PER_DAY = 2
-BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
 SPACE = re.compile(r'\s+')
 ARTICLE_PATH = re.compile(r'/news(?:-and-notices)?/posts/([a-z0-9-]+)/')
 
@@ -45,30 +49,6 @@ class EditorialHold(ValueError):
 def clean(text):
     return SPACE.sub(' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()
 
-
-def mentions_paris(text):
-    # Singular Road/Rd/Rd. denotes a street only when the next word is not
-    # road activity. Plural roads is generic; area/town/downtown/local/county
-    # anywhere among the 1-3 intervening words also makes the phrase generic.
-    activities = set(('construction work works repair repairs closure closures closed '
-                      'resurfacing paving maintenance improvements upgrades project projects '
-                      'safety conditions').split())
-    generic = {'area', 'town', 'downtown', 'local', 'county'}
-    remaining = re.sub(r'\bparis(?:\s*,?\s*france\b|\s*\(france\))',
-                       ' ', text, flags=re.I)
-
-    def street_name(match):
-        intervening = (match.group('words') or '').lower().split()
-        following = re.match(r'\s+(\w+)', remaining[match.end():])
-        if generic.intersection(intervening) or (
-                following and following.group(1).lower() in activities):
-            return match.group()
-        return ' '
-
-    remaining = re.sub(
-        r'\bparis[\s-]+(?P<words>(?:[a-z]+\s+){1,3}?)??(?:road|rd)\b\.?',
-        street_name, remaining, flags=re.I)
-    return re.search(r'\bparis\b', remaining, re.I) is not None
 
 
 def article_slug(url):
@@ -393,30 +373,49 @@ def review(url, independent_fetch, now, expected_title=None):
     body, paragraphs = parser.extract(page)
     excerpt = next((p for p in paragraphs if len(p) >= 30 and len(p) <= 400), '')
     if not any(paragraphs): raise ValueError('Official article paragraphs missing or empty')
-    # Validate required source structure before any healthy editorial skip.
-    if 'Road Construction' not in category: raise EditorialHold('Not in official road-construction category')
-    if not (dt.timedelta(0) <= now.date() - published <= dt.timedelta(days=5)):
-        raise EditorialHold('Source article is stale or future-dated')
-    if not excerpt: raise EditorialHold('No short complete source excerpt')
-    source_text = title + ' ' + body
-    if not mentions_paris(source_text): raise EditorialHold('Not demonstrably Paris-specific')
-    # Sensitive-topic screen also covers list items and any other body text.
-    if BLOCK.search(source_text) or BLOCK.search(parser.loose_text): raise EditorialHold('Sensitive/ambiguous article requires human review')
+    # Source structure failures above retain their error/hold semantics.
+    category_labels = [clean(label) for label in re.findall(
+        r'<a\b[^>]*>(.*?)</a>', section.group(1), re.I | re.S)]
+    category_text = next((label for label in ROUTINE_COUNTY_CATEGORIES
+                          if label in category_labels), category.replace(date_string, '').strip())
+    decision = decide({
+        'authority_level': 'official', 'category_text': category_text,
+        'locality_text': title + ' ' + body,
+        'sensitive_text': title + ' ' + body + ' ' + parser.loose_text,
+        'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
+    })
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
     if slug is None: raise ValueError('Source URL outside fixed allowlist')
-    return {
+    row = {
         'community_id': COMMUNITY_ID, 'source_id': SOURCE_ID,
         'external_id': 'brant-news:' + slug,
         'title': title, 'slug': 'brant-' + slug,
         'summary': excerpt + ' Check the original County notice for current details.',
-        'body': None, 'category': 'construction', 'severity': 'info',
+        'body': None, 'category': ROUTINE_COUNTY_CATEGORIES.get(category_text, 'other'), 'severity': 'info',
         'official_url': canonical, 'published_at': now.isoformat(), 'retrieved_at': now.isoformat(),
         'verified_at': now.isoformat(), 'expires_at': (now + dt.timedelta(days=3)).isoformat(),
         'latitude': None, 'longitude': None, 'affected_area_text': 'Paris, Ontario',
         'city': 'Paris', 'tags_json': ['county-source', 'automated-source-excerpt'],
         'verification_status': 'verified', 'confidence_score': 0.9, 'is_sample': False,
     }
+
+    if decision.action == 'hold':
+        messages = {
+            'non_routine_category': 'Not in official road-construction category',
+            'stale_or_future': 'Source article is stale or future-dated',
+            'missing_excerpt': 'No short complete source excerpt',
+            'uncertain_locality': 'Not demonstrably Paris-specific',
+            'sensitive_keyword': 'Sensitive/ambiguous article requires human review',
+        }
+        # Preserve the historical first-message precedence.
+        priority = ('non_routine_category', 'stale_or_future', 'missing_excerpt',
+                    'uncertain_locality', 'sensitive_keyword')
+        reason = next((r for r in priority if r in decision.reasons), decision.reasons[0])
+        error = EditorialHold(messages.get(reason, reason))
+        error.row, error.reasons = row, decision.reasons
+        raise error
+    return row
 
 
 class Supabase:
@@ -554,6 +553,22 @@ def run(publish_enabled=False, env_file=None):
                     else: outcome['held'].append({'url': url, 'title': row['title'], 'decision': 'would-publish'})
                 except EditorialHold as e:
                     outcome['held'].append({'url': url, 'reason': str(e)})
+                    if (db and os.environ.get('PARIS_PULSE_WRITE_HELD_DRAFTS') == '1'
+                            and hasattr(e, 'row')):
+                        try:
+                            draft = hold_record(e.row, e.reasons)
+                            if not db.existing(draft['official_url'], draft['external_id']):
+                                if db.today_count(now) >= MAX_PER_DAY:
+                                    raise EditorialHold('Daily publish cap reached')
+                                if not db.source_ready():
+                                    raise ValueError('Configured official source not approved')
+                                created = db.create(draft)
+                                actual = db.read(created['id'])
+                                if not actual or any(actual.get(k) != draft[k] for k in
+                                        ('official_url', 'title', 'summary', 'verification_status', 'is_sample', 'expires_at')):
+                                    raise RuntimeError('Draft write readback failed')
+                        except Exception as error:
+                            outcome['errors'].append({'url': url, 'error': str(error)[:180]})
                 except Exception as e:
                     outcome['errors'].append({'url': url, 'error': type(e).__name__ + ': ' + str(e)[:180]})
             outcome['run_status'] = 'partial' if outcome['errors'] else 'ok'
