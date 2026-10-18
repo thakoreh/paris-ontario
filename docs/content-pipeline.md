@@ -126,4 +126,14 @@ source `cbaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`; see the commented SQL in
 confirming no dependent `notices` or `ingestion_runs` exist; its guarded DELETE
 is also commented there. These rollback statements require deliberate execution.
 
-Each Brant Events run first fetches fresh `https://brantevents.org/robots.txt` with the identifying ParisPulseBot UA, a 12-second timeout, no redirects, and a 64 KiB cap. Only plain UTF-8 text with parsable agent/rule directives is accepted. Unavailable or malformed robots (including 404, 403, 5xx, timeout, HTML or binary) fail closed with `robots.txt unavailable or malformed`; no feed or event pages are fetched. The ParisPulseBot group takes precedence over `*`; disallowed feed/pages are recorded as errors and never requested. All subsequent requests wait `max(1 second, Crawl-delay)`, including robots-to-feed. Crawl-delay must be a nonnegative integer; delays above 30 seconds fail closed to bound the run. Existing URL allowlists and held-draft gates still apply.
+Each Brant Events run first fetches fresh `https://brantevents.org/robots.txt` with the identifying ParisPulseBot UA, a 12-second timeout, no redirects, and a 64 KiB cap. Only plain UTF-8 text is accepted; an empty, whitespace-only or comment-only file allows all paths. A leading UTF-8 BOM is ignored, as are Allow/Disallow lines before the first User-agent. Other content must contain parsable agent/rule directives. Unavailable or malformed robots (including 404, 403, 5xx, timeout, HTML or binary) fail closed with `robots.txt unavailable or malformed`; no feed or event pages are fetched. The ParisPulseBot group takes precedence over `*`; disallowed feed/pages are recorded as errors and never requested. All subsequent requests wait `max(1 second, Crawl-delay)`, including robots-to-feed. Crawl-delay must be a nonnegative integer; delays above 30 seconds fail closed to bound the run. Existing URL allowlists and held-draft gates still apply.
+
+
+## Known limitations (single scheduler only)
+
+The daily cap uses a UTC-day bucket, which rolls over around 8 PM Toronto time
+(7 PM during standard time). The cap check is not atomic: concurrent runs or
+containers can exceed it. Run exactly one scheduler.
+
+Partial writes are not transactional: articles are written individually. A
+readback failure needs manual reconciliation to determine which writes succeeded.
