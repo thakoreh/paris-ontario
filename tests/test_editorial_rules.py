@@ -40,6 +40,37 @@ class EditorialRulesTests(unittest.TestCase):
     def test_sensitive_keyword(self):
         self.hold('sensitive_keyword', sensitive_text='A school is affected.')
 
+    def test_sensitive_labels_and_normalized_text(self):
+        for hazard in ['Chemical Spill', 'Emergency', 'Emer\u200bgency', 'ＦＩＲＥ', 'flооd']:
+            with self.subTest(hazard=hazard):
+                self.hold('sensitive_keyword', category_labels=['Road Construction', hazard])
+                self.hold('sensitive_keyword', sensitive_text=hazard)
+
+    def test_review_screens_all_metadata_and_article_text(self):
+        pages = []
+        for hazard in ['Chemical Spill', 'Emergency', 'Emer\u200bgency']:
+            for labels in [('Road Construction', hazard), (hazard, 'Road Construction')]:
+                pages.append(ARTICLE.replace(
+                    '<a title="Road Construction">Road Construction</a>',
+                    ''.join(f'<a>{label}</a>' for label in labels)))
+        for hazard in ['Chemical Spill', 'Emer\u200bgency', 'ＦＩＲＥ', 'flооd']:
+            # Metadata links outside the category list and plain metadata text
+            # must receive the same screening as title, body and loose text.
+            pages.extend([
+                ARTICLE.replace('</section>', f'<span><a>{hazard}</a></span></section>'),
+                ARTICLE.replace('</section>', f'<span>{hazard}</span></section>'),
+                ARTICLE.replace('Paris paving update</h1>', f'Paris {hazard} update</h1>'),
+                ARTICLE.replace('Road work on Paris', f'{hazard} on Paris'),
+                ARTICLE + f'<aside>{hazard}</aside>',
+            ])
+        for page in pages:
+            with self.subTest(page=page):
+                with self.assertRaises(publisher.EditorialHold) as held:
+                    publisher.review(URL, lambda url: page, NOW)
+                self.assertIn('sensitive_keyword', held.exception.reasons)
+        self.assertEqual(publisher.review(URL, lambda url: ARTICLE, NOW)[
+            'verification_status'], 'verified')
+
     def test_parse_failure(self):
         self.hold('parse_failure', parse_ok=False)
         self.hold('parse_failure', published_at='invalid')

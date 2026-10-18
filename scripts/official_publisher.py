@@ -383,7 +383,7 @@ def review(url, independent_fetch, now, expected_title=None):
         'authority_level': 'official', 'category_text': category_text,
         'category_labels': category_labels or [category_text],
         'locality_text': title + ' ' + body,
-        'sensitive_text': title + ' ' + body + ' ' + parser.loose_text,
+        'sensitive_text': title + ' ' + category + ' ' + body + ' ' + parser.loose_text,
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
     if any(category_requires_editor_review(label)

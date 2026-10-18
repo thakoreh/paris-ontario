@@ -35,7 +35,7 @@ def category_requires_editor_review(label):
             or any(token in normalized for token in ('garbage', 'recycling', 'waste')))
 
 
-BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
+BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|chemical\s+spill|spill\w*|toxic|hazardous|contaminat\w*|asbestos|gas\s+leak\w*|shelter.in.place|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
 
 
 
@@ -94,7 +94,10 @@ def decide(candidate):
         reasons.append('non_routine_category')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
-    if not text('sensitive_text').strip() or BLOCK.search(text('sensitive_text')):
+    sensitive_fields = [text('sensitive_text'), text('category_text'), *labels]
+    if not text('sensitive_text').strip() or any(
+            BLOCK.search(value) or BLOCK.search(normalize_label(value))
+            for value in sensitive_fields):
         reasons.append('sensitive_keyword')
     if candidate.get('parse_ok') is not True:
         reasons.append('parse_failure')
