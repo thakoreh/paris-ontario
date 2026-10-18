@@ -250,6 +250,27 @@ class EventsTests(unittest.TestCase):
                 self.assertEqual(policy.can_fetch(ingest.UA_TOKEN,
                                                  'https://brantevents.org' + path), permitted)
 
+    def test_robots_reserved_octets_reference_cases(self):
+        # Expected disallow results from /tmp/rfc-ref.py norm()/deny().
+        for encoded, literal in [('%3F', '?'), ('%3D', '='), ('%26', '&'),
+                                 ('%24', '$'), ('%2A', '*')]:
+            cases = [
+                ('/a' + encoded + 'b', '/a' + literal + 'b', True),
+                ('/a' + literal + 'b', '/a' + encoded + 'b', True),
+                ('/a?x=' + encoded, '/a?x=' + literal, True),
+                ('/a*' + encoded + 'b$', '/axy' + literal + 'b', True),
+            ]
+            for rule, path, disallowed in cases:
+                with self.subTest(rule=rule, path=path):
+                    policy, _ = ingest.robots_policy('User-agent: *\nDisallow: ' + rule)
+                    self.assertEqual(policy.can_fetch(
+                        ingest.UA_TOKEN, 'https://brantevents.org' + path), not disallowed)
+
+    def test_robots_empty_query_anchor(self):
+        policy, _ = ingest.robots_policy('User-agent: *\nDisallow: /events.rss?$')
+        self.assertFalse(policy.can_fetch(ingest.UA_TOKEN, ingest.FEED_URL + '?'))
+        self.assertTrue(policy.can_fetch(ingest.UA_TOKEN, ingest.FEED_URL))
+
     def test_robots_normalized_specificity(self):
         policy, _ = ingest.robots_policy(
             'User-agent: *\nDisallow: /%65%76%65%6e%74%73/\nAllow: /events/probe/')
@@ -258,7 +279,7 @@ class EventsTests(unittest.TestCase):
 
     def test_robots_normalizes_nonprintable_octets(self):
         self.assertEqual(ingest.normalize_robots_path('/a \x00\x7fé*$/%7e%2f%3f'),
-                         '/a%20%00%7F%C3%A9*$/~%2F%3F')
+                         '/a%20%00%7F%C3%A9%2A%24/~%2F%3F')
 
     def test_robots_unavailable_or_malformed(self):
         failures = [urllib.error.HTTPError(ingest.ROBOTS_URL, code, 'failure', {}, None)

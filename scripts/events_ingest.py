@@ -91,18 +91,25 @@ def fetch(url):
         return content.decode('utf-8', 'strict')
 
 
-def normalize_robots_path(value):
-    """Normalize RFC 9309 path octets while preserving wildcard operators."""
+def normalize_robots_path(value, rule=False):
+    """Normalize RFC 9309 octets, preserving only literal rule operators."""
     unreserved = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
+
+    anchor = '$' if rule and value.endswith('$') else ''
+    if anchor:
+        value = value[:-1]
 
     def normalize_token(match):
         token = match.group()
         if token.startswith('%'):
             char = chr(int(token[1:], 16))
             return char if char in unreserved else token.upper()
+        if rule and token == '*':
+            return token
         return ''.join(f'%{byte:02X}' for byte in token.encode('utf-8'))
 
-    return re.sub(r'%[0-9A-Fa-f]{2}|[^\x21-\x7e]', normalize_token, value)
+    return re.sub(r"%[0-9A-Fa-f]{2}|[:?#\[\]@!$&'()+,;=*]|[^\x21-\x7e]",
+                  normalize_token, value) + anchor
 
 
 class RobotsPolicy:
@@ -118,14 +125,17 @@ class RobotsPolicy:
 
     def can_fetch(self, agent, url):
         parts = urllib.parse.urlsplit(url)
-        target = (parts.path or '/') + ('?' + parts.query if parts.query else '')
+        # Inspect the raw suffix so an empty query delimiter survives urlsplit.
+        suffix = re.sub(r'^(?:[A-Za-z][A-Za-z0-9+.-]*:)?//[^/?#]*', '', url)
+        has_query = '?' in suffix.split('#', 1)[0]
+        target = (parts.path or '/') + ('?' + parts.query if has_query else '')
         target = normalize_robots_path(target)
         matches = []
         for group in self.selected_groups(agent):
             for allow, rule in group['rules']:
                 if not rule:
                     continue
-                rule = normalize_robots_path(rule)
+                rule = normalize_robots_path(rule, rule=True)
                 anchored = rule.endswith('$')
                 pattern = rule[:-1] if anchored else rule
                 expression = '.*'.join(re.escape(part) for part in pattern.split('*'))
