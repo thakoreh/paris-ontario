@@ -109,11 +109,9 @@ class EventsTests(unittest.TestCase):
         self.assertEqual(len(result['errors']), 1)
 
     def test_redacts_query_and_fragment_details(self):
-        for suffix, expected in [('?token=SECRET', '?[redacted]'),
-                                 ('#SECRET', '#[redacted]'),
-                                 ('?token=SECRET#SECRET', '?[redacted]')]:
+        for suffix in ('?token=SECRET', '#SECRET', '?token=SECRET#SECRET'):
             self.assertEqual(ingest.redact_url_details('https://evil.example/' + suffix),
-                             'https://evil.example/' + expected)
+                             '<rejected-url host=evil.example>')
         self.assertEqual(ingest.redact_url_details(URL), URL)
 
     def test_rejected_link_and_errors_redact_secrets(self):
@@ -133,8 +131,56 @@ class EventsTests(unittest.TestCase):
                 for output in (json.dumps(result), audit):
                     self.assertNotIn('FAKE-SECRET-CANARY', output)
                     self.assertNotIn('PRIVATE-FRAGMENT', output)
-                    self.assertIn('https://evil.example/?[redacted]', output)
+                    if feed == rss:
+                        self.assertIn('<rejected-url host=evil.example>', output)
+                    else:
+                        self.assertIn('ValueError: rejected', output)
                 self.assertTrue(result['errors'])
+
+    def test_rejected_userinfo_and_encoded_path_never_leak(self):
+        for secret_url in ('https://user:FAKE-USERINFO@evil.example/path',
+                           'https://evil.example/FAKE-PATH%2DSECRET'):
+            with self.subTest(url=secret_url), tempfile.TemporaryDirectory() as directory:
+                rss = '<rss><channel><item><link>' + secret_url + '</link></item></channel></rss>'
+                fetcher = Mock(side_effect=[ROBOTS, rss])
+                result = ingest.run(fetcher=fetcher, sleep=Mock(), now=NOW, state_dir=directory)
+                audit = (Path(directory) / 'audit.jsonl').read_text()
+                self.assertEqual(result['found'], 0)
+                self.assertEqual(result['candidates'], [])
+                self.assertEqual(result['errors'], [{
+                    'url': '<rejected-url host=evil.example>',
+                    'error': 'URL outside fixed allowlist',
+                }])
+                self.assertEqual([call.args[0] for call in fetcher.call_args_list],
+                                 [ingest.ROBOTS_URL, ingest.FEED_URL])
+                self.assertEqual(json.loads(audit), result)
+                for output in (json.dumps(result), audit):
+                    for secret in (secret_url, 'FAKE-USERINFO', 'FAKE-PATH%2DSECRET',
+                                   'FAKE-PATH-SECRET', 'user:', '/path'):
+                        self.assertNotIn(secret, output)
+
+    def test_exception_message_and_whitespace_text_never_leak(self):
+        message = ('FAKE-EXCEPTION-SECRET whitespace-separated private text\tprivate-tab'
+                   '\nprivate-newline https://user:FAKE-USERINFO@evil.example/path '
+                   'https://evil.example/FAKE-PATH%2DSECRET')
+        for stage in ('feed', 'page'):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as directory:
+                rss = '<rss><channel><item><link>' + URL + '</link></item></channel></rss>'
+                responses = [ROBOTS, RuntimeError(message)] if stage == 'feed' else [ROBOTS, rss, RuntimeError(message)]
+                fetcher = Mock(side_effect=responses)
+                result = ingest.run(fetcher=fetcher, sleep=Mock(), now=NOW, state_dir=directory)
+                audit = (Path(directory) / 'audit.jsonl').read_text()
+                expected_error = {'error': 'RuntimeError: rejected'}
+                if stage == 'page':
+                    expected_error['url'] = URL
+                self.assertEqual(result['errors'], [expected_error])
+                self.assertEqual(result['candidates'], [])
+                self.assertEqual(result['found'], int(stage == 'page'))
+                self.assertEqual(fetcher.call_count, len(responses))
+                self.assertEqual(json.loads(audit), result)
+                for output in (json.dumps(result), audit):
+                    for secret in message.split():
+                        self.assertNotIn(secret, output)
 
     def test_empty_feed_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
