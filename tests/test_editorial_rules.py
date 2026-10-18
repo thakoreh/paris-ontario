@@ -107,6 +107,32 @@ class EditorialRulesTests(unittest.TestCase):
                 self.assertEqual(held.exception.row['verification_status'], 'draft')
                 self.assertIsNone(held.exception.row['verified_at'])
 
+    def test_review_mixed_categories_are_waste_drafts_in_either_order(self):
+        cases = [
+            ('Paris paving update', 'Road work on Paris Main Street is scheduled this week.'),
+            ('Paris waste update',
+             'A hazardous chemical spill in Paris has contaminated the collection site.'),
+            ('Brantford green bin update',
+             'Brantford green bin collection changes only in Brantford. Paris collection is unchanged.'),
+        ]
+        for labels in [('Road Construction', 'Garbage and Recycling'),
+                       ('Garbage and Recycling', 'Road Construction')]:
+            for title, body in cases:
+                with self.subTest(labels=labels, title=title):
+                    links = ''.join(f'<a href="/category/">{label}</a>' for label in labels)
+                    page = f'''<main><h1 class="main">{title}</h1>
+<section class="gs-news-details-meta">
+<span class="gs-news-details-date">Sep 28, 2026</span>{links}</section>
+<div class="text base-text"><p>{body}</p></div></main>'''
+                    with self.assertRaises(publisher.EditorialHold) as held:
+                        publisher.review(URL, lambda url: page, NOW)
+                    self.assertIn('category_requires_editor_review', held.exception.reasons)
+                    self.assertEqual(str(held.exception), 'Category requires editor review')
+                    self.assertEqual(held.exception.row['category'], 'waste')
+                    self.assertEqual(held.exception.row['verification_status'], 'draft')
+                    self.assertIsNone(held.exception.row['verified_at'])
+                    self.assertIn('category_requires_editor_review', held.exception.row['tags_json'])
+
     def test_review_paris_road_publishes(self):
         row = publisher.review(URL, lambda url: ARTICLE, NOW)
         self.assertEqual(row['category'], 'construction')

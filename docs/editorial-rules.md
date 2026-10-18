@@ -7,7 +7,7 @@ community, aggregators and unknown sources are held. All checks must pass.
 | --- | --- |
 | untrusted_source | Authority is exactly official |
 | non_routine_category | Road Construction → construction |
-| category_requires_editor_review | Garbage and Recycling is always held for editor review |
+| category_requires_editor_review | Any Garbage and Recycling label vetoes publication regardless of label order or Road Construction labels; held drafts use waste |
 | uncertain_locality | Existing Paris locality matcher finds Paris, Ontario; street names and Paris, France do not suffice |
 | sensitive_keyword | Nonempty screening text passes the existing BLOCK regex, including all body and loose content |
 | parse_failure | Explicit parse_ok=True and valid dates/reference time |

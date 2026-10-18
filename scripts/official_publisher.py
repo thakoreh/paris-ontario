@@ -22,9 +22,9 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
 try:
-    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES
+    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, EDITOR_REQUIRED_CATEGORIES
 except ModuleNotFoundError:  # Direct execution: python3 scripts/official_publisher.py
-    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES
+    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, EDITOR_REQUIRED_CATEGORIES
 
 UTC = dt.timezone.utc
 LIST_URL = 'https://www.brant.ca/news/'
@@ -381,10 +381,13 @@ def review(url, independent_fetch, now, expected_title=None):
                           if label in category_labels), category.replace(date_string, '').strip())
     decision = decide({
         'authority_level': 'official', 'category_text': category_text,
+        'category_labels': category_labels or [category_text],
         'locality_text': title + ' ' + body,
         'sensitive_text': title + ' ' + body + ' ' + parser.loose_text,
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
+    if any(label in EDITOR_REQUIRED_CATEGORIES for label in category_labels):
+        category_text = 'Garbage and Recycling'
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
     if slug is None: raise ValueError('Source URL outside fixed allowlist')

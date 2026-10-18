@@ -4,6 +4,7 @@ import re
 from typing import NamedTuple
 
 TRUSTED_AUTO_PUBLISH_SOURCES = frozenset({'official'})
+EDITOR_REQUIRED_CATEGORIES = {'Garbage and Recycling'}
 ROUTINE_COUNTY_CATEGORIES = {
     'Road Construction': 'construction',
     'Garbage and Recycling': 'waste',
@@ -57,9 +58,11 @@ def decide(candidate):
         return value if isinstance(value, str) else ''
     if text('authority_level') not in TRUSTED_AUTO_PUBLISH_SOURCES:
         reasons.append('untrusted_source')
-    if text('category_text') == 'Garbage and Recycling':
+    labels = candidate.get('category_labels', [text('category_text')])
+    labels = labels if isinstance(labels, list) else []
+    if any(label in EDITOR_REQUIRED_CATEGORIES for label in labels if isinstance(label, str)):
         reasons.append('category_requires_editor_review')
-    elif text('kind') != 'event' and text('category_text') != 'Road Construction':
+    elif text('kind') != 'event' and 'Road Construction' not in labels:
         reasons.append('non_routine_category')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
