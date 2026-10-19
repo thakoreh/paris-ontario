@@ -1,4 +1,5 @@
 import datetime as dt
+import time
 import unittest
 from unittest.mock import patch
 
@@ -20,6 +21,52 @@ class EditorialRulesTests(unittest.TestCase):
         result = rules.decide(candidate)
         self.assertEqual(result.action, 'hold')
         self.assertIn(code, result.reasons)
+
+    def test_normalisation_performance_limits(self):
+        fixtures = [
+            '\uFDFA' * 249_700,
+            'a-' * 1_000_000,
+            'routine text ' * (1_000_000 // len('routine text ') + 1),
+            # Below the raw cap: must abort compatibility expansion too.
+            '\uFDFA' * 10_000,
+            'a' * 190_000 + '\uFDFA' * 1_000,
+        ]
+        for index, body in enumerate(fixtures):
+            for field in ('sensitive_text', 'body'):
+                with self.subTest(fixture=index, path='decide', field=field):
+                    candidate = self.candidate()
+                    candidate[field] = body
+                    start = time.perf_counter()
+                    decision = rules.decide(candidate)
+                    elapsed = time.perf_counter() - start
+                    self.assertEqual(decision.action, 'hold')
+                    self.assertIn('normalisation_limit_exceeded', decision.reasons)
+                    self.assertLess(elapsed, 0.5)
+            with self.subTest(fixture=index, path='review'):
+                page = ARTICLE.replace(
+                    'Road work on Paris Main Street is scheduled this week.', body)
+                start = time.perf_counter()
+                with self.assertRaises(publisher.EditorialHold) as held:
+                    publisher.review(URL, lambda url: page, NOW)
+                elapsed = time.perf_counter() - start
+                self.assertIn('normalisation_limit_exceeded', held.exception.reasons)
+                self.assertLess(elapsed, 0.5)
+
+    def test_normalise_identical_fields_once(self):
+        candidate = self.candidate()
+        candidate.update(title=candidate['sensitive_text'],
+                         body=candidate['sensitive_text'],
+                         residual=candidate['sensitive_text'])
+        with patch.object(rules, 'normalize_field', wraps=rules.normalize_field) as normalize:
+            self.assertEqual(rules.decide(candidate), ('publish', []))
+        values = [call.args[0] for call in normalize.call_args_list]
+        self.assertEqual(len(values), len(set(values)))
+
+    def test_joined_unicode_hyphens_and_line_breaks_hold(self):
+        for value in ['haz\nardous', 'haz-\r\n  ardous',
+                      'con\u2010tamination', 'con\u2011tamination']:
+            with self.subTest(value=value):
+                self.hold('sensitive_keyword', sensitive_text=value)
 
     def test_publish_road(self):
         self.assertEqual(rules.decide(self.candidate()), ('publish', []))

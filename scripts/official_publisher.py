@@ -381,14 +381,14 @@ def review(url, independent_fetch, now, expected_title=None):
     category_text = ('Road Construction' if 'Road Construction' in category_labels
                      else category.replace(date_string, '').strip())
     decision = decide({
-        'authority_level': 'official', 'category_text': category_text,
+        'authority_level': 'official',
         'category_labels': category_labels or [category_text],
         'locality_text': title + ' ' + body,
-        'sensitive_text': title + ' ' + category + ' ' + body + ' ' + parser.loose_text,
+        'title': title, 'category_text': category, 'body': body,
+        'residual': parser.loose_text,
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
-    if any(category_requires_editor_review(label)
-           for label in category_labels or [category_text]):
+    if 'category_requires_editor_review' in decision.reasons:
         category_text = 'Garbage and Recycling'
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
@@ -408,6 +408,7 @@ def review(url, independent_fetch, now, expected_title=None):
 
     if decision.action == 'hold':
         messages = {
+            'normalisation_limit_exceeded': 'normalisation_limit_exceeded',
             'non_routine_category': 'Not in official road-construction category',
             'category_requires_editor_review': 'Category requires editor review',
             'stale_or_future': 'Source article is stale or future-dated',

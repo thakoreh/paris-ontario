@@ -20,13 +20,39 @@ _CONFUSABLES = str.maketrans({
 })
 
 
-def normalize_label(text):
-    """Canonicalize labels for fail-closed editor and hazard screening."""
-    text = unicodedata.normalize('NFKC', text)
-    text = ''.join(char for char in text if unicodedata.category(char) != 'Cf')
-    text = text.translate(_CONFUSABLES).casefold()
+NORMALISATION_LIMIT = 200_000
+
+
+class NormalisationLimitExceeded(ValueError):
+    pass
+
+
+def normalize_field(text):
+    """Bound compatibility decomposition before allocating expanded text."""
+    if len(text) > NORMALISATION_LIMIT:
+        raise NormalisationLimitExceeded
+    cap = min(2 * len(text), NORMALISATION_LIMIT)
+    parts, size = [], 0
+    for start in range(0, len(text), 1024):
+        part = unicodedata.normalize('NFKD', text[start:start + 1024])
+        size += len(part)
+        if size > cap:
+            raise NormalisationLimitExceeded
+        parts.append(part)
+    text = ''.join(char for part in parts for char in part
+                   if not unicodedata.combining(char)
+                   and unicodedata.category(char) != 'Cf')
+    return text.translate(_CONFUSABLES).casefold()
+
+
+def _label_from_normalized(text):
     text = text.replace('&', ' and ').replace('+', ' and ')
     return re.sub(r'[\W_]+', ' ', text).strip()
+
+
+def normalize_label(text):
+    """Canonicalize labels with the same bounded normalization as screening."""
+    return _label_from_normalized(normalize_field(text))
 
 
 EDITOR_REQUIRED_LABELS = re.compile(
@@ -36,7 +62,11 @@ EDITOR_REQUIRED_LABELS = re.compile(
 
 def category_requires_editor_review(label):
     normalized = normalize_label(label)
-    return (normalized in {normalize_label(value) for value in EDITOR_REQUIRED_CATEGORIES}
+    return _category_requires_editor_review(normalized)
+
+
+def _category_requires_editor_review(normalized):
+    return (normalized == 'garbage and recycling'
             or EDITOR_REQUIRED_LABELS.search(normalized) is not None)
 
 
@@ -49,15 +79,19 @@ BLOCK = re.compile(
     r'ignore previous instructions|system prompt)\b', re.I)
 
 
+_JOIN_SPLITS = re.compile(
+    r'(?<=\w)[-\u2010\u2011]?[ \t]*\r?\n[ \t]*(?=\w)|(?<=\w)[-\u2010\u2011](?=\w)')
+
+
+def _contains_hazard(normalized):
+    joined = _JOIN_SPLITS.sub('', normalized)
+    # Retain hyphens so benign spill-over does not become a spill alert.
+    screening = re.sub(r'[^\w-]+|_', ' ', normalized)
+    return any(BLOCK.search(copy) for copy in (normalized, screening, joined))
+
+
 def contains_hazard(value):
-    # Fold accents as well as the existing compatibility/confusable handling.
-    folded = ''.join(char for char in unicodedata.normalize('NFKD', value)
-                     if not unicodedata.combining(char))
-    # Preserve hyphens in the first normalized copy so spill-over stays benign.
-    normalized = '-'.join(normalize_label(part) for part in folded.split('-'))
-    # Also screen joined word/line splits, e.g. haz-\nardous and con-tamination.
-    joined = normalize_label(re.sub(r'-\s*', '', folded))
-    return any(BLOCK.search(copy) for copy in (value, normalized, joined))
+    return _contains_hazard(normalize_field(value))
 
 
 
@@ -92,6 +126,13 @@ class Decision(NamedTuple):
 
 
 def decide(candidate):
+    try:
+        return _decide(candidate)
+    except NormalisationLimitExceeded:
+        return Decision('hold', ['normalisation_limit_exceeded'])
+
+
+def _decide(candidate):
     """Dates are date/datetime or ISO strings; now is an explicit date/datetime.
 
     published_at (or published) takes precedence over starts_at. Freshness uses
@@ -107,17 +148,27 @@ def decide(candidate):
         reasons.append('untrusted_source')
     labels = candidate.get('category_labels', [text('category_text')])
     labels = labels if isinstance(labels, list) else []
-    labels = [label.strip(' \t\n\r\v\f') for label in labels if isinstance(label, str)]
-    if any(category_requires_editor_review(label) for label in labels):
+    labels = [label for label in labels if isinstance(label, str)]
+    fields = [text(key) for key in (
+        'sensitive_text', 'category_text', 'title', 'body', 'residual')]
+    # Check raw lengths before stripping, hashing, or Unicode work.
+    if any(len(value) > NORMALISATION_LIMIT for value in [*fields, *labels]):
+        raise NormalisationLimitExceeded
+    normalized = {value: normalize_field(value) for value in dict.fromkeys([*fields, *labels])}
+    raw_labels = labels
+    labels = [label.strip(' \t\n\r\v\f') for label in labels]
+    if any(_category_requires_editor_review(_label_from_normalized(normalized[label]))
+           for label in raw_labels):
+
         reasons.append('category_requires_editor_review')
     elif text('kind') != 'event' and not any(
             label == 'Road Construction' for label in labels):
         reasons.append('non_routine_category')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
-    sensitive_fields = [text('sensitive_text'), text('category_text'), *labels]
-    if not text('sensitive_text').strip() or any(
-            contains_hazard(value)
+    sensitive_fields = normalized.values()
+    if not any(text(key).strip() for key in ('sensitive_text', 'body')) or any(
+            _contains_hazard(value)
             for value in sensitive_fields):
         reasons.append('sensitive_keyword')
     if candidate.get('parse_ok') is not True:
