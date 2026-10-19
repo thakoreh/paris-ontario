@@ -558,12 +558,15 @@ def run_breakdown(outcome):
 
 
 def assert_partition(outcome):
-    """Assert candidate buckets; run-level diagnostics are not item errors."""
+    """Validate candidate buckets even when Python optimization is enabled."""
     counts = run_breakdown(outcome)
-    assert outcome['found'] == sum(counts[name] for name in
-                                   ('published', 'would_publish', 'held', 'duplicates', 'errors')), counts
-    assert counts['capped'] <= counts['held'], counts
-    assert counts['draft_capped'] <= counts['held'], counts
+    total = sum(counts[name] for name in
+                ('published', 'would_publish', 'held', 'duplicates', 'errors'))
+    if outcome['found'] != total:
+        raise RuntimeError(f"Run count partition invariant violated: found={outcome['found']}, {counts}")
+    for name in ('capped', 'draft_capped'):
+        if counts[name] > counts['held']:
+            raise RuntimeError(f'Run count partition invariant violated: {name} exceeds held, {counts}')
     return counts
 
 

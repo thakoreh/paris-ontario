@@ -89,8 +89,20 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(len(outcome['errors']), 2)  # One run diagnostic, one item.
 
     def test_partition_rejects_missing_candidate(self):
-        with self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(RuntimeError, "Run count partition invariant violated"):
             publisher.assert_partition({'found': 1})
+
+    def test_partition_checks_survive_optimization(self):
+        # Compile the actual function with -O semantics; no assert is used to check it.
+        import inspect
+        namespace = {'run_breakdown': publisher.run_breakdown}
+        exec(compile(inspect.getsource(publisher.assert_partition),
+                     '<optimized partition>', 'exec', optimize=2), namespace)
+        for outcome in ({'found': 1}, {'found': 0, 'capped': 1},
+                        {'found': 0, 'draft_capped': 1}):
+            with self.subTest(outcome=outcome):
+                with self.assertRaisesRegex(RuntimeError, 'Run count partition invariant violated'):
+                    namespace['assert_partition'](outcome)
 
     def test_publish_cap_is_counted_as_hold(self):
         db = Mock()
