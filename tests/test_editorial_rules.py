@@ -68,6 +68,21 @@ class EditorialRulesTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.hold('sensitive_keyword', sensitive_text=value)
 
+    def test_review_joins_hyphenated_title_and_body_whitespace(self):
+        for hyphen in ('-', '\u2010', '\u2011'):
+            for whitespace in ('\n', ' ', '\t', ' \t\r\n  \n'):
+                for text in (f'Paris haz{hyphen}{whitespace}ardous materials',
+                             f'Road con{hyphen}{whitespace}tamination in Paris'):
+                    for field, original in (
+                            ('title', 'Paris paving update</h1>'),
+                            ('body', 'Road work on Paris Main Street is scheduled this week.')):
+                        with self.subTest(text=text, field=field):
+                            replacement = text + ('</h1>' if field == 'title' else '.')
+                            page = ARTICLE.replace(original, replacement)
+                            with self.assertRaises(publisher.EditorialHold) as held:
+                                publisher.review(URL, lambda url: page, NOW)
+                            self.assertIn('sensitive_keyword', held.exception.reasons)
+
     def test_publish_road(self):
         self.assertEqual(rules.decide(self.candidate()), ('publish', []))
 

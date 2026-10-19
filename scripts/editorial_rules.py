@@ -80,11 +80,12 @@ BLOCK = re.compile(
 
 
 _JOIN_SPLITS = re.compile(
-    r'(?<=\w)[-\u2010\u2011]?[ \t]*\r?\n[ \t]*(?=\w)|(?<=\w)[-\u2010\u2011](?=\w)')
+    r'(?<=\w)[-\u2010\u2011]?[ \t]*\r?\n[ \t]*(?=\w)|(?<=\w)[-\u2010\u2011]\s*(?=\w)')
 
 
 def _contains_hazard(normalized):
-    # One join pass handles plain newlines and ASCII/Unicode hyphen splits.
+    # One join pass handles plain newlines and ASCII/Unicode hyphen splits,
+    # including whitespace left by title cleaning. Screen the original too.
     joined = _JOIN_SPLITS.sub('', normalized)
     for copy in (normalized, joined):
         screening = re.sub(r'[^\w-]+|_', ' ', copy)
