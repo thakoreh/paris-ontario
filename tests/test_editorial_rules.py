@@ -240,6 +240,43 @@ class EditorialRulesTests(unittest.TestCase):
                     self.assertEqual(held.exception.reasons, ['sensitive_keyword'])
                     self.assertLess(time.perf_counter() - started, 0.5)
 
+    def test_boundary_preserving_hazards_in_each_field(self):
+        for markup in ('<a>Paris</a><a>Fire</a>',
+                       '<a>Home</a><a>Fire</a><a>Services</a>',
+                       '<b>fire</b>fighters', '<b>leak</b>proof'):
+            for field in ('title', 'body', 'residual'):
+                with self.subTest(markup=markup, field=field):
+                    if field == 'title':
+                        page = ARTICLE.replace('Paris paving update</h1>', markup + '</h1>')
+                    elif field == 'body':
+                        page = ARTICLE.replace('See the County notice for details.', markup)
+                    else:
+                        page = ARTICLE + '<aside>' + markup + '</aside>'
+                    with self.assertRaises(publisher.EditorialHold) as held:
+                        publisher.review(URL, lambda _: page, NOW)
+                    self.assertEqual(held.exception.reasons, ['sensitive_keyword'])
+
+    def test_alternate_hazard_views_have_independent_limits(self):
+        candidate = self.candidate()
+        candidate.update(body='a' * 150_000, hazard_texts=['b' * 150_000])
+        self.assertEqual(rules.decide(candidate).action, 'publish')
+        for value in ('a' * 200_001, '\uFDFA' * 10_000):
+            candidate['hazard_texts'] = ['fire', value]
+            self.assertEqual(rules.decide(candidate),
+                             ('hold', ['normalisation_limit_exceeded']))
+
+    def test_table_cell_flood_fails_closed_before_residual_reparse(self):
+        page = ARTICLE.replace('See the County notice for details.',
+                               '<td>x</td>' * 74_000 + ' hazardous')
+        started = time.perf_counter()
+        with patch.object(publisher.HazardTextParser, 'extract',
+                          wraps=publisher.HazardTextParser.extract) as extract:
+            with self.assertRaises(publisher.EditorialHold) as held:
+                publisher.review(URL, lambda _: page, NOW)
+        self.assertEqual(held.exception.reasons, ['normalisation_limit_exceeded'])
+        self.assertEqual(extract.call_count, 1)  # Title only; residual never parsed.
+        self.assertLess(time.perf_counter() - started, 0.5)
+
     def test_hazard_stream_keeps_block_boundaries_and_size_limit(self):
         for markup in ('<p>haz</p><p>ardous</p>', '<div>con</div><div>tamination</div>'):
             self.assertFalse(rules.contains_hazard(publisher.HazardTextParser.extract(markup)))

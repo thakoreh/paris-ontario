@@ -155,6 +155,10 @@ def _decide(candidate):
     labels = [label for label in labels if isinstance(label, str)]
     fields = [text(key) for key in (
         'sensitive_text', 'category_text', 'title', 'body', 'residual')]
+    # Alternate hazard views are independent fields: neither combine their caps
+    # nor allow a hazard in one view to skip limit checks in another.
+    fields.extend(value for value in candidate.get('hazard_texts', [])
+                  if isinstance(value, str))
     # Check raw lengths before stripping, hashing, or Unicode work.
     if any(len(value) > NORMALISATION_LIMIT for value in [*fields, *labels]):
         raise NormalisationLimitExceeded

@@ -43,6 +43,9 @@ MAX_HELD_DRAFTS_PER_DAY = 10
 # overhead above editorial_rules' 200,000-character normalisation cap while
 # comfortably accommodating ordinary County pages (tens of KB).
 MAX_ARTICLE_PAGE_CHARS = 1_000_000
+# Ordinary County pages are well below this markup-work budget. Abort before
+# tag floods reach the secondary residual scan; never verify a partial parse.
+MAX_ARTICLE_TAG_EVENTS = 8_000
 SPACE = re.compile(r'\s+')
 ARTICLE_PATH = re.compile(r'/news(?:-and-notices)?/posts/([a-z0-9-]+)/')
 
@@ -259,12 +262,21 @@ class ArticleBodyParser(HTMLParser):
         self.region_end = None
         self.unbalanced = False
         self.fallback_containers = {}
+        self.tag_events = 0
+
+    def check_tag_budget(self):
+        self.tag_events += 1
+        if self.tag_events > MAX_ARTICLE_TAG_EVENTS:
+            error = EditorialHold('Article markup exceeds bounded review')
+            error.reasons = ['normalisation_limit_exceeded']
+            raise error
 
     def source_offset(self):
         line, column = self.getpos()
         return self.line_offsets[line - 1] + column
 
     def handle_starttag(self, tag, attrs):
+        self.check_tag_budget()
         # HTML permits p and li end tags to be omitted. Close them at their
         # structural boundaries so following text keeps the correct ancestry.
         if tag in ('p', 'ul', 'ol', 'div'):
@@ -325,6 +337,7 @@ class ArticleBodyParser(HTMLParser):
             self.handle_endtag(tag)
 
     def handle_endtag(self, tag):
+        self.check_tag_budget()
         for index in range(len(self.stack) - 1, -1, -1):
             if self.stack[index][0] == tag:
                 _, _, excluded, block, paragraph = self.stack[index]
@@ -400,6 +413,7 @@ class ArticleBodyParser(HTMLParser):
         blocks = [b for b in self.blocks if b['main'] or not self.has_main]
         # HTMLParser has already decoded entities; preserve literal text.
         self.screening_text = ' '.join(b['hazard'].text() for b in blocks)
+        self.boundary_screening_text = ' '.join(''.join(b['text']) for b in blocks)
         normalize = lambda parts: SPACE.sub(' ', ''.join(parts)).strip()
         body = normalize([' '.join(normalize(b['text']) for b in blocks)])
         if not body:
@@ -455,6 +469,8 @@ def review(url, independent_fetch, now, expected_title=None):
         'locality_text': title + ' ' + body,
         'title': screening_title, 'category_text': category, 'body': parser.screening_text,
         'residual': parser.screening_residual,
+        'hazard_texts': [html.unescape(re.sub(r'<[^>]+>', ' ', title_match.group(1))),
+                         parser.boundary_screening_text, parser.loose_text],
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
     if 'category_requires_editor_review' in decision.reasons:
