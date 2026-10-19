@@ -72,7 +72,7 @@ def _category_requires_editor_review(normalized):
 
 BLOCK = re.compile(
     r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|'
-    r'spills?(?!-over\b|way)|spilled|spilling|toxic|hazardous|hazmat|contaminants?|decontaminat\w*|'
+    r'spills?|spillway|spilled|spilling|toxic|hazardous|hazmat|contaminants?|decontaminat\w*|'
     r'contaminat\w*|needles?|sharps|recall\w*|chemicals?|chemically|explosives?|explosions?|explod\w*|'
     r'sinkholes?|leak|leaks|leaking|leaked|leaky|leakage|spillage|asbestos|gas\s+leak\w*|'
     r'shelter.in.place|boil.water|drinking.water|school|medical|health|outage|'
@@ -83,27 +83,10 @@ _JOIN_SPLITS = re.compile(
     r'(?<=\w)[-\u2010\u2011]?[ \t]*\r?\n[ \t]*(?=\w)|(?<=\w)[-\u2010\u2011](?=\w)')
 
 
-# Strip only these exact benign phrases, never the surrounding sentence.
-_BENIGN_PHRASES = re.compile(
-    r'\b(?:leak detection|sinkhole repairs completed|we recall)\b')
-_STREET_PHRASES = re.compile(
-    r'\b(\w+) (?:road|rd|street|st|lane|ln|avenue|ave|drive|dr|way|crescent|court)\b')
-
-
-def _strip_benign(text):
-    text = _BENIGN_PHRASES.sub(' ', text)
-    # Only a single hazard word immediately followed by a road suffix is exempt.
-    return _STREET_PHRASES.sub(
-        lambda match: ' ' if (match[1] == 'spillway' or BLOCK.fullmatch(match[1]))
-        else match[0], text)
-
-
 def _contains_hazard(normalized):
     # One join pass handles plain newlines and ASCII/Unicode hyphen splits.
     joined = _JOIN_SPLITS.sub('', normalized)
     for copy in (normalized, joined):
-        copy = _strip_benign(copy)
-        # Retain hyphens so benign spill-over does not become a spill alert.
         screening = re.sub(r'[^\w-]+|_', ' ', copy)
         if BLOCK.search(copy) or BLOCK.search(screening):
             return True

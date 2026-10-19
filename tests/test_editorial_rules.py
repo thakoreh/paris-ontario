@@ -109,7 +109,7 @@ class EditorialRulesTests(unittest.TestCase):
             with self.subTest(hazard=hazard):
                 self.hold('sensitive_keyword', sensitive_text=f'Paris update: {hazard}.')
 
-    def test_benign_spill_names_and_compounds_publish(self):
+    def test_formerly_exempt_phrases_and_street_names_hold(self):
         for body in ['leak detection survey in Paris.',
                      'sinkhole repairs completed on Grand River St in Paris.',
                      'Chemical Road resurfacing in Paris.', 'Recall Lane paving in Paris.',
@@ -120,11 +120,55 @@ class EditorialRulesTests(unittest.TestCase):
                 candidate = self.candidate()
                 candidate['sensitive_text'] = body
                 self.assertEqual(rules.decide(candidate),
-                                 ('publish', []))
+                                 ('hold', ['sensitive_keyword']))
                 page = ARTICLE.replace(
                     'Road work on Paris Main Street is scheduled this week.', body)
-                self.assertEqual(publisher.review(URL, lambda url: page, NOW)[
-                    'verification_status'], 'verified')
+                with self.assertRaises(publisher.EditorialHold) as held:
+                    publisher.review(URL, lambda url: page, NOW)
+                self.assertIn('sensitive_keyword', held.exception.reasons)
+
+    def test_review_hazard_phrases_in_each_article_field(self):
+        # All 30 R2 cases: the original six phrases and four supplemental
+        # phrases, each inserted into body, title, and residual/loose text.
+        phrases = [
+            'Fire road closed due to fire road spreading toward homes',
+            'Emergency road closure in Paris',
+            'Flood road closure in Paris',
+            'school road closure',
+            'medical road response',
+            'evacuation road closure',
+            'Emergency Road closure in Paris',
+            'Flood Road closed in Paris',
+            'fire street response in Paris',
+            'Fire Road closed while flames spread toward homes',
+        ]
+        cases = [(phrase, field) for phrase in phrases
+                 for field in ('body', 'title', 'residual')]
+        cases.extend(('gas leak detection survey identified escaping gas', field)
+                     for field in ('category', 'title', 'body', 'residual', 'meta_link'))
+        self.assertEqual(len(cases), 35)
+        # Keep the exact routine label and a healthy Paris article in every case.
+        self.assertEqual(publisher.review(URL, lambda url: ARTICLE, NOW)[
+            'verification_status'], 'verified')
+        for phrase, field in cases:
+            with self.subTest(phrase=phrase, field=field):
+                pages = {
+                    'category': ARTICLE.replace(
+                        '<a title="Road Construction">Road Construction</a>',
+                        '<a title="Road Construction">Road Construction</a>'
+                        f'<a>{phrase}</a>'),
+                    'title': ARTICLE.replace('Paris paving update</h1>',
+                                             f'Paris {phrase}</h1>'),
+                    'body': ARTICLE.replace(
+                        'Road work on Paris Main Street is scheduled this week.',
+                        f'Road work on Paris Main Street: {phrase}.'),
+                    'residual': ARTICLE + f'<aside>{phrase}</aside>',
+                    'meta_link': ARTICLE.replace(
+                        '</section>', f'<span><a>{phrase}</a></span></section>'),
+                }
+                with self.assertRaises(publisher.EditorialHold) as held:
+                    publisher.review(URL, lambda url: pages[field], NOW)
+                self.assertIn('sensitive_keyword', held.exception.reasons)
 
     def test_benign_phrases_do_not_hide_incidents(self):
         for text in ['Chemical Road closed after chemical spill',

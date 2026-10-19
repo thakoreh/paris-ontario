@@ -58,16 +58,14 @@ U+2010 and U+2011 hyphen splits are joined (for example “haz\nmat”,
 “haz‐ardous” and “con‑tamination”). Normalisation limits remain unchanged.
 Keywords include contaminants, decontamination, leaky, leakage, chemically,
 explosive(s), spillage and spill-response, alongside existing hazards.
-Hyphenated spill compounds hold except “spill-over”; “Spillway Road” remains benign.
+Hyphenated spill compounds, including “spill-over”, and “Spillway Road” hold.
 
-A small screening-only allowlist strips the exact phrases “leak detection”,
-“sinkhole repairs completed” and “we recall”. A single hazard word (or Spillway)
-immediately followed by Road, Rd, Street, St, Lane, Ln, Avenue, Ave, Drive, Dr,
-Way, Crescent or Court is also stripped as a street name. Matching is case-folded;
-only the exact phrase is removed, never its sentence. Thus “Chemical Road
-resurfacing” can publish, while “Chemical Road closed after chemical spill” holds.
-Uncertain cases may still be held for editor review. Exact single-label Road
-Construction notices publish when all checks pass.
+Hazard screening has no benign-phrase or street-name allowlist. “Leak detection”,
+“sinkhole repairs completed”, “we recall” and hazard words in street names such
+as “Chemical Road” all hold for editor review. Over-holds are intentional:
+context that appears routine must never suppress a hazard match. Exact-label
+Road Construction notices with no hazard words still publish when all other
+checks pass.
 
 Publisher run-count partition and cap invariants raise RuntimeError explicitly,
 including when Python runs with optimization enabled.
