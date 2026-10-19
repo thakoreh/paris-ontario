@@ -347,6 +347,7 @@ class ArticleBodyParser(HTMLParser):
         self.loose_text = html.unescape(re.sub(r'<[^>]*>', ' ', region))
         blocks = [b for b in self.blocks if b['main'] or not self.has_main]
         # HTMLParser has already decoded entities; preserve literal text.
+        self.screening_text = ' '.join(''.join(b['text']) for b in blocks)
         normalize = lambda parts: SPACE.sub(' ', ''.join(parts)).strip()
         body = normalize([' '.join(normalize(b['text']) for b in blocks)])
         if not body:
@@ -374,6 +375,9 @@ def review(url, independent_fetch, now, expected_title=None):
     date_match = re.search(r'<span\b[^>]*class="[^"]*gs-news-details-date[^"]*"[^>]*>(.*?)</span>', page, re.I | re.S)
     section = re.search(r'<section\b[^>]*class="[^"]*gs-news-details-meta[^>]*>(.*?)</section>', page, re.I | re.S)
     if not title_match or not date_match or not section: raise ValueError('Article title/date/category missing')
+    # Retain split-word evidence for hazard screening, independently of display
+    # and listing-title normalization.
+    screening_title = html.unescape(re.sub(r'<[^>]+>', ' ', title_match.group(1)))
     title, date_string = clean(title_match.group(1)), clean(date_match.group(1))
     if not title: raise ValueError('Article title empty')
     if expected_title is not None and title != expected_title: raise ValueError('Listing/article title mismatch')
@@ -397,7 +401,7 @@ def review(url, independent_fetch, now, expected_title=None):
         'authority_level': 'official',
         'category_labels': category_labels or [category_text],
         'locality_text': title + ' ' + body,
-        'title': title, 'category_text': category, 'body': body,
+        'title': screening_title, 'category_text': category, 'body': parser.screening_text,
         'residual': parser.loose_text,
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })

@@ -185,6 +185,34 @@ class EditorialRulesTests(unittest.TestCase):
                     publisher.review(URL, lambda url: pages[field], NOW)
                 self.assertIn('sensitive_keyword', held.exception.reasons)
 
+    def test_review_screens_newline_split_hazards_in_each_article_field(self):
+        self.assertEqual(publisher.review(URL, lambda url: ARTICLE, NOW)[
+            'verification_status'], 'verified')
+        for split in ('\n', '-\n'):
+            for phrase in (f'haz{split}ardous materials on roadway',
+                           f'con{split}tamination found in roadway soil',
+                           f'haz{split}mat response on roadway'):
+                for field in ('title', 'body', 'residual'):
+                    for encoded in (False, True):
+                        with self.subTest(phrase=phrase, field=field, encoded=encoded):
+                            text = phrase.replace('\n', '&#10;') if encoded else phrase
+                            text = f'Paris <span>{text}</span>'
+                            pages = {
+                                'title': ARTICLE.replace('Paris paving update</h1>',
+                                                         f'{text}</h1>'),
+                                'body': ARTICLE.replace(
+                                    'Road work on Paris Main Street is scheduled this week.',
+                                    text),
+                                'residual': ARTICLE + f'<aside>{text}</aside>',
+                            }
+                            expected_title = (publisher.clean(text) if field == 'title'
+                                              else 'Paris paving update')
+                            with self.assertRaises(publisher.EditorialHold) as held:
+                                publisher.review(URL, lambda url: pages[field], NOW,
+                                                 expected_title=expected_title)
+                            self.assertEqual(held.exception.reasons, ['sensitive_keyword'])
+                            self.assertEqual(held.exception.row['title'], expected_title)
+
     def test_benign_phrases_do_not_hide_incidents(self):
         for text in ['Chemical Road closed after chemical spill',
                      'leak detection found leakage',
