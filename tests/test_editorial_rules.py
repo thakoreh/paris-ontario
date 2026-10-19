@@ -63,7 +63,7 @@ class EditorialRulesTests(unittest.TestCase):
         self.assertEqual(len(values), len(set(values)))
 
     def test_joined_unicode_hyphens_and_line_breaks_hold(self):
-        for value in ['haz\nardous', 'haz-\r\n  ardous',
+        for value in ['haz\nmat', 'haz\u2010ardous', 'haz\nardous', 'haz-\r\n  ardous',
                       'con\u2010tamination', 'con\u2011tamination']:
             with self.subTest(value=value):
                 self.hold('sensitive_keyword', sensitive_text=value)
@@ -95,6 +95,8 @@ class EditorialRulesTests(unittest.TestCase):
 
     def test_added_body_hazards(self):
         hazards = [
+            'contaminants', 'decontamination', 'leaky', 'leakage', 'chemically',
+            'explosive', 'explosives', 'spillage', 'spill-response', 'spill-cleanup',
             'hazmat', 'contaminant', 'contamination', 'contaminated',
             'needle', 'needles', 'sharps', 'recall', 'recalled', 'recalls',
             'chemical', 'chemicals', 'explosion', 'explosions', 'explode',
@@ -108,7 +110,11 @@ class EditorialRulesTests(unittest.TestCase):
                 self.hold('sensitive_keyword', sensitive_text=f'Paris update: {hazard}.')
 
     def test_benign_spill_names_and_compounds_publish(self):
-        for body in ['Spillway Road resurfacing in Paris.',
+        for body in ['leak detection survey in Paris.',
+                     'sinkhole repairs completed on Grand River St in Paris.',
+                     'Chemical Road resurfacing in Paris.', 'Recall Lane paving in Paris.',
+                     'Needle Street in Paris.', 'as we recall, Paris paving continues.',
+                     'Spillway Road resurfacing in Paris.',
                      'Paris spill-over lane closure.']:
             with self.subTest(body=body):
                 candidate = self.candidate()
@@ -119,6 +125,15 @@ class EditorialRulesTests(unittest.TestCase):
                     'Road work on Paris Main Street is scheduled this week.', body)
                 self.assertEqual(publisher.review(URL, lambda url: page, NOW)[
                     'verification_status'], 'verified')
+
+    def test_benign_phrases_do_not_hide_incidents(self):
+        for text in ['Chemical Road closed after chemical spill',
+                     'leak detection found leakage',
+                     'sinkhole repairs completed; another sinkhole opened',
+                     'as we recall, a recall was issued',
+                     'hazmat\nresponse', 'chemical\nspill']:
+            with self.subTest(text=text):
+                self.hold('sensitive_keyword', sensitive_text=text)
 
     def test_editor_label_substrings_do_not_require_review(self):
         for label in ['Wastebasket collection', 'Sewerage', 'Composting',

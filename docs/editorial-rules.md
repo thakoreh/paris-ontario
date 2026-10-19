@@ -52,11 +52,22 @@ Wastewater and Sewer(s). Any matching label alongside Road Construction requires
 editor review in either order. Substrings such as “wastebasket” do not qualify.
 Wastewater and sewer notices are draft-only for safety; over-holds are acceptable.
 
-Hazard screening covers bodies and labels, folds accents, and checks joined
-hyphenated word or line splits (such as “con-tamination” and “haz-\nardous”).
-It includes hazmat, contaminants/contamination, needles, sharps, recalls,
-chemicals, explosions, sinkholes and leaks. Spill, spills, spilled and spilling
-match whole words; “Spillway Road” and “spill-over lane closure” remain benign.
-Toxic remains a hazard keyword, including in proper names; uncertain cases may
-be held for editor review. Exact single-label Road Construction notices still
-publish when all checks pass.
+Hazard screening covers bodies and labels, folds accents, and checks both the
+unjoined copy and a copy joined in one regex pass. Plain line breaks and ASCII,
+U+2010 and U+2011 hyphen splits are joined (for example “haz\nmat”,
+“haz‐ardous” and “con‑tamination”). Normalisation limits remain unchanged.
+Keywords include contaminants, decontamination, leaky, leakage, chemically,
+explosive(s), spillage and spill-response, alongside existing hazards.
+Hyphenated spill compounds hold except “spill-over”; “Spillway Road” remains benign.
+
+A small screening-only allowlist strips the exact phrases “leak detection”,
+“sinkhole repairs completed” and “we recall”. A single hazard word (or Spillway)
+immediately followed by Road, Rd, Street, St, Lane, Ln, Avenue, Ave, Drive, Dr,
+Way, Crescent or Court is also stripped as a street name. Matching is case-folded;
+only the exact phrase is removed, never its sentence. Thus “Chemical Road
+resurfacing” can publish, while “Chemical Road closed after chemical spill” holds.
+Uncertain cases may still be held for editor review. Exact single-label Road
+Construction notices publish when all checks pass.
+
+Publisher run-count partition and cap invariants raise RuntimeError explicitly,
+including when Python runs with optimization enabled.
