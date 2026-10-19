@@ -22,9 +22,9 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
 try:
-    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review
+    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review, NORMALISATION_LIMIT
 except ModuleNotFoundError:  # Direct execution: python3 scripts/official_publisher.py
-    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review
+    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review, NORMALISATION_LIMIT
 
 UTC = dt.timezone.utc
 LIST_URL = 'https://www.brant.ca/news/'
@@ -191,6 +191,54 @@ def fetch(url):
     raise ValueError('Source redirected too many times')
 
 
+class HazardTextParser(HTMLParser):
+    """Hazard-only text: inline adjacency, explicit block/line boundaries.
+
+    Retain one character beyond the policy cap so decide() reports the usual
+    limit hold, never silently screening a truncated field.
+    """
+    INLINE = frozenset(('span b i em strong a u s small mark abbr code sub sup font '
+                        'q cite dfn kbd samp var time data bdi bdo ins del label '
+                        'wbr img input area audio video source track picture '
+                        'ruby rt rp acronym big strike tt output select option '
+                        'textarea button meter progress canvas map object embed').split())
+    LINE_BREAKS = str.maketrans(dict.fromkeys('\r\u2028\u2029\u0085\t\f\v', '\n'))
+
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self.size = 0
+
+    def handle_data(self, data):
+        remaining = NORMALISATION_LIMIT + 1 - self.size
+        if remaining > 0:
+            part = data[:remaining].replace('\r\n', ' \n').translate(self.LINE_BREAKS)
+            self.parts.append(part)
+            self.size += len(part)
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in self.INLINE:
+            self.handle_data('\n' if tag == 'br' else ' ')
+
+    def handle_endtag(self, tag):
+        if tag not in self.INLINE and tag != 'br':
+            self.handle_data(' ')
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
+
+    def text(self):
+        return ''.join(self.parts)
+
+    @classmethod
+    def extract(cls, markup):
+        parser = cls()
+        parser.feed(markup)
+        parser.close()
+        return parser.text()
+
+
 class ArticleBodyParser(HTMLParser):
     """Collect content blocks, retaining ancestry through nested markup."""
     VOID = frozenset('area base br col embed hr img input link meta param source track wbr'.split())
@@ -243,12 +291,13 @@ class ArticleBodyParser(HTMLParser):
             tag in self.EXCLUDED or any(
                 'breadcrumb' in token or 'sub-nav' in token or 'subnav' in token for token in tokens)))
         if not excluded and block is None and tag == 'div' and {'text', 'base-text'} <= set(tokens):
-            block = {'main': in_main, 'text': [], 'paragraphs': [], 'fallback': []}
+            block = {'main': in_main, 'text': [], 'paragraphs': [], 'fallback': [], 'hazard': HazardTextParser()}
             self.blocks.append(block)
             self.ancestors.update(id(frame) for frame in self.stack)
             if self.region_start is None and (in_main or not self.has_main):
                 self.region_start = self.source_offset()
         if block is not None and not excluded:
+            block['hazard'].handle_starttag(tag, attrs)
             if tag == 'br' or tag in self.BLOCK_CHILDREN:
                 self.separate_fallback_text()
             if tag in ('div', 'p', 'li', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
@@ -281,6 +330,7 @@ class ArticleBodyParser(HTMLParser):
                 _, _, excluded, block, paragraph = self.stack[index]
                 if block is not None and not excluded:
                     block['text'].append(' ')
+                    block['hazard'].handle_endtag(tag)
                     if tag in self.BLOCK_CHILDREN:
                         self.separate_fallback_text()
                 for frame in self.stack[index + 1:]:
@@ -305,6 +355,7 @@ class ArticleBodyParser(HTMLParser):
             _, _, excluded, block, paragraph = self.stack[-1]
             if block is not None and not excluded:
                 block['text'].append(data)
+                block['hazard'].handle_data(data)
                 if paragraph is not None:
                     paragraph.append(data)
                 # Only the nearest container owns this text. Shared container
@@ -345,9 +396,10 @@ class ArticleBodyParser(HTMLParser):
                 region = region[:left - origin] + ' ' * (right - left) + region[right - origin:]
         region = re.sub(r'<(script|style)\b[^>]*>.*?</\1\s*>', ' ', region, flags=re.I | re.S)
         self.loose_text = html.unescape(re.sub(r'<[^>]*>', ' ', region))
+        self.screening_residual = HazardTextParser.extract(region)
         blocks = [b for b in self.blocks if b['main'] or not self.has_main]
         # HTMLParser has already decoded entities; preserve literal text.
-        self.screening_text = ' '.join(''.join(b['text']) for b in blocks)
+        self.screening_text = ' '.join(b['hazard'].text() for b in blocks)
         normalize = lambda parts: SPACE.sub(' ', ''.join(parts)).strip()
         body = normalize([' '.join(normalize(b['text']) for b in blocks)])
         if not body:
@@ -377,7 +429,7 @@ def review(url, independent_fetch, now, expected_title=None):
     if not title_match or not date_match or not section: raise ValueError('Article title/date/category missing')
     # Retain split-word evidence for hazard screening, independently of display
     # and listing-title normalization.
-    screening_title = html.unescape(re.sub(r'<[^>]+>', ' ', title_match.group(1)))
+    screening_title = HazardTextParser.extract(title_match.group(1))
     title, date_string = clean(title_match.group(1)), clean(date_match.group(1))
     if not title: raise ValueError('Article title empty')
     if expected_title is not None and title != expected_title: raise ValueError('Listing/article title mismatch')
@@ -402,7 +454,7 @@ def review(url, independent_fetch, now, expected_title=None):
         'category_labels': category_labels or [category_text],
         'locality_text': title + ' ' + body,
         'title': screening_title, 'category_text': category, 'body': parser.screening_text,
-        'residual': parser.loose_text,
+        'residual': parser.screening_residual,
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
     if 'category_requires_editor_review' in decision.reasons:

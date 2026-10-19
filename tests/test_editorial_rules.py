@@ -213,6 +213,62 @@ class EditorialRulesTests(unittest.TestCase):
                             self.assertEqual(held.exception.reasons, ['sensitive_keyword'])
                             self.assertEqual(held.exception.row['title'], expected_title)
 
+    def test_review_inline_and_separator_hazards_in_all_visible_fields(self):
+        splits = ['haz<br>ardous', 'haz<wbr>ardous', 'haz<!-- split -->ardous',
+                  '<b>con</b>tamination']
+        splits.extend(f'<{tag}>haz</{tag}>ardous' for tag in
+                      publisher.HazardTextParser.INLINE if tag not in
+                      publisher.ArticleBodyParser.VOID)
+        splits.extend(f'haz{sep}ardous' for sep in
+                      ('\n', '\r\n', '\r', '\u2028', '\u2029', '\u0085', '\t', '\f', '\v'))
+        for split in splits:
+            for field in ('title', 'h1', 'h2', 'h3', 'body', 'residual'):
+                with self.subTest(split=split, field=field):
+                    text = f'Paris {split} materials on roadway.'
+                    if field == 'title':
+                        page = ARTICLE.replace('Paris paving update</h1>', f'{text}</h1>')
+                    elif field == 'residual':
+                        page = ARTICLE + f'<aside>{text}</aside>'
+                    else:
+                        insertion = text if field == 'body' else f'<{field}>{text}</{field}>'
+                        page = ARTICLE.replace('See the County notice for details.', insertion)
+                    started = time.perf_counter()
+                    with self.assertRaises(publisher.EditorialHold) as held:
+                        publisher.review(URL, lambda _: page, NOW,
+                                         expected_title=publisher.clean(text) if field == 'title'
+                                         else 'Paris paving update')
+                    self.assertEqual(held.exception.reasons, ['sensitive_keyword'])
+                    self.assertLess(time.perf_counter() - started, 0.5)
+
+    def test_hazard_stream_keeps_block_boundaries_and_size_limit(self):
+        for markup in ('<p>haz</p><p>ardous</p>', '<div>con</div><div>tamination</div>'):
+            self.assertFalse(rules.contains_hazard(publisher.HazardTextParser.extract(markup)))
+        for separator in ('\n', '\r\n', '\r', '\t'):
+            page = ARTICLE.replace('Paris paving update</h1>',
+                                   'Paris ' + separator * 200_001 + 'paving update</h1>')
+            with self.subTest(separator=separator), self.assertRaises(
+                    publisher.EditorialHold) as held:
+                publisher.review(URL, lambda _: page, NOW)
+            self.assertEqual(held.exception.reasons, ['normalisation_limit_exceeded'])
+
+    def test_real_county_inline_hazard_and_benign_fixture(self):
+        page = (publisher_tests.SCRIPT.parent.parent / 'tests' / 'fixtures' /
+                'brant_grand_river_street_north.html').read_text()
+        page = publisher.re.sub(
+            r'(<span[^>]*gs-news-details-date[^>]*>).*?(</span>)',
+            r'\g<1>Sep 28, 2026\2', page, flags=publisher.re.S)
+        # Remove independent conservative policy blockers from the real road notice.
+        page = page.replace('school', 'community centre').replace(
+            'School', 'Community centre').replace('fire hall', 'municipal hall')
+        row = publisher.review(URL, lambda _: page, NOW)
+        self.assertEqual(row['verification_status'], 'verified')
+        planted = page.replace('Major upgrades on Grand River Street North',
+                               'Paris <span>haz</span>ardous materials on roadway. '
+                               'Major upgrades on Grand River Street North', 1)
+        with self.assertRaises(publisher.EditorialHold) as held:
+            publisher.review(URL, lambda _: planted, NOW)
+        self.assertEqual(held.exception.reasons, ['sensitive_keyword'])
+
     def test_benign_phrases_do_not_hide_incidents(self):
         for text in ['Chemical Road closed after chemical spill',
                      'leak detection found leakage',
