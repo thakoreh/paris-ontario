@@ -18,7 +18,7 @@ class ScheduledIngestTests(unittest.TestCase):
         self.environment = patch.dict(os.environ, {'PARIS_PULSE_STATE_DIR': self.temp.name}, clear=True)
         self.environment.start()
         self.addCleanup(self.environment.stop)
-        self.news = Mock(return_value={'run_status': 'ok', 'fetched': True, 'found': 2})
+        self.news = Mock(return_value={'run_status': 'ok', 'fetched': True, 'found': 2, 'duplicates': 2})
         self.events = Mock(return_value={'fetched': True, 'found': 3})
         self.factory = Mock()
         self.heartbeat = Mock(return_value=True)
@@ -38,7 +38,7 @@ class ScheduledIngestTests(unittest.TestCase):
 
     def test_summary_passes_through_publish_decisions(self):
         self.news.return_value = {
-            'run_status': 'ok', 'fetched': True, 'created': 0,
+            'run_status': 'ok', 'fetched': True, 'found': 4, 'created': 0,
             'held': [{'decision': 'would-publish'}, {'decision': 'would-publish'},
                      {'reason': 'Daily publish cap reached'},
                      {'reason': 'Held-draft daily limit reached'}],
@@ -97,7 +97,7 @@ class ScheduledIngestTests(unittest.TestCase):
     def test_summary_and_ingestion_runs_preserve_real_counts(self):
         self.enable()
         self.news.return_value = {
-            'fetched': True, 'found': 17, 'created': 3, 'held_drafts_created': 2,
+            'fetched': True, 'found': 15, 'created': 3, 'held_drafts_created': 2,
             'held': [{'id': i} for i in range(7)], 'duplicates': 5,
         }
         self.events.return_value = {
@@ -124,7 +124,7 @@ class ScheduledIngestTests(unittest.TestCase):
         for source, row, source_id, found, created, drafts, held, total in zip(
                 summary['sources'], runs,
                 [scheduled.official_publisher.SOURCE_ID, scheduled.events_ingest.BRANT_EVENTS_SOURCE_ID],
-                [17, 13], [3, 4], [2, 4], [7, 9], [5, 4]):
+                [15, 13], [3, 4], [2, 4], [7, 9], [5, 4]):
             with self.subTest(source_id=source_id):
                 self.assertEqual(source['source_id'], source_id)
                 self.assertEqual(source['created'], created)
@@ -138,6 +138,37 @@ class ScheduledIngestTests(unittest.TestCase):
                 self.assertEqual(row['records_failed'], 0)
                 self.assertEqual(row['status'], 'success')
                 self.assertEqual({key: source[key] for key in row}, row)
+
+    def test_partition_failure_preserves_counts_and_records_partial(self):
+        self.enable()
+        self.news.return_value = {
+            'run_status': 'ok', 'fetched': True, 'found': 8, 'created': 2,
+            'held_drafts_created': 1, 'held': [{'url': 'held'}],
+            'duplicates': 3, 'errors': [],
+        }
+        client = scheduled.SourceChecks('https://example.supabase.co', 'private')
+        client.request = Mock()
+        self.factory.return_value = client
+        code, summary, _ = self.invoke()
+        self.assertEqual(code, 1)
+        self.assertEqual(summary['run_status'], 'partial')
+        source = summary['sources'][0]
+        self.assertEqual(source['status'], 'partial')
+        self.assertEqual(source['records_found'], 8)
+        self.assertEqual(source['records_created'], 3)
+        self.assertEqual(source['created'], 2)
+        self.assertEqual(source['duplicates'], 3)
+        self.assertEqual(source['held'], 1)
+        self.assertEqual(source['errors'], 0)
+        self.assertEqual(self.news.return_value['run_status'], 'partial')
+        self.assertNotIn('url', self.news.return_value['errors'][0])
+        calls = client.request.call_args_list
+        self.assertEqual(calls[0].kwargs['payload'],
+                         {'last_checked_at': source['completed_at']})
+        row = calls[1].kwargs['payload']
+        self.assertEqual(row['status'], 'partial')
+        self.assertEqual(row['records_found'], 8)
+        self.assertEqual(row['records_created'], 3)
 
     def test_missing_credentials_and_exact_flags(self):
         os.environ['PARIS_PULSE_AUTOPUBLISH'] = '1'

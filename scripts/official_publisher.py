@@ -577,6 +577,7 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
     STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     candidates = {}
     processed = set()
+    db = None
     try:
         with (STATE_DIR / 'lock').open('w') as lock:
             try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -634,16 +635,22 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                 except Exception as e:
                     outcome['errors'].append({'url': url, 'error': type(e).__name__ + ': ' + str(e)[:180]})
             outcome['run_status'] = 'partial' if outcome['errors'] else 'ok'
-            if db and record_checks:
-                try: db.audit_run(outcome)
-                except Exception as e:
-                    outcome['errors'].append({'error': 'Backend audit failed: ' + type(e).__name__ + ': ' + str(e)[:180]})
-                    outcome['run_status'] = 'partial'
     except Exception as e:
         outcome['errors'].append({'error': type(e).__name__ + ': ' + str(e)[:180]})
     for url in candidates.keys() - processed:
         outcome['errors'].append({'url': url, 'error': 'Run failed before candidate processing'})
-    outcome['breakdown'] = assert_partition(outcome)
+    try:
+        outcome['breakdown'] = assert_partition(outcome)
+    except RuntimeError as e:
+        outcome['errors'].append({'error': str(e)})
+        outcome['run_status'] = 'partial'
+        outcome['breakdown'] = run_breakdown(outcome)
+    if db and record_checks:
+        try:
+            db.audit_run(outcome)
+        except Exception as e:
+            outcome['errors'].append({'error': 'Backend audit failed: ' + type(e).__name__ + ': ' + str(e)[:180]})
+            outcome['run_status'] = 'partial'
     record(outcome)
     return outcome
 

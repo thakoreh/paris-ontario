@@ -75,6 +75,13 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                 try:
                     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                         result = runner(**options)
+                    if source_id == official_publisher.SOURCE_ID:
+                        try:
+                            official_publisher.assert_partition(result)
+                        except RuntimeError:
+                            result.setdefault('errors', []).append(
+                                {'error': 'Run count partition invariant violated'})
+                            result['run_status'] = 'partial'
                     if result.get('errors') or result.get('run_status', 'ok') != 'ok':
                         error = 'Source ingestion failed or incomplete'
                 except Exception:
@@ -106,7 +113,9 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                 summary['sources'].append({**row, **counts, 'fetched': bool(result.get('fetched')),
                                            'check_error': error})
                 if error:
-                    summary['run_status'] = 'failed'
+                    status = 'partial' if row['status'] == 'partial' else 'failed'
+                    if summary['run_status'] != 'failed':
+                        summary['run_status'] = status
     except Exception:
         summary['run_status'] = 'failed'
         summary['error'] = 'Scheduler lock or state unavailable'

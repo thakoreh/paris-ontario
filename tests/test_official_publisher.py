@@ -24,6 +24,45 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_partition_failure_is_audited_as_partial_with_intact_counts(self):
+        for record_checks in (True, False):
+            with self.subTest(record_checks=record_checks):
+                db = publisher.Supabase('https://example.supabase.co', 'test-only')
+                db.source_ready = Mock(return_value=True)
+                db.request = Mock(return_value=[])
+                audit = Mock(wraps=db.audit_run)
+                db.audit_run = audit
+                with tempfile.TemporaryDirectory() as tmp, patch.object(
+                        publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                        publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                        publisher, 'collect_feed', return_value={'one': 'One'}), patch.object(
+                        publisher, 'review', return_value={}), patch.object(
+                        publisher, 'publish', return_value='created'), patch.object(
+                        publisher, 'Supabase', return_value=db), patch.object(
+                        publisher, 'assert_partition', side_effect=RuntimeError('Forced invariant violation')):
+                    outcome = publisher.run(True, record_checks=record_checks)
+                    local = json.loads((pathlib.Path(tmp) / 'last_run.json').read_text())
+                    journal = json.loads((pathlib.Path(tmp) / 'audit.jsonl').read_text())
+                self.assertEqual(local, outcome)
+                self.assertEqual(journal, outcome)
+                self.assertEqual(outcome['run_status'], 'partial')
+                self.assertEqual(outcome['found'], 1)
+                self.assertEqual(outcome['created'], 1)
+                self.assertEqual(outcome['eligible'], 1)
+                self.assertEqual(outcome['published'], ['one'])
+                self.assertEqual(outcome['breakdown']['errors'], 0)
+                self.assertEqual(outcome['errors'], [{'error': 'Forced invariant violation'}])
+                if record_checks:
+                    audit.assert_called_once()
+                    self.assertEqual(audit.call_args.args[0]['run_status'], 'partial')
+                    db.request.assert_called_once()
+                    row = db.request.call_args.kwargs['payload']
+                    self.assertEqual(row['status'], 'partial')
+                    self.assertEqual(row['records_found'], 1)
+                    self.assertEqual(row['records_created'], 1)
+                else:
+                    audit.assert_not_called()
+
     def test_dry_run_separates_would_publish_from_held(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(
                 publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
