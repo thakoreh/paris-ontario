@@ -58,24 +58,33 @@ export function canonicalWwwRedirect(
 
 const CLOCK_SKEW_MS = 5 * 60_000;
 
-export function formatSourceCheck(value: string | null, now = new Date()): string {
-  const checked = value ? new Date(value) : null;
-  if (!checked || Number.isNaN(checked.getTime())) return "Not checked yet";
-  if (checked.getTime() > now.getTime() + CLOCK_SKEW_MS)
+export function formatSourceCheckTime(value: string | null, now = new Date()): string {
+  if (value === null) return "Not checked yet";
+  const checked = new Date(value);
+  if (Number.isNaN(checked.getTime()) || checked.getTime() > now.getTime() + CLOCK_SKEW_MS)
     return "Check time unavailable";
-  return `Last checked ${new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Toronto",
+    timeZoneName: "short",
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(checked)} ET`;
+  }).format(checked);
+}
+
+export function formatSourceCheck(value: string | null, now = new Date()): string {
+  const time = formatSourceCheckTime(value, now);
+  return time === "Not checked yet" || time === "Check time unavailable"
+    ? time
+    : `Last checked ${time}`;
 }
 
 export type ContentFreshness = {
   state: "current" | "attention" | "unknown";
   checkedSources: number;
+  futureOrInvalidChecks: number;
   staleSources: number;
   newestCheck: string | null;
 };
@@ -89,6 +98,7 @@ export function contentFreshness(
     return {
       state: "unknown",
       checkedSources: 0,
+      futureOrInvalidChecks: 0,
       staleSources: 0,
       newestCheck: null,
     };
@@ -100,7 +110,7 @@ export function contentFreshness(
         && checked.getTime() <= now.getTime() + CLOCK_SKEW_MS ? checked : null;
       const intervalMs = Math.max(source.refresh_interval_minutes, 15) * 60_000;
       const overdue = !validCheck || now.getTime() - validCheck.getTime() > intervalMs;
-      return { validCheck, overdue };
+      return { validCheck, overdue, unusable: source.last_checked_at !== null && !validCheck };
     });
   const currentChecks = checks.filter((check) => check.validCheck && !check.overdue);
   const newest = checks
@@ -110,6 +120,7 @@ export function contentFreshness(
   return {
     state: currentChecks.length === active.length ? "current" : "attention",
     checkedSources: checks.filter((check) => check.validCheck).length,
+    futureOrInvalidChecks: checks.filter((check) => check.unusable).length,
     staleSources: checks.filter((check) => check.overdue).length,
     newestCheck: newest?.toISOString() || null,
   };

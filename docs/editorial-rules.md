@@ -45,3 +45,27 @@ must review every waste notice before verification, including routine schedule
 changes and household hazardous waste events. No waste auto-publish path exists.
 The waste category mapping is retained for held draft rows. Road Construction
 rules are unchanged. All other editorial checks still apply.
+
+Editor-required labels match whole normalized words or phrases: Green Bin,
+Blue Box, Recyclable(s), Recycling, Organics, Compost, Garbage, Waste,
+Wastewater and Sewer(s). Any matching label alongside Road Construction requires
+editor review in either order. Substrings such as “wastebasket” do not qualify.
+Wastewater and sewer notices are draft-only for safety; over-holds are acceptable.
+
+Hazard screening covers bodies and labels, folds accents, and checks both the
+unjoined copy and a copy joined in one regex pass. Plain line breaks and ASCII,
+U+2010 and U+2011 hyphen splits are joined (for example “haz\nmat”,
+“haz‐ardous” and “con‑tamination”). Normalisation limits remain unchanged.
+Keywords include contaminants, decontamination, leaky, leakage, chemically,
+explosive(s), spillage and spill-response, alongside existing hazards.
+Hyphenated spill compounds, including “spill-over”, and “Spillway Road” hold.
+
+Hazard screening has no benign-phrase or street-name allowlist. “Leak detection”,
+“sinkhole repairs completed”, “we recall” and hazard words in street names such
+as “Chemical Road” all hold for editor review. Over-holds are intentional:
+context that appears routine must never suppress a hazard match. Exact-label
+Road Construction notices with no hazard words still publish when all other
+checks pass.
+
+Publisher run-count partition and cap invariants raise RuntimeError explicitly,
+including when Python runs with optimization enabled.

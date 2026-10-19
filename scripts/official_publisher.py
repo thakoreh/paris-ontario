@@ -22,9 +22,9 @@ import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
 try:
-    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, EDITOR_REQUIRED_CATEGORIES
+    from scripts.editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review, NORMALISATION_LIMIT
 except ModuleNotFoundError:  # Direct execution: python3 scripts/official_publisher.py
-    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, EDITOR_REQUIRED_CATEGORIES
+    from editorial_rules import BLOCK, mentions_paris, decide, hold_record, ROUTINE_COUNTY_CATEGORIES, category_requires_editor_review, NORMALISATION_LIMIT
 
 UTC = dt.timezone.utc
 LIST_URL = 'https://www.brant.ca/news/'
@@ -39,12 +39,26 @@ COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
 STATE_DIR = Path(os.environ.get('PARIS_PULSE_STATE_DIR') or Path.home() / '.hermes' / 'paris-pulse-publisher')
 MAX_PER_DAY = 2
 MAX_HELD_DRAFTS_PER_DAY = 10
+# Bound raw HTML before regex scans, newline offsets, or parsing. Allow markup
+# overhead above editorial_rules' 200,000-character normalisation cap while
+# comfortably accommodating ordinary County pages (tens of KB).
+MAX_ARTICLE_PAGE_CHARS = 1_000_000
+# Ordinary County pages are well below this markup-work budget. Abort before
+# tag floods reach the secondary residual scan; never verify a partial parse.
+MAX_ARTICLE_TAG_EVENTS = 8_000
 SPACE = re.compile(r'\s+')
 ARTICLE_PATH = re.compile(r'/news(?:-and-notices)?/posts/([a-z0-9-]+)/')
 
 
 class EditorialHold(ValueError):
     """A successfully read source is outside the conservative publishing policy."""
+
+
+def check_article_page_budget(page):
+    if len(page) > MAX_ARTICLE_PAGE_CHARS:
+        error = EditorialHold('Article too large for bounded review')
+        error.reasons = ['normalisation_limit_exceeded']
+        raise error
 
 
 def clean(text):
@@ -180,6 +194,54 @@ def fetch(url):
     raise ValueError('Source redirected too many times')
 
 
+class HazardTextParser(HTMLParser):
+    """Hazard-only text: inline adjacency, explicit block/line boundaries.
+
+    Retain one character beyond the policy cap so decide() reports the usual
+    limit hold, never silently screening a truncated field.
+    """
+    INLINE = frozenset(('span b i em strong a u s small mark abbr code sub sup font '
+                        'q cite dfn kbd samp var time data bdi bdo ins del label '
+                        'wbr img input area audio video source track picture '
+                        'ruby rt rp acronym big strike tt output select option '
+                        'textarea button meter progress canvas map object embed').split())
+    LINE_BREAKS = str.maketrans(dict.fromkeys('\r\u2028\u2029\u0085\t\f\v', '\n'))
+
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self.size = 0
+
+    def handle_data(self, data):
+        remaining = NORMALISATION_LIMIT + 1 - self.size
+        if remaining > 0:
+            part = data[:remaining].replace('\r\n', ' \n').translate(self.LINE_BREAKS)
+            self.parts.append(part)
+            self.size += len(part)
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in self.INLINE:
+            self.handle_data('\n' if tag == 'br' else ' ')
+
+    def handle_endtag(self, tag):
+        if tag not in self.INLINE and tag != 'br':
+            self.handle_data(' ')
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
+
+    def text(self):
+        return ''.join(self.parts)
+
+    @classmethod
+    def extract(cls, markup):
+        parser = cls()
+        parser.feed(markup)
+        parser.close()
+        return parser.text()
+
+
 class ArticleBodyParser(HTMLParser):
     """Collect content blocks, retaining ancestry through nested markup."""
     VOID = frozenset('area base br col embed hr img input link meta param source track wbr'.split())
@@ -200,12 +262,21 @@ class ArticleBodyParser(HTMLParser):
         self.region_end = None
         self.unbalanced = False
         self.fallback_containers = {}
+        self.tag_events = 0
+
+    def check_tag_budget(self):
+        self.tag_events += 1
+        if self.tag_events > MAX_ARTICLE_TAG_EVENTS:
+            error = EditorialHold('Article markup exceeds bounded review')
+            error.reasons = ['normalisation_limit_exceeded']
+            raise error
 
     def source_offset(self):
         line, column = self.getpos()
         return self.line_offsets[line - 1] + column
 
     def handle_starttag(self, tag, attrs):
+        self.check_tag_budget()
         # HTML permits p and li end tags to be omitted. Close them at their
         # structural boundaries so following text keeps the correct ancestry.
         if tag in ('p', 'ul', 'ol', 'div'):
@@ -232,12 +303,13 @@ class ArticleBodyParser(HTMLParser):
             tag in self.EXCLUDED or any(
                 'breadcrumb' in token or 'sub-nav' in token or 'subnav' in token for token in tokens)))
         if not excluded and block is None and tag == 'div' and {'text', 'base-text'} <= set(tokens):
-            block = {'main': in_main, 'text': [], 'paragraphs': [], 'fallback': []}
+            block = {'main': in_main, 'text': [], 'paragraphs': [], 'fallback': [], 'hazard': HazardTextParser()}
             self.blocks.append(block)
             self.ancestors.update(id(frame) for frame in self.stack)
             if self.region_start is None and (in_main or not self.has_main):
                 self.region_start = self.source_offset()
         if block is not None and not excluded:
+            block['hazard'].handle_starttag(tag, attrs)
             if tag == 'br' or tag in self.BLOCK_CHILDREN:
                 self.separate_fallback_text()
             if tag in ('div', 'p', 'li', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
@@ -265,11 +337,13 @@ class ArticleBodyParser(HTMLParser):
             self.handle_endtag(tag)
 
     def handle_endtag(self, tag):
+        self.check_tag_budget()
         for index in range(len(self.stack) - 1, -1, -1):
             if self.stack[index][0] == tag:
                 _, _, excluded, block, paragraph = self.stack[index]
                 if block is not None and not excluded:
                     block['text'].append(' ')
+                    block['hazard'].handle_endtag(tag)
                     if tag in self.BLOCK_CHILDREN:
                         self.separate_fallback_text()
                 for frame in self.stack[index + 1:]:
@@ -294,6 +368,7 @@ class ArticleBodyParser(HTMLParser):
             _, _, excluded, block, paragraph = self.stack[-1]
             if block is not None and not excluded:
                 block['text'].append(data)
+                block['hazard'].handle_data(data)
                 if paragraph is not None:
                     paragraph.append(data)
                 # Only the nearest container owns this text. Shared container
@@ -313,6 +388,7 @@ class ArticleBodyParser(HTMLParser):
             candidate['text'].append(' ')
 
     def extract(self, page):
+        check_article_page_budget(page)
         self.page = page
         self.line_offsets = [0]
         self.line_offsets.extend(match.end() for match in re.finditer('\n', page))
@@ -333,8 +409,11 @@ class ArticleBodyParser(HTMLParser):
                 region = region[:left - origin] + ' ' * (right - left) + region[right - origin:]
         region = re.sub(r'<(script|style)\b[^>]*>.*?</\1\s*>', ' ', region, flags=re.I | re.S)
         self.loose_text = html.unescape(re.sub(r'<[^>]*>', ' ', region))
+        self.screening_residual = HazardTextParser.extract(region)
         blocks = [b for b in self.blocks if b['main'] or not self.has_main]
         # HTMLParser has already decoded entities; preserve literal text.
+        self.screening_text = ' '.join(b['hazard'].text() for b in blocks)
+        self.boundary_screening_text = ' '.join(''.join(b['text']) for b in blocks)
         normalize = lambda parts: SPACE.sub(' ', ''.join(parts)).strip()
         body = normalize([' '.join(normalize(b['text']) for b in blocks)])
         if not body:
@@ -357,10 +436,14 @@ def review(url, independent_fetch, now, expected_title=None):
     page, final = result if isinstance(result, tuple) else (result, url)
     if not allowed(final) or canonical_article_url(final) != canonical_article_url(url):
         raise ValueError('Source redirected outside authorized article equivalent')
+    check_article_page_budget(page)
     title_match = re.search(r'<h1\b[^>]*class="[^"]*main[^"]*"[^>]*>(.*?)</h1>', page, re.I | re.S)
     date_match = re.search(r'<span\b[^>]*class="[^"]*gs-news-details-date[^"]*"[^>]*>(.*?)</span>', page, re.I | re.S)
     section = re.search(r'<section\b[^>]*class="[^"]*gs-news-details-meta[^>]*>(.*?)</section>', page, re.I | re.S)
     if not title_match or not date_match or not section: raise ValueError('Article title/date/category missing')
+    # Retain split-word evidence for hazard screening, independently of display
+    # and listing-title normalization.
+    screening_title = HazardTextParser.extract(title_match.group(1))
     title, date_string = clean(title_match.group(1)), clean(date_match.group(1))
     if not title: raise ValueError('Article title empty')
     if expected_title is not None and title != expected_title: raise ValueError('Listing/article title mismatch')
@@ -375,18 +458,22 @@ def review(url, independent_fetch, now, expected_title=None):
     excerpt = next((p for p in paragraphs if len(p) >= 30 and len(p) <= 400), '')
     if not any(paragraphs): raise ValueError('Official article paragraphs missing or empty')
     # Source structure failures above retain their error/hold semantics.
-    category_labels = [clean(label) for label in re.findall(
+    category_labels = [html.unescape(re.sub(r'<[^>]+>', '', label)).strip(' \t\n\r\v\f')
+                       for label in re.findall(
         r'<a\b[^>]*>(.*?)</a>', section.group(1), re.I | re.S)]
-    category_text = next((label for label in ROUTINE_COUNTY_CATEGORIES
-                          if label in category_labels), category.replace(date_string, '').strip())
+    category_text = ('Road Construction' if 'Road Construction' in category_labels
+                     else category.replace(date_string, '').strip())
     decision = decide({
-        'authority_level': 'official', 'category_text': category_text,
+        'authority_level': 'official',
         'category_labels': category_labels or [category_text],
         'locality_text': title + ' ' + body,
-        'sensitive_text': title + ' ' + body + ' ' + parser.loose_text,
+        'title': screening_title, 'category_text': category, 'body': parser.screening_text,
+        'residual': parser.screening_residual,
+        'hazard_texts': [html.unescape(re.sub(r'<[^>]+>', ' ', title_match.group(1))),
+                         parser.boundary_screening_text, parser.loose_text],
         'published_at': published, 'now': now, 'parse_ok': True, 'excerpt': excerpt,
     })
-    if any(label in EDITOR_REQUIRED_CATEGORIES for label in category_labels):
+    if 'category_requires_editor_review' in decision.reasons:
         category_text = 'Garbage and Recycling'
     canonical = canonical_article_url(url)
     slug = article_slug(canonical)
@@ -406,6 +493,7 @@ def review(url, independent_fetch, now, expected_title=None):
 
     if decision.action == 'hold':
         messages = {
+            'normalisation_limit_exceeded': 'normalisation_limit_exceeded',
             'non_routine_category': 'Not in official road-construction category',
             'category_requires_editor_review': 'Category requires editor review',
             'stale_or_future': 'Source article is stale or future-dated',
@@ -425,6 +513,13 @@ def review(url, independent_fetch, now, expected_title=None):
     return row
 
 
+class SupabaseNoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never replay service credentials, even to the same host."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(
+            req.full_url, code, 'Supabase redirect refused', headers, fp)
+
+
 class Supabase:
     def __init__(self, url, key):
         p = urllib.parse.urlsplit(url)
@@ -437,7 +532,7 @@ class Supabase:
         req = urllib.request.Request(self.url + '/rest/v1/' + table + ('?' + params if params else ''), data=data, method=method,
             headers={'apikey': self.key, 'Authorization': 'Bearer ' + self.key,
                      'Content-Type': 'application/json', 'Prefer': 'return=representation'})
-        with urllib.request.urlopen(req, timeout=15) as res:
+        with urllib.request.build_opener(SupabaseNoRedirect()).open(req, timeout=15) as res:
             return json.loads(res.read())
     def existing(self, url, external_id=None):
         canonical = canonical_article_url(url)
@@ -537,12 +632,27 @@ def record(event):
 
 def run_breakdown(outcome):
     breakdown = {'published': outcome.get('created', 0),
-                 'held': len(outcome.get('held', [])),
+                 'held': sum(item.get('decision') != 'would-publish' for item in outcome.get('held', [])),
                  'held_drafts_created': outcome.get('held_drafts_created', 0),
-                 'duplicates': outcome.get('duplicates', 0)}
-    if 'capped' in outcome:
-        breakdown['capped'] = outcome['capped']
+                 'duplicates': outcome.get('duplicates', 0),
+                 'errors': sum('url' in item for item in outcome.get('errors', []))}
+    breakdown['would_publish'] = sum(item.get('decision') == 'would-publish' for item in outcome.get('held', []))
+    for name in ('capped', 'draft_capped'):
+        breakdown[name] = outcome.get(name, 0)
     return breakdown
+
+
+def assert_partition(outcome):
+    """Validate candidate buckets even when Python optimization is enabled."""
+    counts = run_breakdown(outcome)
+    total = sum(counts[name] for name in
+                ('published', 'would_publish', 'held', 'duplicates', 'errors'))
+    if outcome['found'] != total:
+        raise RuntimeError(f"Run count partition invariant violated: found={outcome['found']}, {counts}")
+    for name in ('capped', 'draft_capped'):
+        if counts[name] > counts['held']:
+            raise RuntimeError(f'Run count partition invariant violated: {name} exceeds held, {counts}')
+    return counts
 
 
 def run(publish_enabled=False, env_file=None, *, record_checks=True):
@@ -550,6 +660,9 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
     outcome = {'at': now.isoformat(), 'mode': 'publish' if publish_enabled else 'dry-run',
                'run_status': 'failed', 'found': 0, 'eligible': 0, 'created': 0, 'held_drafts_created': 0, 'published': [], 'duplicates': 0, 'held': [], 'errors': []}
     STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    candidates = {}
+    processed = set()
+    db = None
     try:
         with (STATE_DIR / 'lock').open('w') as lock:
             try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -566,6 +679,7 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                               os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or values.get('SUPABASE_SERVICE_ROLE_KEY', ''))
                 if not db.source_ready(): raise RuntimeError('Production source registry is not authoritative/active')
             for url, title in candidates.items():
+                processed.add(url)
                 try:
                     # RSS discovers URLs; independent reviewer re-opens the original.
                     row = review(url, fetch, now, expected_title=title)
@@ -579,13 +693,17 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                     else: outcome['held'].append({'url': url, 'title': row['title'], 'decision': 'would-publish'})
                 except EditorialHold as e:
                     outcome['held'].append({'url': url, 'reason': str(e)})
+                    if str(e) == 'Daily publish cap reached':
+                        outcome['capped'] = outcome.get('capped', 0) + 1
                     if (db and os.environ.get('PARIS_PULSE_WRITE_HELD_DRAFTS') == '1'
                             and hasattr(e, 'row')):
                         try:
                             draft = hold_record(e.row, e.reasons)
                             if not db.existing(draft['official_url'], draft['external_id']):
                                 if db.draft_count(now) >= MAX_HELD_DRAFTS_PER_DAY:
-                                    raise EditorialHold('Daily held-draft cap reached')
+                                    outcome['held'][-1]['reason'] = 'Held-draft daily limit reached'
+                                    outcome['draft_capped'] = outcome.get('draft_capped', 0) + 1
+                                    continue
                                 if not db.source_ready():
                                     raise ValueError('Configured official source not approved')
                                 created = db.create(draft)
@@ -595,18 +713,29 @@ def run(publish_enabled=False, env_file=None, *, record_checks=True):
                                     raise RuntimeError('Draft write readback failed')
                                 outcome['held_drafts_created'] += 1
                         except Exception as error:
+                            outcome['held'].pop()
+                            if str(e) == 'Daily publish cap reached':
+                                outcome['capped'] -= 1
                             outcome['errors'].append({'url': url, 'error': str(error)[:180]})
                 except Exception as e:
                     outcome['errors'].append({'url': url, 'error': type(e).__name__ + ': ' + str(e)[:180]})
             outcome['run_status'] = 'partial' if outcome['errors'] else 'ok'
-            if db and record_checks:
-                try: db.audit_run(outcome)
-                except Exception as e:
-                    outcome['errors'].append({'error': 'Backend audit failed: ' + type(e).__name__ + ': ' + str(e)[:180]})
-                    outcome['run_status'] = 'partial'
     except Exception as e:
         outcome['errors'].append({'error': type(e).__name__ + ': ' + str(e)[:180]})
-    outcome['breakdown'] = run_breakdown(outcome)
+    for url in candidates.keys() - processed:
+        outcome['errors'].append({'url': url, 'error': 'Run failed before candidate processing'})
+    try:
+        outcome['breakdown'] = assert_partition(outcome)
+    except RuntimeError as e:
+        outcome['errors'].append({'error': str(e)})
+        outcome['run_status'] = 'partial'
+        outcome['breakdown'] = run_breakdown(outcome)
+    if db and record_checks:
+        try:
+            db.audit_run(outcome)
+        except Exception as e:
+            outcome['errors'].append({'error': 'Backend audit failed: ' + type(e).__name__ + ': ' + str(e)[:180]})
+            outcome['run_status'] = 'partial'
     record(outcome)
     return outcome
 

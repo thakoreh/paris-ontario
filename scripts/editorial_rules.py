@@ -1,6 +1,7 @@
 """Pure, fail-closed editorial policy; callers supply an explicit reference time."""
 import datetime as dt
 import re
+import unicodedata
 from typing import NamedTuple
 
 TRUSTED_AUTO_PUBLISH_SOURCES = frozenset({'official'})
@@ -10,7 +11,91 @@ ROUTINE_COUNTY_CATEGORIES = {
     'Garbage and Recycling': 'waste',
 }
 
-BLOCK = re.compile(r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|boil.water|drinking.water|school|medical|health|outage|ignore previous instructions|system prompt)\b', re.I)
+# Common Cyrillic and Greek visual substitutes, including their capitals.
+_CONFUSABLES = str.maketrans({
+    **dict(zip('аеорсхуіѕјкмтнв', 'aeopcxyisjkmthb')),
+    **dict(zip('АЕОРСХУІЅЈКМТНВ', 'AEOPCXYISJKMTHB')),
+    **dict(zip('αεορϲχυιѕκτν', 'aeopcxyisktv')),
+    **dict(zip('ΑΕΟΡϹΧΥΙΚΤΝΖΒΜΗ', 'AEOPCXYIKTNZBMH')),
+})
+
+
+NORMALISATION_LIMIT = 200_000
+
+
+class NormalisationLimitExceeded(ValueError):
+    pass
+
+
+def normalize_field(text):
+    """Bound compatibility decomposition before allocating expanded text."""
+    if len(text) > NORMALISATION_LIMIT:
+        raise NormalisationLimitExceeded
+    cap = min(2 * len(text), NORMALISATION_LIMIT)
+    parts, size = [], 0
+    for start in range(0, len(text), 1024):
+        part = unicodedata.normalize('NFKD', text[start:start + 1024])
+        size += len(part)
+        if size > cap:
+            raise NormalisationLimitExceeded
+        parts.append(part)
+    text = ''.join(char for part in parts for char in part
+                   if not unicodedata.combining(char)
+                   and unicodedata.category(char) != 'Cf')
+    return text.translate(_CONFUSABLES).casefold()
+
+
+def _label_from_normalized(text):
+    text = text.replace('&', ' and ').replace('+', ' and ')
+    return re.sub(r'[\W_]+', ' ', text).strip()
+
+
+def normalize_label(text):
+    """Canonicalize labels with the same bounded normalization as screening."""
+    return _label_from_normalized(normalize_field(text))
+
+
+EDITOR_REQUIRED_LABELS = re.compile(
+    r'\b(?:green bin|blue box|recyclables?|recycling|organics|compost|'
+    r'garbage|waste|wastewater|sewers?)\b')
+
+
+def category_requires_editor_review(label):
+    normalized = normalize_label(label)
+    return _category_requires_editor_review(normalized)
+
+
+def _category_requires_editor_review(normalized):
+    return (normalized == 'garbage and recycling'
+            or EDITOR_REQUIRED_LABELS.search(normalized) is not None)
+
+
+BLOCK = re.compile(
+    r'\b(emergency|evacuat\w*|flood\w*|election\w*|vot\w*|fatal\w*|death|fire|'
+    r'spills?|spillway|spilled|spilling|toxic|hazardous|hazmat|contaminants?|decontaminat\w*|'
+    r'contaminat\w*|needles?|sharps|recall\w*|chemicals?|chemically|explosives?|explosions?|explod\w*|'
+    r'sinkholes?|leak|leaks|leaking|leaked|leaky|leakage|spillage|asbestos|gas\s+leak\w*|'
+    r'shelter.in.place|boil.water|drinking.water|school|medical|health|outage|'
+    r'ignore previous instructions|system prompt)\b', re.I)
+
+
+_JOIN_SPLITS = re.compile(
+    r'(?<=\w)[-\u2010\u2011]?[ \t]*\r?\n[ \t]*(?=\w)|(?<=\w)[-\u2010\u2011]\s*(?=\w)')
+
+
+def _contains_hazard(normalized):
+    # One join pass handles plain newlines and ASCII/Unicode hyphen splits,
+    # including whitespace left by title cleaning. Screen the original too.
+    joined = _JOIN_SPLITS.sub('', normalized)
+    for copy in (normalized, joined):
+        screening = re.sub(r'[^\w-]+|_', ' ', copy)
+        if BLOCK.search(copy) or BLOCK.search(screening):
+            return True
+    return False
+
+
+def contains_hazard(value):
+    return _contains_hazard(normalize_field(value))
 
 
 
@@ -45,6 +130,13 @@ class Decision(NamedTuple):
 
 
 def decide(candidate):
+    try:
+        return _decide(candidate)
+    except NormalisationLimitExceeded:
+        return Decision('hold', ['normalisation_limit_exceeded'])
+
+
+def _decide(candidate):
     """Dates are date/datetime or ISO strings; now is an explicit date/datetime.
 
     published_at (or published) takes precedence over starts_at. Freshness uses
@@ -60,13 +152,32 @@ def decide(candidate):
         reasons.append('untrusted_source')
     labels = candidate.get('category_labels', [text('category_text')])
     labels = labels if isinstance(labels, list) else []
-    if any(label in EDITOR_REQUIRED_CATEGORIES for label in labels if isinstance(label, str)):
+    labels = [label for label in labels if isinstance(label, str)]
+    fields = [text(key) for key in (
+        'sensitive_text', 'category_text', 'title', 'body', 'residual')]
+    # Alternate hazard views are independent fields: neither combine their caps
+    # nor allow a hazard in one view to skip limit checks in another.
+    fields.extend(value for value in candidate.get('hazard_texts', [])
+                  if isinstance(value, str))
+    # Check raw lengths before stripping, hashing, or Unicode work.
+    if any(len(value) > NORMALISATION_LIMIT for value in [*fields, *labels]):
+        raise NormalisationLimitExceeded
+    normalized = {value: normalize_field(value) for value in dict.fromkeys([*fields, *labels])}
+    raw_labels = labels
+    labels = [label.strip(' \t\n\r\v\f') for label in labels]
+    if any(_category_requires_editor_review(_label_from_normalized(normalized[label]))
+           for label in raw_labels):
+
         reasons.append('category_requires_editor_review')
-    elif text('kind') != 'event' and 'Road Construction' not in labels:
+    elif text('kind') != 'event' and not any(
+            label == 'Road Construction' for label in labels):
         reasons.append('non_routine_category')
     if not mentions_paris(text('locality_text')):
         reasons.append('uncertain_locality')
-    if not text('sensitive_text').strip() or BLOCK.search(text('sensitive_text')):
+    sensitive_fields = normalized.values()
+    if not any(text(key).strip() for key in ('sensitive_text', 'body')) or any(
+            _contains_hazard(value)
+            for value in sensitive_fields):
         reasons.append('sensitive_keyword')
     if candidate.get('parse_ok') is not True:
         reasons.append('parse_failure')

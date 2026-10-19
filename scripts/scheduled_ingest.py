@@ -30,16 +30,6 @@ class SourceChecks(official_publisher.Supabase):
             raise ValueError('Invalid project HTTPS URL')
         super().__init__(url, key)
 
-    def request(self, table, params='', method='GET', payload=None):
-        request = urllib.request.Request(
-            self.url + '/rest/v1/' + table + ('?' + params if params else ''),
-            data=json.dumps(payload).encode() if payload is not None else None,
-            method=method, headers={'apikey': self.key, 'Authorization': 'Bearer ' + self.key,
-                                    'Content-Type': 'application/json',
-                                    'Prefer': 'return=representation'})
-        with urllib.request.build_opener(official_publisher.NoRedirect()).open(request, timeout=15) as response:
-            return json.loads(response.read())
-
     def record(self, row):
         stamp = {'last_checked_at': row['completed_at']}
         if row['status'] == 'success':
@@ -85,6 +75,13 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                 try:
                     with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                         result = runner(**options)
+                    if source_id == official_publisher.SOURCE_ID:
+                        try:
+                            official_publisher.assert_partition(result)
+                        except RuntimeError:
+                            result.setdefault('errors', []).append(
+                                {'error': 'Run count partition invariant violated'})
+                            result['run_status'] = 'partial'
                     if result.get('errors') or result.get('run_status', 'ok') != 'ok':
                         error = 'Source ingestion failed or incomplete'
                 except Exception:
@@ -96,6 +93,9 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                 counts = {'created': created, 'held': held, 'held_drafts_created': drafts}
                 if not is_events:
                     counts['breakdown'] = official_publisher.run_breakdown(result)
+                    counts['held'] = counts['breakdown']['held']
+                    for name in ('published', 'would_publish', 'duplicates', 'errors', 'capped', 'draft_capped'):
+                        counts[name] = counts['breakdown'][name]
                 for name in ('capped', 'draft_limit', 'draft_limit_reached', 'drafts_capped'):
                     if name in result:
                         counts[name] = int(result[name])
@@ -113,7 +113,9 @@ def main(argv=None, *, news_run=None, events_run=None, checks_factory=None, hear
                 summary['sources'].append({**row, **counts, 'fetched': bool(result.get('fetched')),
                                            'check_error': error})
                 if error:
-                    summary['run_status'] = 'failed'
+                    status = 'partial' if row['status'] == 'partial' else 'failed'
+                    if summary['run_status'] != 'failed':
+                        summary['run_status'] = status
     except Exception:
         summary['run_status'] = 'failed'
         summary['error'] = 'Scheduler lock or state unavailable'
