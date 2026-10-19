@@ -39,12 +39,23 @@ COMMUNITY_ID = '00000000-0000-4000-8000-000000000001'
 STATE_DIR = Path(os.environ.get('PARIS_PULSE_STATE_DIR') or Path.home() / '.hermes' / 'paris-pulse-publisher')
 MAX_PER_DAY = 2
 MAX_HELD_DRAFTS_PER_DAY = 10
+# Bound raw HTML before regex scans, newline offsets, or parsing. Allow markup
+# overhead above editorial_rules' 200,000-character normalisation cap while
+# comfortably accommodating ordinary County pages (tens of KB).
+MAX_ARTICLE_PAGE_CHARS = 1_000_000
 SPACE = re.compile(r'\s+')
 ARTICLE_PATH = re.compile(r'/news(?:-and-notices)?/posts/([a-z0-9-]+)/')
 
 
 class EditorialHold(ValueError):
     """A successfully read source is outside the conservative publishing policy."""
+
+
+def check_article_page_budget(page):
+    if len(page) > MAX_ARTICLE_PAGE_CHARS:
+        error = EditorialHold('Article too large for bounded review')
+        error.reasons = ['normalisation_limit_exceeded']
+        raise error
 
 
 def clean(text):
@@ -313,6 +324,7 @@ class ArticleBodyParser(HTMLParser):
             candidate['text'].append(' ')
 
     def extract(self, page):
+        check_article_page_budget(page)
         self.page = page
         self.line_offsets = [0]
         self.line_offsets.extend(match.end() for match in re.finditer('\n', page))
@@ -357,6 +369,7 @@ def review(url, independent_fetch, now, expected_title=None):
     page, final = result if isinstance(result, tuple) else (result, url)
     if not allowed(final) or canonical_article_url(final) != canonical_article_url(url):
         raise ValueError('Source redirected outside authorized article equivalent')
+    check_article_page_budget(page)
     title_match = re.search(r'<h1\b[^>]*class="[^"]*main[^"]*"[^>]*>(.*?)</h1>', page, re.I | re.S)
     date_match = re.search(r'<span\b[^>]*class="[^"]*gs-news-details-date[^"]*"[^>]*>(.*?)</span>', page, re.I | re.S)
     section = re.search(r'<section\b[^>]*class="[^"]*gs-news-details-meta[^>]*>(.*?)</section>', page, re.I | re.S)

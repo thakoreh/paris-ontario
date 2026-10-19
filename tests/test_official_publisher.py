@@ -24,6 +24,38 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_oversized_articles_are_held_before_parsing_within_budget(self):
+        for pattern in ('-\n', 'routine text '):
+            body = (pattern * (5_000_000 // len(pattern) + 1))[:5_000_000]
+            page = ARTICLE.replace('See the County notice for details.', body)
+            with self.subTest(pattern=pattern), patch.object(
+                    publisher.ArticleBodyParser, 'extract') as extract:
+                started = time.perf_counter()
+                with self.assertRaisesRegex(publisher.EditorialHold,
+                                            'Article too large for bounded review') as held:
+                    publisher.review(URL, lambda u: page, NOW)
+                elapsed = time.perf_counter() - started
+                self.assertLess(elapsed, 0.5)
+                self.assertEqual(held.exception.reasons, ['normalisation_limit_exceeded'])
+                extract.assert_not_called()
+
+    def test_extract_rejects_oversized_page_before_offsets_or_parsing(self):
+        parser = publisher.ArticleBodyParser()
+        page = 'x' * (publisher.MAX_ARTICLE_PAGE_CHARS + 1)
+        with patch.object(parser, 'feed') as feed:
+            with self.assertRaises(publisher.EditorialHold):
+                parser.extract(page)
+            feed.assert_not_called()
+        self.assertFalse(hasattr(parser, 'line_offsets'))
+
+    def test_normal_county_article_size_remains_reviewable(self):
+        page = ARTICLE.replace('See the County notice for details.',
+                               'Routine road work details. ' * 1500)
+        self.assertGreater(len(page), 30_000)
+        row = publisher.review(URL, lambda u: page, NOW)
+        self.assertTrue(row['summary'].startswith(
+            'Road work on Paris Main Street is scheduled this week.'))
+
     def test_partition_failure_is_audited_as_partial_with_intact_counts(self):
         for record_checks in (True, False):
             with self.subTest(record_checks=record_checks):
