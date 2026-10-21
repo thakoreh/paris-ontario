@@ -136,7 +136,7 @@ export function SourcesPage({ sources, demo = false }: { sources: Source[]; demo
         </strong>{" "}
         {freshness.state === "unknown"
           ? "No active source has a recorded review time."
-          : `${freshness.checkedSources} of ${sources.filter((s) => s.active).length} active sources have a recorded check; ${freshness.staleSources} need review.`}
+          : `${freshness.checkedSources} of ${sources.filter((s) => s.active).length} have a usable check; ${freshness.staleSources} need review.`}
         {freshness.futureOrInvalidChecks > 0 && ` ${freshness.futureOrInvalidChecks} active source${freshness.futureOrInvalidChecks === 1 ? " has an unusable check time" : "s have unusable check times"}.`}
       </div>
       <div className="two-grid">

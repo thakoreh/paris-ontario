@@ -144,7 +144,7 @@ describe("Internal source coverage notice", () => {
     const html = renderToString(React.createElement(SourcesPage, { sources })).replace(/<!-- -->/g, "");
     expect(html).toContain("1 active source has no recorded check.");
     expect(html).toContain("1 active source has an unusable check time.");
-    expect(html).toContain("0 of 2 active sources have a recorded check; 2 need review.");
+    expect(html).toContain("0 of 2 have a usable check; 2 need review.");
     expect(html).not.toContain("2 active sources have no recorded check");
   });
 
@@ -158,7 +158,7 @@ describe("Internal source coverage notice", () => {
     expect(banner).toContain("1 active source has no recorded check.");
     expect(banner).toContain("1 active source has an unusable check time.");
     const html = renderToString(React.createElement(SourcesPage, { sources })).replace(/<!-- -->/g, "");
-    expect(html).toContain("1 of 3 active sources have a recorded check; 2 need review.");
+    expect(html).toContain("1 of 3 have a usable check; 2 need review.");
     expect(html).toContain("1 active source has an unusable check time.");
     expect(html).toContain("<dt>Review status</dt><dd>Needs review</dd>");
     expect(html).toContain("<dt>Last checked</dt><dd>Check time unavailable</dd>");
