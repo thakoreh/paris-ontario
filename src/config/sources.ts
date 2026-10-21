@@ -101,7 +101,8 @@ export const sources: Source[] = definitions.map(
       "Reference source. Manually curated; automated ingestion is not enabled. Verify service area and original details.",
     ingestion_type: "manual",
     ingestion_enabled: false,
-    refresh_interval_minutes: 60,
+    // News: four-hour polling plus two hours of grace; other references: weekly review.
+    refresh_interval_minutes: name === "County of Brant News" ? 360 : 10080,
     last_checked_at: null,
     last_success_at: null,
     active: true,

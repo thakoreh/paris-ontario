@@ -1,3 +1,4 @@
+import { SourcesPage } from "@/components/public-pages";
 import { CoverageStatus } from "@/components/coverage-status";
 import React from "react";
 import { renderToString } from "react-dom/server";
@@ -96,6 +97,45 @@ beforeEach(() => {
 });
 
 describe("Internal source coverage notice", () => {
+  it("keeps a weekly source within schedule after two days", () => {
+    const html = coverage([{
+      ...source(new Date(Date.now() - 2 * 86400000).toISOString()),
+      refresh_interval_minutes: 10080,
+    }]);
+    expect(html).toContain("Source checks are within schedule");
+    expect(html).not.toContain("overdue");
+    expect(html).not.toContain("needs attention");
+  });
+
+  it("marks four-hour polling overdue after seven hours including its grace period", () => {
+    const html = coverage([{
+      ...source(new Date(Date.now() - 7 * 60 * 60_000).toISOString()),
+      refresh_interval_minutes: 360,
+    }]);
+    expect(html.replace(/<!-- -->/g, "")).toContain("1 active source is overdue");
+  });
+
+  it("renders the recorded check time in Toronto with a zone label", () => {
+    for (const [timestamp, expected] of [
+      ["2026-10-18T19:00:00Z", "Last checked Oct 18, 2026, 3:00 PM ET"],
+      ["2026-01-18T20:00:00Z", "Last checked Jan 18, 2026, 3:00 PM ET"],
+    ]) {
+      const html = renderToString(React.createElement(SourcesPage, {
+        sources: [source(timestamp)],
+      }));
+      expect(html).toContain(expected);
+    }
+  });
+
+  it("labels a never-checked source without inventing a timestamp", () => {
+    const html = renderToString(React.createElement(SourcesPage, {
+      sources: [source(null)],
+    }));
+    expect(html).toContain("Not checked yet");
+    expect(html).not.toContain("Last checked Oct");
+    expect(html).toContain("1 need review");
+  });
+
   it("labels an on-schedule source check as current and links to source coverage", () => {
     const html = coverage([
       source(new Date(Date.now() - 5 * 60_000).toISOString()),
