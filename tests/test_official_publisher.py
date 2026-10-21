@@ -24,6 +24,177 @@ ARTICLE = '''<h1 class="heading main base-heading">Paris paving update</h1>
 
 
 class PublisherTests(unittest.TestCase):
+    def test_oversized_articles_are_held_before_parsing_within_budget(self):
+        for pattern in ('-\n', 'routine text '):
+            body = (pattern * (5_000_000 // len(pattern) + 1))[:5_000_000]
+            page = ARTICLE.replace('See the County notice for details.', body)
+            with self.subTest(pattern=pattern), patch.object(
+                    publisher.ArticleBodyParser, 'extract') as extract:
+                started = time.perf_counter()
+                with self.assertRaisesRegex(publisher.EditorialHold,
+                                            'Article too large for bounded review') as held:
+                    publisher.review(URL, lambda u: page, NOW)
+                elapsed = time.perf_counter() - started
+                self.assertLess(elapsed, 0.5)
+                self.assertEqual(held.exception.reasons, ['normalisation_limit_exceeded'])
+                extract.assert_not_called()
+
+    def test_extract_rejects_oversized_page_before_offsets_or_parsing(self):
+        parser = publisher.ArticleBodyParser()
+        page = 'x' * (publisher.MAX_ARTICLE_PAGE_CHARS + 1)
+        with patch.object(parser, 'feed') as feed:
+            with self.assertRaises(publisher.EditorialHold):
+                parser.extract(page)
+            feed.assert_not_called()
+        self.assertFalse(hasattr(parser, 'line_offsets'))
+
+    def test_normal_county_article_size_remains_reviewable(self):
+        page = ARTICLE.replace('See the County notice for details.',
+                               'Routine road work details. ' * 1500)
+        self.assertGreater(len(page), 30_000)
+        row = publisher.review(URL, lambda u: page, NOW)
+        self.assertTrue(row['summary'].startswith(
+            'Road work on Paris Main Street is scheduled this week.'))
+
+    def test_partition_failure_is_audited_as_partial_with_intact_counts(self):
+        for record_checks in (True, False):
+            with self.subTest(record_checks=record_checks):
+                db = publisher.Supabase('https://example.supabase.co', 'test-only')
+                db.source_ready = Mock(return_value=True)
+                db.request = Mock(return_value=[])
+                audit = Mock(wraps=db.audit_run)
+                db.audit_run = audit
+                with tempfile.TemporaryDirectory() as tmp, patch.object(
+                        publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                        publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                        publisher, 'collect_feed', return_value={'one': 'One'}), patch.object(
+                        publisher, 'review', return_value={}), patch.object(
+                        publisher, 'publish', return_value='created'), patch.object(
+                        publisher, 'Supabase', return_value=db), patch.object(
+                        publisher, 'assert_partition', side_effect=RuntimeError('Forced invariant violation')):
+                    outcome = publisher.run(True, record_checks=record_checks)
+                    local = json.loads((pathlib.Path(tmp) / 'last_run.json').read_text())
+                    journal = json.loads((pathlib.Path(tmp) / 'audit.jsonl').read_text())
+                self.assertEqual(local, outcome)
+                self.assertEqual(journal, outcome)
+                self.assertEqual(outcome['run_status'], 'partial')
+                self.assertEqual(outcome['found'], 1)
+                self.assertEqual(outcome['created'], 1)
+                self.assertEqual(outcome['eligible'], 1)
+                self.assertEqual(outcome['published'], ['one'])
+                self.assertEqual(outcome['breakdown']['errors'], 0)
+                self.assertEqual(outcome['errors'], [{'error': 'Forced invariant violation'}])
+                if record_checks:
+                    audit.assert_called_once()
+                    self.assertEqual(audit.call_args.args[0]['run_status'], 'partial')
+                    db.request.assert_called_once()
+                    row = db.request.call_args.kwargs['payload']
+                    self.assertEqual(row['status'], 'partial')
+                    self.assertEqual(row['records_found'], 1)
+                    self.assertEqual(row['records_created'], 1)
+                else:
+                    audit.assert_not_called()
+
+    def test_dry_run_separates_would_publish_from_held(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value={'one': 'One', 'two': 'Two', 'three': 'Three'}), patch.object(
+                publisher, 'review', side_effect=[{'title': 'One'}, {'title': 'Two'},
+                                                  publisher.EditorialHold('Needs review')]):
+            outcome = publisher.run()
+        publisher.assert_partition(outcome)
+        self.assertEqual(outcome['breakdown']['duplicates'], 0)
+        self.assertEqual(outcome['breakdown']['would_publish'], 2)
+        self.assertEqual(outcome['breakdown']['held'], 1)
+        self.assertEqual(outcome['created'], 0)
+        self.assertEqual(outcome['run_status'], 'ok')
+        self.assertEqual(outcome['errors'], [])
+
+    def test_publish_partition_with_failed_draft_and_review_exception(self):
+        def hold(message, draft=False):
+            error = publisher.EditorialHold(message)
+            if draft:
+                error.row = {'title': message}
+                error.reasons = [message]
+            return error
+
+        db = Mock()
+        db.existing.return_value = None
+        db.draft_count.side_effect = [0, 0, publisher.MAX_HELD_DRAFTS_PER_DAY]
+        db.create.side_effect = [{'id': 'draft'}, RuntimeError('Insert failed')]
+        draft = {'official_url': 'draft', 'external_id': 'draft', 'title': 'Draft',
+                 'summary': 'Review', 'verification_status': 'draft',
+                 'is_sample': False, 'expires_at': None}
+        db.read.return_value = draft
+        candidates = {str(i): str(i) for i in range(8)}
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+                os.environ, {'PARIS_PULSE_WRITE_HELD_DRAFTS': '1'}), patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value=candidates), patch.object(
+                publisher, 'Supabase', return_value=db), patch.object(
+                publisher, 'review', side_effect=[{}, {}, hold('Editorial'),
+                    hold('Daily publish cap reached'), hold('Draft', True),
+                    hold('Failed draft', True), RuntimeError('Review failed'),
+                    hold('Draft capped', True)]), patch.object(
+                publisher, 'publish', side_effect=['created', 'duplicate']), patch.object(
+                publisher, 'hold_record', return_value=draft):
+            outcome = publisher.run(True, record_checks=False)
+        self.assertEqual(publisher.assert_partition(outcome), {
+            'published': 1, 'would_publish': 0, 'held': 4, 'duplicates': 1,
+            'errors': 2, 'held_drafts_created': 1, 'capped': 1, 'draft_capped': 1})
+        self.assertNotIn('5', [item['url'] for item in outcome['held']])
+        self.assertEqual([item['url'] for item in outcome['errors']], ['5', '6'])
+
+    def test_setup_failure_after_discovery_partitions_unprocessed_candidates(self):
+        db = Mock()
+        db.source_ready.side_effect = RuntimeError('Setup failed')
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value={'one': 'One'}), patch.object(
+                publisher, 'Supabase', return_value=db):
+            outcome = publisher.run(True)
+        self.assertEqual(publisher.assert_partition(outcome)['errors'], 1)
+        self.assertEqual(len(outcome['errors']), 2)  # One run diagnostic, one item.
+
+    def test_partition_rejects_missing_candidate(self):
+        with self.assertRaisesRegex(RuntimeError, "Run count partition invariant violated"):
+            publisher.assert_partition({'found': 1})
+
+    def test_partition_checks_survive_optimization(self):
+        # Compile the actual function with -O semantics; no assert is used to check it.
+        import inspect
+        namespace = {'run_breakdown': publisher.run_breakdown}
+        exec(compile(inspect.getsource(publisher.assert_partition),
+                     '<optimized partition>', 'exec', optimize=2), namespace)
+        for outcome in ({'found': 1}, {'found': 0, 'capped': 1},
+                        {'found': 0, 'draft_capped': 1}):
+            with self.subTest(outcome=outcome):
+                with self.assertRaisesRegex(RuntimeError, 'Run count partition invariant violated'):
+                    namespace['assert_partition'](outcome)
+
+    def test_publish_cap_is_counted_as_hold(self):
+        db = Mock()
+        db.existing.return_value = None
+        db.today_count.return_value = publisher.MAX_PER_DAY
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+                publisher, 'STATE_DIR', pathlib.Path(tmp)), patch.object(
+                publisher, 'fetch', return_value=('', publisher.FEED_URL)), patch.object(
+                publisher, 'collect_feed', return_value={URL: 'Paris paving update'}), patch.object(
+                publisher, 'Supabase', return_value=db):
+            now = dt.datetime.now(publisher.UTC)
+            page = ARTICLE.replace('Sep 28, 2026', now.strftime('%b %d, %Y'))
+            with patch.object(publisher, 'review', return_value=publisher.review(URL, lambda u: page, now)):
+                outcome = publisher.run(True, record_checks=False)
+        self.assertEqual(outcome['held'], [{'url': URL, 'reason': 'Daily publish cap reached'}])
+        self.assertEqual(outcome['breakdown']['capped'], 1)
+        self.assertEqual(outcome['breakdown']['held'], 1)
+        self.assertEqual(outcome['errors'], [])
+        self.assertEqual(outcome['run_status'], 'ok')
+        db.create.assert_not_called()
+
     def test_drafts_only_run_records_actual_writes(self):
         db = publisher.Supabase('https://example.supabase.co', 'test-only')
         db.request = Mock()
@@ -51,7 +222,7 @@ class PublisherTests(unittest.TestCase):
         create.assert_called_once_with(hold.row)
         self.assertEqual(outcome['created'], 0)
         self.assertEqual(outcome['breakdown'], {
-            'published': 0, 'held': 1, 'held_drafts_created': 1, 'duplicates': 0})
+            'published': 0, 'held': 1, 'held_drafts_created': 1, 'errors': 0, 'duplicates': 0, 'would_publish': 0, 'capped': 0, 'draft_capped': 0})
         self.assertEqual(local['breakdown'], outcome['breakdown'])
         posts = [c for c in db.request.call_args_list
                  if c.args[0] == 'ingestion_runs' and c.kwargs['method'] == 'POST']
@@ -65,10 +236,10 @@ class PublisherTests(unittest.TestCase):
                 db.request = Mock()
                 outcome = {'at': NOW.isoformat(), 'mode': 'publish', 'run_status': 'ok',
                            'found': 10, 'created': published, 'held_drafts_created': drafts,
-                           'held': [{}, {}, {}], 'duplicates': 4, 'capped': 1, 'errors': []}
+                           'held': [{}, {}, {}], 'errors': 0, 'duplicates': 4, 'capped': 1, 'errors': []}
                 outcome['breakdown'] = publisher.run_breakdown(outcome)
                 expected = {'published': published, 'held': 3, 'held_drafts_created': drafts,
-                            'duplicates': 4, 'capped': 1}
+                            'errors': 0, 'duplicates': 4, 'capped': 1, 'would_publish': 0, 'draft_capped': 0}
                 self.assertEqual(outcome['breakdown'], expected)
                 db.audit_run(outcome)
                 posts = [c for c in db.request.call_args_list
@@ -151,14 +322,15 @@ class PublisherTests(unittest.TestCase):
                 self.assertEqual(outcome['created'], 1)
                 self.assertEqual(outcome['breakdown'], {
                     'published': 1, 'held': 2, 'held_drafts_created': expected_drafts,
-                    'duplicates': 0})
+                    'errors': 0, 'duplicates': 0, 'would_publish': 0, 'capped': 0,
+                    'draft_capped': 2 - expected_drafts})
                 self.assertEqual(outcome['published'], [urls[2]])
                 self.assertEqual(outcome['eligible'], 1)
                 self.assertEqual(len(outcome['held']), 2)
-                self.assertEqual(len(outcome['errors']), 2 - expected_drafts)
-                for error in outcome['errors']:
-                    self.assertEqual(error['error'], 'Daily held-draft cap reached')
-                self.assertEqual(outcome['run_status'], 'ok' if expected_drafts == 2 else 'partial')
+                self.assertEqual(outcome['errors'], [])
+                self.assertEqual(sum(h['reason'] == 'Held-draft daily limit reached'
+                                     for h in outcome['held']), 2 - expected_drafts)
+                self.assertEqual(outcome['run_status'], 'ok')
                 self.assertTrue(any(q['verification_status'] == ['eq.verified'] for q in queries))
 
     def test_real_div_paragraphs_preserve_source_text(self):

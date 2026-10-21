@@ -281,6 +281,33 @@ class EventsTests(unittest.TestCase):
         self.assertEqual(ingest.normalize_robots_path('/a \x00\x7fé*$/%7e%2f%3f'),
                          '/a%20%00%7F%C3%A9%2A%24/~%2F%3F')
 
+    def test_robots_empty_whitespace_and_comments_allow_all(self):
+        for robots in ('', ' \t\r\n', '# comment\n  # another comment\n',
+                       '\ufeff', '\ufeff \n# comment'):
+            with self.subTest(robots=robots):
+                result, calls, sleep = self.run_policy(robots)
+                self.assertEqual(result['errors'], [])
+                self.assertEqual(len(result['candidates']), 3)
+                self.assertEqual(calls[:2], [ingest.ROBOTS_URL, ingest.FEED_URL])
+                self.assertEqual(sleep.call_count, 4)
+                for call in sleep.call_args_list:
+                    self.assertEqual(call.args, (1,))
+
+    def test_robots_leading_utf8_bom_preserves_rules(self):
+        result, calls, _ = self.run_policy('\ufeffUser-agent: *\nDisallow: /events.rss')
+        self.assertEqual(calls, [ingest.ROBOTS_URL])
+        self.assertIn('robots.txt disallowed', result['errors'][0]['error'])
+
+    def test_robots_ignores_rules_before_user_agent(self):
+        preamble = 'Disallow: /\nAllow: invalid-path\n'
+        result, calls, _ = self.run_policy(preamble + 'User-agent: *\nDisallow: /events/\n')
+        self.assertEqual(calls, [ingest.ROBOTS_URL, ingest.FEED_URL])
+        self.assertEqual(len(result['errors']), 3)
+        self.assertEqual(result['candidates'], [])
+        policy, delay = ingest.robots_policy(preamble)
+        self.assertTrue(policy.can_fetch(ingest.UA_TOKEN, ingest.FEED_URL))
+        self.assertEqual(delay, 1)
+
     def test_robots_unavailable_or_malformed(self):
         failures = [urllib.error.HTTPError(ingest.ROBOTS_URL, code, 'failure', {}, None)
                     for code in (403, 404, 500, 302)]
@@ -368,6 +395,21 @@ class EventsTests(unittest.TestCase):
             self.assertEqual(request.get_header('User-agent'), ingest.USER_AGENT)
             self.assertEqual(opener.return_value.open.call_args.kwargs['timeout'], 12)
             response.read.assert_called_once_with(64 * 1024 + 1)
+            for body in (b'', b' \t\r\n# comment', b'\xef\xbb\xbfUser-agent: *\nDisallow:'):
+                response.read.return_value = body
+                policy, delay = ingest.robots_policy(ingest.fetch(ingest.ROBOTS_URL))
+                self.assertTrue(policy.can_fetch(ingest.UA_TOKEN, ingest.FEED_URL))
+                self.assertEqual(delay, 1)
+            for body in (b'\xff', b'User-agent: *\nDisallow: /\x00', b'<html>error</html>'):
+                response.read.return_value = body
+                with self.assertRaises(ValueError):
+                    ingest.robots_policy(ingest.fetch(ingest.ROBOTS_URL))
+            response.read.return_value = ROBOTS.encode()
+            for status in (204, 301, 403, 404, 500):
+                response.status = status
+                with self.assertRaises(ValueError):
+                    ingest.fetch(ingest.ROBOTS_URL)
+            response.status = 200
             response.read.return_value = b'x' * (64 * 1024 + 1)
             with self.assertRaises(ValueError):
                 ingest.fetch(ingest.ROBOTS_URL)

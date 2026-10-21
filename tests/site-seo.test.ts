@@ -83,19 +83,19 @@ describe("public-site configuration", () => {
 describe("content freshness", () => {
   it("rejects checks beyond five minutes of clock skew", () => {
     const now = new Date("2026-10-18T19:00:00Z");
-    for (const value of ["2099-01-01T00:00:00Z", "2026-10-18T19:05:00.001Z"]) {
+    for (const value of ["2099-01-01T00:00:00Z", "2026-10-18T19:05:00.001Z", "invalid", ""]) {
       expect(formatSourceCheck(value, now)).toBe("Check time unavailable");
       expect(contentFreshness([source(value)], now)).toEqual({
-        state: "attention", checkedSources: 0, staleSources: 1, newestCheck: null,
+        state: "attention", checkedSources: 0, futureOrInvalidChecks: 1, staleSources: 1, newestCheck: null,
       });
     }
     const tolerated = "2026-10-18T19:05:00.000Z";
     expect(formatSourceCheck(tolerated, now)).toMatch(/^Last checked /);
     expect(contentFreshness([source(tolerated)], now)).toEqual({
-      state: "current", checkedSources: 1, staleSources: 0, newestCheck: tolerated,
+      state: "current", checkedSources: 1, futureOrInvalidChecks: 0, staleSources: 0, newestCheck: tolerated,
     });
     expect(formatSourceCheck(null, now)).toBe("Not checked yet");
-    expect(formatSourceCheck("invalid", now)).toBe("Not checked yet");
+    expect(formatSourceCheck("invalid", now)).toBe("Check time unavailable");
   });
 
   it("marks sources current only when every active source was checked on schedule", () => {
